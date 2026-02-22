@@ -225,6 +225,18 @@ async function runCommand(
     };
 
     child.on("error", (err) => {
+      const nodeErr = err as NodeJS.ErrnoException;
+      if (nodeErr.code === "ENOENT" && cwd) {
+        try {
+          fs.statSync(cwd);
+        } catch {
+          finalize(
+            undefined,
+            `working directory does not exist: "${cwd}" — please create it or check your agent workspace config`,
+          );
+          return;
+        }
+      }
       finalize(undefined, err.message);
     });
     child.on("exit", (code) => {
