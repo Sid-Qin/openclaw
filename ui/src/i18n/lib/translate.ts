@@ -19,11 +19,12 @@ class I18nManager {
   }
 
   private loadLocale() {
-    const saved = localStorage.getItem("openclaw.i18n.locale");
+    const saved =
+      typeof localStorage !== "undefined" ? localStorage.getItem("openclaw.i18n.locale") : null;
     if (isSupportedLocale(saved)) {
       this.locale = saved;
     } else {
-      const navLang = navigator.language;
+      const navLang = typeof navigator !== "undefined" ? navigator.language : "en";
       if (navLang.startsWith("zh")) {
         this.locale = navLang === "zh-TW" || navLang === "zh-HK" ? "zh-TW" : "zh-CN";
       } else if (navLang.startsWith("pt")) {
@@ -64,7 +65,9 @@ class I18nManager {
     }
 
     this.locale = locale;
-    localStorage.setItem("openclaw.i18n.locale", locale);
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("openclaw.i18n.locale", locale);
+    }
     this.notify();
   }
 
