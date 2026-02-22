@@ -6,10 +6,10 @@ import { resolveThinkingDefault } from "../../agents/model-selection.js";
 import { resolveAgentTimeoutMs } from "../../agents/timeout.js";
 import { dispatchInboundMessage } from "../../auto-reply/dispatch.js";
 import { createReplyDispatcher } from "../../auto-reply/reply/reply-dispatcher.js";
+import { stripInboundMetadata } from "../../auto-reply/reply/strip-inbound-meta.js";
 import type { MsgContext } from "../../auto-reply/templating.js";
 import { createReplyPrefixOptions } from "../../channels/reply-prefix.js";
 import { resolveSessionFilePath } from "../../config/sessions.js";
-import { stripInboundMetadata } from "../../auto-reply/reply/strip-inbound-meta.js";
 import { resolveSendPolicy } from "../../sessions/send-policy.js";
 import { stripInlineDirectiveTagsForDisplay } from "../../utils/directive-tags.js";
 import { INTERNAL_MESSAGE_CHANNEL } from "../../utils/message-channel.js";
@@ -105,11 +105,12 @@ function sanitizeChatHistoryContentBlock(block: unknown): { block: unknown; chan
   const entry = { ...(block as Record<string, unknown>) };
   let changed = false;
   if (typeof entry.text === "string") {
-    const metaStripped = stripInboundMetadata(entry.text);
+    const originalText = entry.text;
+    const metaStripped = stripInboundMetadata(originalText);
     const stripped = stripInlineDirectiveTagsForDisplay(metaStripped);
     const res = truncateChatHistoryText(stripped.text);
     entry.text = res.text;
-    changed ||= metaStripped !== entry.text || stripped.changed || res.truncated;
+    changed ||= metaStripped !== originalText || stripped.changed || res.truncated;
   }
   if (typeof entry.partialJson === "string") {
     const res = truncateChatHistoryText(entry.partialJson);
@@ -162,11 +163,12 @@ function sanitizeChatHistoryMessage(message: unknown): { message: unknown; chang
   }
 
   if (typeof entry.content === "string") {
-    const metaStripped = stripInboundMetadata(entry.content);
+    const originalContent = entry.content;
+    const metaStripped = stripInboundMetadata(originalContent);
     const stripped = stripInlineDirectiveTagsForDisplay(metaStripped);
     const res = truncateChatHistoryText(stripped.text);
     entry.content = res.text;
-    changed ||= metaStripped !== entry.content || stripped.changed || res.truncated;
+    changed ||= metaStripped !== originalContent || stripped.changed || res.truncated;
   } else if (Array.isArray(entry.content)) {
     const updated = entry.content.map((block) => sanitizeChatHistoryContentBlock(block));
     if (updated.some((item) => item.changed)) {
@@ -176,11 +178,12 @@ function sanitizeChatHistoryMessage(message: unknown): { message: unknown; chang
   }
 
   if (typeof entry.text === "string") {
-    const metaStripped = stripInboundMetadata(entry.text);
+    const originalText = entry.text;
+    const metaStripped = stripInboundMetadata(originalText);
     const stripped = stripInlineDirectiveTagsForDisplay(metaStripped);
     const res = truncateChatHistoryText(stripped.text);
     entry.text = res.text;
-    changed ||= metaStripped !== entry.text || stripped.changed || res.truncated;
+    changed ||= metaStripped !== originalText || stripped.changed || res.truncated;
   }
 
   return { message: changed ? entry : message, changed };
