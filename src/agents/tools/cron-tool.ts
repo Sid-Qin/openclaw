@@ -281,12 +281,25 @@ Use jobId as the canonical identifier; id is accepted for compatibility. Use con
       switch (action) {
         case "status":
           return jsonResult(await callGateway("cron.status", gatewayOpts, {}));
-        case "list":
-          return jsonResult(
-            await callGateway("cron.list", gatewayOpts, {
-              includeDisabled: Boolean(params.includeDisabled),
-            }),
-          );
+        case "list": {
+          const listResult = await callGateway("cron.list", gatewayOpts, {
+            includeDisabled: Boolean(params.includeDisabled),
+          });
+          if (Array.isArray(listResult?.jobs)) {
+            for (const job of listResult.jobs) {
+              const state = job.state as Record<string, unknown> | undefined;
+              if (state) {
+                if (typeof state.nextRunAtMs === "number") {
+                  state.nextRunIso = new Date(state.nextRunAtMs).toISOString();
+                }
+                if (typeof state.lastRunAtMs === "number") {
+                  state.lastRunIso = new Date(state.lastRunAtMs).toISOString();
+                }
+              }
+            }
+          }
+          return jsonResult(listResult);
+        }
         case "add": {
           // Flat-params recovery: non-frontier models (e.g. Grok) sometimes flatten
           // job properties to the top level alongside `action` instead of nesting
