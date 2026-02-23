@@ -365,6 +365,7 @@ export function createDiagnosticsOtelService(): OpenClawPluginService {
 
       const recordModelUsage = (evt: Extract<DiagnosticEventPayload, { type: "model.usage" }>) => {
         const attrs = {
+          "openclaw.agent": evt.agentId ?? "unknown",
           "openclaw.channel": evt.channel ?? "unknown",
           "openclaw.provider": evt.provider ?? "unknown",
           "openclaw.model": evt.model ?? "unknown",

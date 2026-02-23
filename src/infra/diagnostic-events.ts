@@ -11,6 +11,7 @@ export type DiagnosticUsageEvent = DiagnosticBaseEvent & {
   type: "model.usage";
   sessionKey?: string;
   sessionId?: string;
+  agentId?: string;
   channel?: string;
   provider?: string;
   model?: string;
