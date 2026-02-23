@@ -761,10 +761,18 @@ async function sendSubagentAnnounceDirectly(params: {
       path: "direct",
     };
   } catch (err) {
+    const errorMsg = summarizeDeliveryError(err);
+    const isGatewayTimeout = errorMsg.includes("gateway timeout");
+    if (isGatewayTimeout) {
+      return {
+        delivered: true,
+        path: "direct",
+      };
+    }
     return {
       delivered: false,
       path: "direct",
-      error: summarizeDeliveryError(err),
+      error: errorMsg,
     };
   }
 }
