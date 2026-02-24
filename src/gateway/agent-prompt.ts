@@ -47,8 +47,7 @@ export function buildAgentMessageFromConversationEntries(entries: ConversationEn
     return safeBody(currentEntry.body);
   }
 
-  const formatEntry = (entry: HistoryEntry) =>
-    `${entry.sender}: ${safeBody(entry.body)}`;
+  const formatEntry = (entry: HistoryEntry) => `${entry.sender}: ${safeBody(entry.body)}`;
   return buildHistoryContextFromEntries({
     entries: [...historyEntries, currentEntry],
     currentMessage: formatEntry(currentEntry),
