@@ -35,4 +35,27 @@ describe("extractMessagingToolSend", () => {
     expect(result?.provider).toBe("slack");
     expect(result?.to).toBe("channel:C1");
   });
+
+  it("recognizes target param as routing destination", () => {
+    const result = extractMessagingToolSend("message", {
+      action: "send",
+      channel: "telegram",
+      target: "456",
+    });
+
+    expect(result?.tool).toBe("message");
+    expect(result?.provider).toBe("telegram");
+    expect(result?.to).toBe("telegram:456");
+  });
+
+  it("prefers to over target when both are present", () => {
+    const result = extractMessagingToolSend("message", {
+      action: "send",
+      channel: "telegram",
+      to: "123",
+      target: "456",
+    });
+
+    expect(result?.to).toBe("telegram:123");
+  });
 });
