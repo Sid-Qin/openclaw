@@ -365,9 +365,7 @@ export function setTabFromRoute(host: SettingsHost, next: Tab) {
   } else {
     stopDebugPolling(host as unknown as Parameters<typeof stopDebugPolling>[0]);
   }
-  if (host.connected) {
-    void refreshActiveTab(host);
-  }
+  void refreshActiveTab(host);
 }
 
 export function syncUrlWithTab(host: SettingsHost, tab: Tab, replace: boolean) {
