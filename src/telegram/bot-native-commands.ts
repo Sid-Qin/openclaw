@@ -629,7 +629,10 @@ export const registerTelegramNativeCommands = ({
             cfg,
             dispatcherOptions: {
               ...prefixOptions,
-              deliver: async (payload, _info) => {
+              deliver: async (payload, info) => {
+                if (info.kind === "block" && !payload.isError) {
+                  return;
+                }
                 const result = await deliverReplies({
                   replies: [payload],
                   ...deliveryBaseOptions,
