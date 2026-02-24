@@ -2,8 +2,14 @@ import type { ChannelType, Client, Message } from "@buape/carbon";
 import { StickerFormatType, type APIAttachment, type APIStickerItem } from "discord-api-types/v10";
 import { buildMediaPayload } from "../../channels/plugins/media-payload.js";
 import { logVerbose } from "../../globals.js";
+import type { SsrFPolicy } from "../../infra/net/ssrf.js";
 import { fetchRemoteMedia } from "../../media/fetch.js";
 import { saveMediaBuffer } from "../../media/store.js";
+
+const DISCORD_MEDIA_SSRF_POLICY: SsrFPolicy = {
+  allowedHostnames: ["cdn.discordapp.com", "media.discordapp.net"],
+  allowRfc2544BenchmarkRange: true,
+};
 
 export type DiscordMediaInfo = {
   path: string;
@@ -220,6 +226,7 @@ async function appendResolvedMediaFromAttachments(params: {
         url: attachment.url,
         filePathHint: attachment.filename ?? attachment.url,
         maxBytes: params.maxBytes,
+        ssrfPolicy: DISCORD_MEDIA_SSRF_POLICY,
       });
       const saved = await saveMediaBuffer(
         fetched.buffer,
@@ -310,6 +317,7 @@ async function appendResolvedMediaFromStickers(params: {
           url: candidate.url,
           filePathHint: candidate.fileName,
           maxBytes: params.maxBytes,
+          ssrfPolicy: DISCORD_MEDIA_SSRF_POLICY,
         });
         const saved = await saveMediaBuffer(
           fetched.buffer,
