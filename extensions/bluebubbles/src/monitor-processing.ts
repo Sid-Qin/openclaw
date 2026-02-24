@@ -755,6 +755,7 @@ export async function processMessage(
             cfg: config,
             accountId: account.accountId,
             maxBytes,
+            allowPrivateNetwork: account.config.allowPrivateNetwork,
           });
           const saved = await core.channel.media.saveMediaBuffer(
             Buffer.from(downloaded.buffer),

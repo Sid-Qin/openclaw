@@ -21,6 +21,7 @@ export type BlueBubblesAttachmentOpts = {
   accountId?: string;
   timeoutMs?: number;
   cfg?: OpenClawConfig;
+  allowPrivateNetwork?: boolean;
 };
 
 const DEFAULT_ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
@@ -91,6 +92,7 @@ export async function downloadBlueBubblesAttachment(
       url,
       filePathHint: attachment.transferName ?? attachment.guid ?? "attachment",
       maxBytes,
+      ssrfPolicy: opts.allowPrivateNetwork ? { allowPrivateNetwork: true } : undefined,
       fetchImpl: async (input, init) =>
         await blueBubblesFetchWithTimeout(
           resolveRequestUrl(input),
