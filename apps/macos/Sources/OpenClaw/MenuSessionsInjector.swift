@@ -59,6 +59,13 @@ final class MenuSessionsInjector: NSObject, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         self.originalDelegate?.menuWillOpen?(menu)
+
+        // Only inject into the main status-item menu, not into submenus
+        // (e.g. the "Usage Cost" chart submenu). Submenus share the same
+        // delegate, so without this guard inject() would recursively add
+        // a new "Usage Cost" item inside its own submenu on every open.
+        guard menu === self.statusItem?.menu else { return }
+
         self.isMenuOpen = true
         self.menuOpenWidth = self.currentMenuWidth(for: menu)
 
