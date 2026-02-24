@@ -83,7 +83,7 @@ export function readNextcloudTalkWebhookBody(
 export function createNextcloudTalkWebhookServer(opts: NextcloudTalkWebhookServerOptions): {
   server: Server;
   start: () => Promise<void>;
-  stop: () => void;
+  stop: () => Promise<void>;
 } {
   const { port, host, path, secret, onMessage, onError, abortSignal } = opts;
   const maxBodyBytes =
@@ -179,17 +179,23 @@ export function createNextcloudTalkWebhookServer(opts: NextcloudTalkWebhookServe
   });
 
   const start = (): Promise<void> => {
-    return new Promise((resolve) => {
-      server.listen(port, host, () => resolve());
+    return new Promise((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(port, host, () => {
+        server.removeListener("error", reject);
+        resolve();
+      });
     });
   };
 
-  const stop = () => {
-    server.close();
+  const stop = (): Promise<void> => {
+    return new Promise((resolve) => {
+      server.close(() => resolve());
+    });
   };
 
   if (abortSignal) {
-    abortSignal.addEventListener("abort", stop, { once: true });
+    abortSignal.addEventListener("abort", () => void stop(), { once: true });
   }
 
   return { server, start, stop };
@@ -206,7 +212,7 @@ export type NextcloudTalkMonitorOptions = {
 
 export async function monitorNextcloudTalkProvider(
   opts: NextcloudTalkMonitorOptions,
-): Promise<{ stop: () => void }> {
+): Promise<{ stop: () => Promise<void> }> {
   const core = getNextcloudTalkRuntime();
   const cfg = opts.config ?? (core.config.loadConfig() as CoreConfig);
   const account = resolveNextcloudTalkAccount({
