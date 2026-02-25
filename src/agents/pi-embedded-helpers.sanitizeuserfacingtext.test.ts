@@ -14,6 +14,21 @@ describe("sanitizeUserFacingText", () => {
     expect(sanitizeUserFacingText("Hi <final>there</final>!")).toBe("Hi there!");
   });
 
+  it("strips cortex semantic tags from user-facing text", () => {
+    expect(sanitizeUserFacingText("Before <mem>memory note</mem> after")).toBe(
+      "Before memory note after",
+    );
+    expect(
+      sanitizeUserFacingText('<ctx source="observer">c</ctx><file>/tmp/a.ts</file><ref>#12</ref>'),
+    ).toBe("c/tmp/a.ts#12");
+  });
+
+  it("does not strip unrelated html-like tags", () => {
+    expect(sanitizeUserFacingText("Use <code>npm test</code> here")).toBe(
+      "Use <code>npm test</code> here",
+    );
+  });
+
   it.each(["202 results found", "400 days left"])(
     "does not clobber normal numeric prefix: %s",
     (text) => {
