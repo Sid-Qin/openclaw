@@ -116,6 +116,40 @@ import {
 import { detectAndLoadPromptImages } from "./images.js";
 import type { EmbeddedRunAttemptParams, EmbeddedRunAttemptResult } from "./types.js";
 
+/**
+ * Flatten message content to a plain string so plugin hooks never receive
+ * raw content-block arrays (which stringify as "[object Object]").
+ */
+export function serializeMessageContent(content: unknown): string {
+  if (typeof content === "string") {
+    return content;
+  }
+  if (Array.isArray(content)) {
+    return content
+      .map((block) => {
+        if (typeof block === "string") {
+          return block;
+        }
+        if (block != null && typeof block === "object") {
+          const b = block as Record<string, unknown>;
+          if (typeof b.text === "string") {
+            return b.text;
+          }
+          if (typeof b.type === "string" && b.type !== "text") {
+            return `[${b.type}]`;
+          }
+        }
+        return "";
+      })
+      .filter(Boolean)
+      .join("\n");
+  }
+  if (content == null) {
+    return "";
+  }
+  return typeof content === "object" ? JSON.stringify(content) : String(content as string | number);
+}
+
 type PromptBuildHookRunner = {
   hasHooks: (hookName: "before_prompt_build" | "before_agent_start") => boolean;
   runBeforePromptBuild: (
@@ -1285,10 +1319,17 @@ export async function runEmbeddedAttempt(
         // This is fire-and-forget, so we don't await
         // Run even on compaction timeout so plugins can log/cleanup
         if (hookRunner?.hasHooks("agent_end")) {
+          const serializedMessages = messagesSnapshot.map((m) => {
+            const raw = "content" in m ? m.content : undefined;
+            if (raw === undefined || typeof raw === "string") {
+              return m;
+            }
+            return { ...m, content: serializeMessageContent(raw) };
+          });
           hookRunner
             .runAgentEnd(
               {
-                messages: messagesSnapshot,
+                messages: serializedMessages,
                 success: !aborted && !promptError,
                 error: promptError ? describeUnknownError(promptError) : undefined,
                 durationMs: Date.now() - promptStartedAt,

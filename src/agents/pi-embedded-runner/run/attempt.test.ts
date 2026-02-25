@@ -7,6 +7,7 @@ import {
   resolveAttemptFsWorkspaceOnly,
   resolvePromptBuildHookResult,
   resolvePromptModeForSession,
+  serializeMessageContent,
 } from "./attempt.js";
 
 describe("injectHistoryImagesIntoMessages", () => {
@@ -160,5 +161,37 @@ describe("resolveAttemptFsWorkspaceOnly", () => {
         sessionAgentId: "main",
       }),
     ).toBe(false);
+  });
+});
+
+describe("serializeMessageContent", () => {
+  it("returns string content as-is", () => {
+    expect(serializeMessageContent("hello world")).toBe("hello world");
+  });
+
+  it("extracts text from content block arrays", () => {
+    const blocks = [
+      { type: "text", text: "Hello" },
+      { type: "text", text: "World" },
+    ];
+    expect(serializeMessageContent(blocks)).toBe("Hello\nWorld");
+  });
+
+  it("renders non-text blocks as type placeholders", () => {
+    const blocks = [
+      { type: "text", text: "See this:" },
+      { type: "image", data: "base64..." },
+    ];
+    expect(serializeMessageContent(blocks)).toBe("See this:\n[image]");
+  });
+
+  it("returns empty string for null/undefined", () => {
+    expect(serializeMessageContent(null)).toBe("");
+    expect(serializeMessageContent(undefined)).toBe("");
+  });
+
+  it("handles mixed string and object blocks", () => {
+    const blocks = ["plain string", { type: "text", text: "structured" }];
+    expect(serializeMessageContent(blocks)).toBe("plain string\nstructured");
   });
 });
