@@ -190,4 +190,51 @@ describe("createTypingCallbacks", () => {
     expect(stop).toHaveBeenCalledTimes(1);
     expect(onStopError).toHaveBeenCalledTimes(1);
   });
+
+  it("emits keepalive typing signals until idle", async () => {
+    vi.useFakeTimers();
+    try {
+      const start = vi.fn().mockResolvedValue(undefined);
+      const callbacks = createTypingCallbacks({
+        start,
+        onStartError: vi.fn(),
+        keepAliveIntervalSeconds: 1,
+      });
+
+      await callbacks.onReplyStart();
+      expect(start).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(start).toHaveBeenCalledTimes(2);
+
+      callbacks.onIdle?.();
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(start).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reports keepalive start errors via onStartError", async () => {
+    vi.useFakeTimers();
+    try {
+      const start = vi
+        .fn()
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new Error("typing failed"));
+      const onStartError = vi.fn();
+      const callbacks = createTypingCallbacks({
+        start,
+        onStartError,
+        keepAliveIntervalSeconds: 1,
+      });
+
+      await callbacks.onReplyStart();
+      await vi.advanceTimersByTimeAsync(1000);
+
+      expect(onStartError).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
