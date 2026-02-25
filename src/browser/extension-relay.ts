@@ -367,7 +367,7 @@ export async function ensureChromeExtensionRelayServer(opts: {
     const path = url.pathname;
 
     if (path.startsWith("/json")) {
-      const token = getHeader(req, RELAY_AUTH_HEADER)?.trim();
+      const token = getRelayAuthTokenFromRequest(req, url);
       if (!token || !relayAuthTokens.has(token)) {
         res.writeHead(401);
         res.end("Unauthorized");
