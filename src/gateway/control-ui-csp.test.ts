@@ -9,4 +9,12 @@ describe("buildControlUiCspHeader", () => {
     expect(csp).not.toContain("script-src 'self' 'unsafe-inline'");
     expect(csp).toContain("style-src 'self' 'unsafe-inline'");
   });
+
+  it("allows Google Fonts in style-src and font-src", () => {
+    const csp = buildControlUiCspHeader();
+    expect(csp).toContain("https://fonts.googleapis.com");
+    expect(csp).toContain("https://fonts.gstatic.com");
+    expect(csp).toMatch(/font-src[^;]*https:\/\/fonts\.gstatic\.com/);
+    expect(csp).toMatch(/style-src[^;]*https:\/\/fonts\.googleapis\.com/);
+  });
 });
