@@ -36,28 +36,6 @@ export type MonitorMatrixOpts = {
 };
 
 const DEFAULT_MEDIA_MAX_MB = 20;
-const VALID_DM_POLICIES = new Set(["pairing", "allowlist", "open", "disabled"]);
-
-export function resolveMatrixDmAccessConfig(accountConfig: CoreConfig["channels"]["matrix"]) {
-  const legacyAllowFrom = (
-    accountConfig as {
-      allowFrom?: Array<string | number>;
-    }
-  ).allowFrom;
-  const allowFromBase = accountConfig.dm?.allowFrom ?? legacyAllowFrom ?? [];
-  const allowFrom = allowFromBase.map(String);
-  const groupAllowFrom =
-    accountConfig.groupAllowFrom && accountConfig.groupAllowFrom.length > 0
-      ? accountConfig.groupAllowFrom.map(String)
-      : allowFrom;
-  const legacyDmPolicy = (accountConfig as { dmPolicy?: unknown }).dmPolicy;
-  const dmPolicyCandidate = accountConfig.dm?.policy ?? legacyDmPolicy;
-  const dmPolicyRaw =
-    typeof dmPolicyCandidate === "string" && VALID_DM_POLICIES.has(dmPolicyCandidate)
-      ? dmPolicyCandidate
-      : "pairing";
-  return { allowFrom, groupAllowFrom, dmPolicyRaw };
-}
 
 export async function monitorMatrixProvider(opts: MonitorMatrixOpts = {}): Promise<void> {
   if (isBunRuntime()) {
@@ -150,9 +128,8 @@ export async function monitorMatrixProvider(opts: MonitorMatrixOpts = {}): Promi
   const accountConfig = account.config;
 
   const allowlistOnly = accountConfig.allowlistOnly === true;
-  const accessConfig = resolveMatrixDmAccessConfig(accountConfig);
-  let allowFrom: string[] = accessConfig.allowFrom;
-  let groupAllowFrom: string[] = accessConfig.groupAllowFrom;
+  let allowFrom: string[] = (accountConfig.dm?.allowFrom ?? []).map(String);
+  let groupAllowFrom: string[] = (accountConfig.groupAllowFrom ?? []).map(String);
   let roomsConfig = accountConfig.groups ?? accountConfig.rooms;
 
   allowFrom = await resolveUserAllowlist("matrix dm allowlist", allowFrom);
@@ -285,7 +262,7 @@ export async function monitorMatrixProvider(opts: MonitorMatrixOpts = {}): Promi
   const threadReplies = accountConfig.threadReplies ?? "inbound";
   const dmConfig = accountConfig.dm;
   const dmEnabled = dmConfig?.enabled ?? true;
-  const dmPolicyRaw = accessConfig.dmPolicyRaw;
+  const dmPolicyRaw = dmConfig?.policy ?? "pairing";
   const dmPolicy = allowlistOnly && dmPolicyRaw !== "disabled" ? "allowlist" : dmPolicyRaw;
   const textLimit = core.channel.text.resolveTextChunkLimit(cfg, "matrix");
   const mediaMaxMb = opts.mediaMaxMb ?? accountConfig.mediaMaxMb ?? DEFAULT_MEDIA_MAX_MB;
