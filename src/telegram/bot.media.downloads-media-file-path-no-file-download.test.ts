@@ -391,6 +391,7 @@ describe("telegram forwarded bursts", () => {
   });
 
   const FORWARD_BURST_TEST_TIMEOUT_MS = process.platform === "win32" ? 45_000 : 20_000;
+  const FORWARD_BURST_FLUSH_MS = TELEGRAM_TEST_TIMINGS.textFragmentGapMs + 120;
 
   it(
     "coalesces forwarded text + forwarded attachment into a single processing turn with default debounce config",
@@ -427,7 +428,7 @@ describe("telegram forwarded bursts", () => {
           getFile: async () => ({ file_path: "photos/fwd1.jpg" }),
         });
 
-        await vi.runAllTimersAsync();
+        await vi.advanceTimersByTimeAsync(FORWARD_BURST_FLUSH_MS);
         expect(replySpy).toHaveBeenCalledTimes(1);
 
         expect(runtimeError).not.toHaveBeenCalled();

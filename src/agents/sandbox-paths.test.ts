@@ -28,18 +28,18 @@ describe("resolveSandboxedMediaSource", () => {
   it.each([
     {
       name: "absolute paths under os.tmpdir()",
-      media: path.join(os.tmpdir(), "image.png"),
-      expected: path.join(os.tmpdir(), "image.png"),
+      media: path.resolve(os.tmpdir(), "image.png"),
+      expected: path.resolve(os.tmpdir(), "image.png"),
     },
     {
       name: "file:// URLs pointing to os.tmpdir()",
-      media: pathToFileURL(path.join(os.tmpdir(), "photo.png")).href,
-      expected: path.join(os.tmpdir(), "photo.png"),
+      media: pathToFileURL(path.resolve(os.tmpdir(), "photo.png")).href,
+      expected: path.resolve(os.tmpdir(), "photo.png"),
     },
     {
       name: "nested paths under os.tmpdir()",
-      media: path.join(os.tmpdir(), "subdir", "deep", "file.png"),
-      expected: path.join(os.tmpdir(), "subdir", "deep", "file.png"),
+      media: path.resolve(os.tmpdir(), "subdir", "deep", "file.png"),
+      expected: path.resolve(os.tmpdir(), "subdir", "deep", "file.png"),
     },
   ])("allows $name", async ({ media, expected }) => {
     await withSandboxRoot(async (sandboxDir) => {
