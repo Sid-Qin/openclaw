@@ -232,8 +232,12 @@ export function createMatrixRoomMessageHandler(params: MatrixMonitorHandlerParam
             userId: senderId,
           });
           const allowMatchMeta = formatAllowlistMatchMeta(allowMatch);
+          // When dmPolicy is "allowlist" but the list is empty, fall back to
+          // pairing so messages are not silently dropped.
+          const effectiveDmPolicy =
+            dmPolicy === "allowlist" && effectiveAllowFrom.length === 0 ? "pairing" : dmPolicy;
           if (!allowMatch.allowed) {
-            if (dmPolicy === "pairing") {
+            if (effectiveDmPolicy === "pairing") {
               const { code, created } = await core.channel.pairing.upsertPairingRequest({
                 channel: "matrix",
                 id: senderId,
@@ -261,9 +265,9 @@ export function createMatrixRoomMessageHandler(params: MatrixMonitorHandlerParam
                 }
               }
             }
-            if (dmPolicy !== "pairing") {
+            if (effectiveDmPolicy !== "pairing") {
               logVerboseMessage(
-                `matrix: blocked dm sender ${senderId} (dmPolicy=${dmPolicy}, ${allowMatchMeta})`,
+                `matrix: blocked dm sender ${senderId} (dmPolicy=${effectiveDmPolicy}, ${allowMatchMeta})`,
               );
             }
             return;

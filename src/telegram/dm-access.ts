@@ -67,7 +67,15 @@ export async function enforceTelegramDmAccess(params: {
     return true;
   }
 
-  if (dmPolicy === "pairing") {
+  // When dmPolicy is "allowlist" but no entries are configured, fall back to
+  // pairing so messages are not silently dropped.  An empty allowlist means
+  // "no one has been explicitly added yet", not "block everyone".
+  const effectivePolicy =
+    dmPolicy === "allowlist" && !effectiveDmAllow.hasEntries && !effectiveDmAllow.hasWildcard
+      ? "pairing"
+      : dmPolicy;
+
+  if (effectivePolicy === "pairing") {
     try {
       const telegramUserId = sender.userId ?? sender.candidateId;
       const { code, created } = await upsertChannelPairingRequest({
@@ -113,7 +121,7 @@ export async function enforceTelegramDmAccess(params: {
   }
 
   logVerbose(
-    `Blocked unauthorized telegram sender ${sender.candidateId} (dmPolicy=${dmPolicy}, ${allowMatchMeta})`,
+    `Blocked unauthorized telegram sender ${sender.candidateId} (dmPolicy=${effectivePolicy}, ${allowMatchMeta})`,
   );
   return false;
 }
