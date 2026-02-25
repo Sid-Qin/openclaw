@@ -254,7 +254,13 @@ export async function loadCronJobsPage(state: CronState, opts?: { append?: boole
       sortBy: state.cronJobsSortBy,
       sortDir: state.cronJobsSortDir,
     });
-    const jobs = Array.isArray(res.jobs) ? res.jobs : [];
+    const rawJobs = Array.isArray(res.jobs) ? res.jobs : [];
+    const jobs = rawJobs.map((job) => {
+      if (!job.id && (job as CronJob & { jobId?: string }).jobId) {
+        return { ...job, id: (job as CronJob & { jobId?: string }).jobId! };
+      }
+      return job;
+    });
     state.cronJobs = append ? [...state.cronJobs, ...jobs] : jobs;
     const meta = normalizeCronPageMeta({
       totalRaw: res.total,

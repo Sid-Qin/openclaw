@@ -43,4 +43,38 @@ describe("cron store", () => {
     await expect(loadCronStore(store.storePath)).rejects.toThrow(/Failed to parse cron store/i);
     await store.cleanup();
   });
+
+  it("normalizes legacy jobId field to id", async () => {
+    const store = await makeStorePath();
+    await fs.writeFile(
+      store.storePath,
+      JSON.stringify({
+        version: 1,
+        jobs: [{ jobId: "legacy-job-1", name: "Legacy", enabled: true }],
+      }),
+      "utf-8",
+    );
+    const loaded = await loadCronStore(store.storePath);
+    expect(loaded.jobs).toHaveLength(1);
+    const job = loaded.jobs[0] as Record<string, unknown>;
+    expect(job.id).toBe("legacy-job-1");
+    expect(job.jobId).toBeUndefined();
+    await store.cleanup();
+  });
+
+  it("preserves id when both id and jobId are present", async () => {
+    const store = await makeStorePath();
+    await fs.writeFile(
+      store.storePath,
+      JSON.stringify({
+        version: 1,
+        jobs: [{ id: "canonical-id", jobId: "legacy-id", name: "Both", enabled: true }],
+      }),
+      "utf-8",
+    );
+    const loaded = await loadCronStore(store.storePath);
+    const job = loaded.jobs[0] as Record<string, unknown>;
+    expect(job.id).toBe("canonical-id");
+    await store.cleanup();
+  });
 });

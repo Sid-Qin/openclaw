@@ -37,7 +37,13 @@ export async function loadCronStore(storePath: string): Promise<CronStoreFile> {
     const jobs = Array.isArray(parsedRecord.jobs) ? (parsedRecord.jobs as never[]) : [];
     return {
       version: 1,
-      jobs: jobs.filter(Boolean) as never as CronStoreFile["jobs"],
+      jobs: jobs.filter(Boolean).map((job: Record<string, unknown>) => {
+        if (!job.id && typeof job.jobId === "string") {
+          job.id = job.jobId;
+          delete job.jobId;
+        }
+        return job;
+      }) as never as CronStoreFile["jobs"],
     };
   } catch (err) {
     if ((err as { code?: unknown })?.code === "ENOENT") {
