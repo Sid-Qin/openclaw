@@ -768,10 +768,12 @@ export async function runEmbeddedAttempt(
         activeSession.agent.streamFn = cacheTrace.wrapStreamFn(activeSession.agent.streamFn);
       }
 
-      // Copilot/Claude can reject persisted `thinking` blocks (e.g. thinkingSignature:"reasoning_text")
-      // on *any* follow-up provider call (including tool continuations). Wrap the stream function
-      // so every outbound request sees sanitized messages.
-      if (transcriptPolicy.dropThinkingBlocks) {
+      // Drop persisted `thinking` blocks from outbound messages in two cases:
+      // 1. Copilot/Claude rejects them (thinkingSignature:"reasoning_text").
+      // 2. Think: off — accumulated thinking blocks from earlier turns can cause
+      //    the model to produce thinking-style text output that leaks to the
+      //    channel because the output pipeline no longer expects it.  See #26466.
+      if (transcriptPolicy.dropThinkingBlocks || params.thinkLevel === "off") {
         const inner = activeSession.agent.streamFn;
         activeSession.agent.streamFn = (model, context, options) => {
           const ctx = context as unknown as { messages?: unknown };

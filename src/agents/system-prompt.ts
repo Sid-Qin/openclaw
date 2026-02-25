@@ -186,6 +186,31 @@ function buildDocsSection(params: { docsPath?: string; isMinimal: boolean; readT
   ];
 }
 
+const THINKING_MODE_TAG_RE = /<\s*thinking_mode\b[^>]*>[\s\S]*?<\s*\/\s*thinking_mode\s*>/gi;
+
+/**
+ * Strip `<thinking_mode>...</thinking_mode>` directives from the user's extra
+ * system prompt when thinking is off.  These directives instruct the model to
+ * produce interleaved thinking content, but when `Think: off` the output
+ * pipeline does not expect (or tag-strip) untagged reasoning text, so the
+ * thinking content leaks to channel output.  See #26466.
+ */
+export function sanitizeExtraSystemPrompt(
+  raw: string | undefined,
+  thinkLevel: ThinkLevel | undefined,
+): string | undefined {
+  const trimmed = raw?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  const isThinkingOff = !thinkLevel || thinkLevel === "off";
+  if (!isThinkingOff) {
+    return trimmed;
+  }
+  const cleaned = trimmed.replace(THINKING_MODE_TAG_RE, "").trim();
+  return cleaned || undefined;
+}
+
 export function buildAgentSystemPrompt(params: {
   workspaceDir: string;
   defaultThinkLevel?: ThinkLevel;
@@ -330,7 +355,10 @@ export function buildAgentSystemPrompt(params: {
   const readToolName = resolveToolName("read");
   const execToolName = resolveToolName("exec");
   const processToolName = resolveToolName("process");
-  const extraSystemPrompt = params.extraSystemPrompt?.trim();
+  const extraSystemPrompt = sanitizeExtraSystemPrompt(
+    params.extraSystemPrompt,
+    params.defaultThinkLevel,
+  );
   const ownerDisplay = params.ownerDisplay === "hash" ? "hash" : "raw";
   const ownerLine = buildOwnerIdentityLine(
     params.ownerNumbers ?? [],
@@ -638,10 +666,15 @@ export function buildAgentSystemPrompt(params: {
     );
   }
 
+  const reasoningLine =
+    reasoningLevel === "off"
+      ? `Reasoning: off. Do not output internal reasoning, thinking, or chain-of-thought in your response. Toggle /reasoning; /status shows Reasoning when enabled.`
+      : `Reasoning: ${reasoningLevel} (hidden unless on/stream). Toggle /reasoning; /status shows Reasoning when enabled.`;
+
   lines.push(
     "## Runtime",
     buildRuntimeLine(runtimeInfo, runtimeChannel, runtimeCapabilities, params.defaultThinkLevel),
-    `Reasoning: ${reasoningLevel} (hidden unless on/stream). Toggle /reasoning; /status shows Reasoning when enabled.`,
+    reasoningLine,
   );
 
   return lines.filter(Boolean).join("\n");

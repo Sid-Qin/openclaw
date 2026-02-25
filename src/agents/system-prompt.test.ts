@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import { SILENT_REPLY_TOKEN } from "../auto-reply/tokens.js";
 import { typedCases } from "../test-utils/typed-cases.js";
 import { buildSubagentSystemPrompt } from "./subagent-announce.js";
-import { buildAgentSystemPrompt, buildRuntimeLine } from "./system-prompt.js";
+import {
+  buildAgentSystemPrompt,
+  buildRuntimeLine,
+  sanitizeExtraSystemPrompt,
+} from "./system-prompt.js";
 
 describe("buildAgentSystemPrompt", () => {
   it("formats owner section for plain, hash, and missing owner lists", () => {
@@ -519,6 +523,47 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toContain("/status shows Reasoning");
   });
 
+  it("includes explicit no-reasoning instruction when reasoning is off", () => {
+    const prompt = buildAgentSystemPrompt({
+      workspaceDir: "/tmp/openclaw",
+      reasoningLevel: "off",
+    });
+
+    expect(prompt).toContain("Do not output internal reasoning");
+  });
+
+  it("does not include no-reasoning instruction when reasoning is on", () => {
+    const prompt = buildAgentSystemPrompt({
+      workspaceDir: "/tmp/openclaw",
+      reasoningLevel: "on",
+    });
+
+    expect(prompt).not.toContain("Do not output internal reasoning");
+    expect(prompt).toContain("Reasoning: on");
+  });
+
+  it("strips <thinking_mode> from extraSystemPrompt when thinking is off", () => {
+    const prompt = buildAgentSystemPrompt({
+      workspaceDir: "/tmp/openclaw",
+      defaultThinkLevel: "off",
+      extraSystemPrompt: "Be helpful. <thinking_mode>interleaved</thinking_mode> Be concise.",
+    });
+
+    expect(prompt).not.toContain("thinking_mode");
+    expect(prompt).toContain("Be helpful.");
+    expect(prompt).toContain("Be concise.");
+  });
+
+  it("preserves <thinking_mode> in extraSystemPrompt when thinking is non-off", () => {
+    const prompt = buildAgentSystemPrompt({
+      workspaceDir: "/tmp/openclaw",
+      defaultThinkLevel: "medium",
+      extraSystemPrompt: "Be helpful. <thinking_mode>interleaved</thinking_mode>",
+    });
+
+    expect(prompt).toContain("thinking_mode");
+  });
+
   it("builds runtime line with agent and channel details", () => {
     const line = buildRuntimeLine(
       {
@@ -657,5 +702,53 @@ describe("buildSubagentSystemPrompt", () => {
         expect(prompt, testCase.name).toContain("spawned by the main agent");
       }
     }
+  });
+});
+
+describe("sanitizeExtraSystemPrompt", () => {
+  it("strips <thinking_mode> directives when thinking is off", () => {
+    const input = "You are helpful. <thinking_mode>interleaved</thinking_mode> Be concise.";
+    expect(sanitizeExtraSystemPrompt(input, "off")).toBe("You are helpful.  Be concise.");
+  });
+
+  it("strips <thinking_mode> directives when thinkLevel is undefined (defaults to off)", () => {
+    const input = "<thinking_mode>interleaved</thinking_mode>";
+    expect(sanitizeExtraSystemPrompt(input, undefined)).toBeUndefined();
+  });
+
+  it("preserves <thinking_mode> directives when thinking is on", () => {
+    const input = "You are helpful. <thinking_mode>interleaved</thinking_mode>";
+    expect(sanitizeExtraSystemPrompt(input, "medium")).toBe(input);
+  });
+
+  it("handles multiline thinking_mode tags", () => {
+    const input = [
+      "System instructions.",
+      "<thinking_mode>",
+      "  interleaved",
+      "</thinking_mode>",
+      "More instructions.",
+    ].join("\n");
+    const result = sanitizeExtraSystemPrompt(input, "off");
+    expect(result).not.toContain("thinking_mode");
+    expect(result).toContain("System instructions.");
+    expect(result).toContain("More instructions.");
+  });
+
+  it("returns undefined for empty or whitespace-only input", () => {
+    expect(sanitizeExtraSystemPrompt(undefined, "off")).toBeUndefined();
+    expect(sanitizeExtraSystemPrompt("", "off")).toBeUndefined();
+    expect(sanitizeExtraSystemPrompt("   ", "off")).toBeUndefined();
+  });
+
+  it("returns undefined when only a thinking_mode tag is present and it is stripped", () => {
+    expect(
+      sanitizeExtraSystemPrompt("<thinking_mode>interleaved</thinking_mode>", "off"),
+    ).toBeUndefined();
+  });
+
+  it("is case-insensitive for tag matching", () => {
+    const input = "<THINKING_MODE>interleaved</THINKING_MODE> Hello";
+    expect(sanitizeExtraSystemPrompt(input, "off")).toBe("Hello");
   });
 });
