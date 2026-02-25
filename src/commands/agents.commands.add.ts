@@ -249,6 +249,9 @@ export async function agentsAddCommand(
           await fs.mkdir(path.dirname(destAuthPath), { recursive: true });
           await fs.copyFile(sourceAuthPath, destAuthPath);
           await prompter.note(`Copied auth profiles from "${defaultAgentId}".`, "Auth profiles");
+        } else {
+          await fs.mkdir(path.dirname(destAuthPath), { recursive: true });
+          await fs.writeFile(destAuthPath, JSON.stringify({ version: 1, profiles: {} }), "utf-8");
         }
       }
     }

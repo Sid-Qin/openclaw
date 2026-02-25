@@ -47,6 +47,66 @@ describe("ensureAuthProfileStore", () => {
     }
   });
 
+  it("does not physically inherit from main when agent has an empty auth store", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-auth-noinherit-"));
+    const previousAgentDir = process.env.OPENCLAW_AGENT_DIR;
+    const previousPiAgentDir = process.env.PI_CODING_AGENT_DIR;
+    try {
+      const mainDir = path.join(root, "main-agent");
+      const agentDir = path.join(root, "agent-y");
+      fs.mkdirSync(mainDir, { recursive: true });
+      fs.mkdirSync(agentDir, { recursive: true });
+
+      process.env.OPENCLAW_AGENT_DIR = mainDir;
+      process.env.PI_CODING_AGENT_DIR = mainDir;
+
+      fs.writeFileSync(
+        path.join(mainDir, "auth-profiles.json"),
+        `${JSON.stringify(
+          {
+            version: AUTH_STORE_VERSION,
+            profiles: {
+              "openai:default": { type: "api_key", provider: "openai", key: "main-key" },
+            },
+          },
+          null,
+          2,
+        )}\n`,
+        "utf8",
+      );
+
+      fs.writeFileSync(
+        path.join(agentDir, "auth-profiles.json"),
+        JSON.stringify({ version: 1, profiles: {} }),
+        "utf8",
+      );
+
+      const store = ensureAuthProfileStore(agentDir);
+      expect(store.profiles["openai:default"]).toMatchObject({
+        type: "api_key",
+        provider: "openai",
+        key: "main-key",
+      });
+
+      const diskStore = JSON.parse(
+        fs.readFileSync(path.join(agentDir, "auth-profiles.json"), "utf8"),
+      );
+      expect(Object.keys(diskStore.profiles)).toHaveLength(0);
+    } finally {
+      if (previousAgentDir === undefined) {
+        delete process.env.OPENCLAW_AGENT_DIR;
+      } else {
+        process.env.OPENCLAW_AGENT_DIR = previousAgentDir;
+      }
+      if (previousPiAgentDir === undefined) {
+        delete process.env.PI_CODING_AGENT_DIR;
+      } else {
+        process.env.PI_CODING_AGENT_DIR = previousPiAgentDir;
+      }
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("merges main auth profiles into agent store and keeps agent overrides", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-auth-merge-"));
     const previousAgentDir = process.env.OPENCLAW_AGENT_DIR;
