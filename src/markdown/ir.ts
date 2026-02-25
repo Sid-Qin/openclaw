@@ -144,6 +144,27 @@ function applySpoilerTokens(tokens: MarkdownToken[]): void {
 }
 
 function injectSpoilersIntoInline(tokens: MarkdownToken[]): MarkdownToken[] {
+  let totalDelims = 0;
+  for (const token of tokens) {
+    if (token.type !== "text") {
+      continue;
+    }
+    const content = token.content ?? "";
+    let i = 0;
+    while (i < content.length) {
+      const next = content.indexOf("||", i);
+      if (next === -1) {
+        break;
+      }
+      totalDelims += 1;
+      i = next + 2;
+    }
+  }
+
+  if (totalDelims < 2 || totalDelims % 2 !== 0) {
+    return tokens;
+  }
+
   const result: MarkdownToken[] = [];
   const state = { spoilerOpen: false };
 
