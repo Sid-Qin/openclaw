@@ -207,11 +207,12 @@ echo "Building image from $REPO_PATH..."
 podman build -t openclaw:local -f "$REPO_PATH/Dockerfile" "$REPO_PATH"
 
 echo "Loading image into $OPENCLAW_USER's Podman store..."
-TMP_IMAGE="$(mktemp -p /tmp openclaw-image.XXXXXX.tar)"
+OPENCLAW_TMPDIR="${TMPDIR:-/var/tmp}"
+TMP_IMAGE="$(mktemp -p "$OPENCLAW_TMPDIR" openclaw-image.XXXXXX.tar)"
 trap 'rm -f "$TMP_IMAGE"' EXIT
 podman save openclaw:local -o "$TMP_IMAGE"
 chmod 644 "$TMP_IMAGE"
-(cd /tmp && run_as_user "$OPENCLAW_USER" env HOME="$OPENCLAW_HOME" podman load -i "$TMP_IMAGE")
+(cd "$OPENCLAW_TMPDIR" && run_as_user "$OPENCLAW_USER" env HOME="$OPENCLAW_HOME" podman load -i "$TMP_IMAGE")
 rm -f "$TMP_IMAGE"
 trap - EXIT
 
