@@ -97,6 +97,25 @@ export function isFileLogLevelEnabled(level: LogLevel): boolean {
   return levelToMinLevel(level) <= levelToMinLevel(settings.level);
 }
 
+const RESYNC_INTERVAL = 500;
+
+function rotateLogFile(file: string): void {
+  try {
+    const rotated = `${file}.1`;
+    if (fs.existsSync(rotated)) {
+      fs.rmSync(rotated, { force: true });
+    }
+    fs.renameSync(file, rotated);
+  } catch {
+    // If rotation fails, truncate as a last resort.
+    try {
+      fs.writeFileSync(file, "", { encoding: "utf8" });
+    } catch {
+      // ignore
+    }
+  }
+}
+
 function buildLogger(settings: ResolvedSettings): TsLogger<LogObj> {
   fs.mkdirSync(path.dirname(settings.file), { recursive: true });
   // Clean up stale rolling logs when using a dated log filename.
@@ -104,7 +123,7 @@ function buildLogger(settings: ResolvedSettings): TsLogger<LogObj> {
     pruneOldRollingLogs(path.dirname(settings.file));
   }
   let currentFileBytes = getCurrentLogFileBytes(settings.file);
-  let warnedAboutSizeCap = false;
+  let writesSinceResync = 0;
   const logger = new TsLogger<LogObj>({
     name: "openclaw",
     minLevel: levelToMinLevel(settings.level),
@@ -113,29 +132,29 @@ function buildLogger(settings: ResolvedSettings): TsLogger<LogObj> {
 
   logger.attachTransport((logObj: LogObj) => {
     try {
+      // Periodically re-stat the file to catch drift from concurrent
+      // writers (multiple gateway processes sharing the same log file).
+      writesSinceResync += 1;
+      if (writesSinceResync >= RESYNC_INTERVAL) {
+        writesSinceResync = 0;
+        currentFileBytes = getCurrentLogFileBytes(settings.file);
+      }
+
       const time = logObj.date?.toISOString?.() ?? new Date().toISOString();
       const line = JSON.stringify({ ...logObj, time });
       const payload = `${line}\n`;
       const payloadBytes = Buffer.byteLength(payload, "utf8");
       const nextBytes = currentFileBytes + payloadBytes;
       if (nextBytes > settings.maxFileBytes) {
-        if (!warnedAboutSizeCap) {
-          warnedAboutSizeCap = true;
-          const warningLine = JSON.stringify({
-            time: new Date().toISOString(),
-            level: "warn",
-            subsystem: "logging",
-            message: `log file size cap reached; suppressing writes file=${settings.file} maxFileBytes=${settings.maxFileBytes}`,
-          });
-          appendLogLine(settings.file, `${warningLine}\n`);
-          process.stderr.write(
-            `[openclaw] log file size cap reached; suppressing writes file=${settings.file} maxFileBytes=${settings.maxFileBytes}\n`,
-          );
-        }
-        return;
+        rotateLogFile(settings.file);
+        currentFileBytes = 0;
+        writesSinceResync = 0;
+        process.stderr.write(
+          `[openclaw] log file rotated (size cap ${settings.maxFileBytes} bytes): ${settings.file}\n`,
+        );
       }
       if (appendLogLine(settings.file, payload)) {
-        currentFileBytes = nextBytes;
+        currentFileBytes += payloadBytes;
       }
     } catch {
       // never block on logging failures
