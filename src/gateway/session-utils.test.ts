@@ -469,6 +469,27 @@ describe("resolveSessionModelIdentityRef", () => {
     expect(resolved).toEqual({ provider: "anthropic", model: "claude-sonnet-4-6" });
   });
 
+  test("modelOverride takes precedence over stale runtime model", () => {
+    const cfg = {
+      agents: {
+        defaults: {
+          model: { primary: "anthropic/claude-sonnet-4-6" },
+        },
+      },
+    } as OpenClawConfig;
+
+    const resolved = resolveSessionModelIdentityRef(cfg, {
+      sessionId: "model-switch",
+      updatedAt: Date.now(),
+      model: "claude-sonnet-4-6",
+      modelProvider: "anthropic",
+      modelOverride: "claude-opus-4-5",
+      providerOverride: "anthropic",
+    });
+
+    expect(resolved).toEqual({ provider: "anthropic", model: "claude-opus-4-5" });
+  });
+
   test("infers wrapper provider for slash-prefixed runtime model when allowlist match is unique", () => {
     const cfg = {
       agents: {

@@ -700,6 +700,23 @@ export function resolveSessionModelIdentityRef(
     | Pick<SessionEntry, "model" | "modelProvider" | "modelOverride" | "providerOverride">,
   agentId?: string,
 ): { provider?: string; model: string } {
+  // Explicit per-session override (set via /model command) wins over the
+  // stale runtime model recorded by the last API call.
+  const storedOverride = entry?.modelOverride?.trim();
+  if (storedOverride) {
+    const overrideProvider = entry?.providerOverride?.trim();
+    if (overrideProvider) {
+      return { provider: overrideProvider, model: storedOverride };
+    }
+    if (storedOverride.includes("/")) {
+      const parsed = parseModelRef(storedOverride, DEFAULT_PROVIDER);
+      if (parsed) {
+        return { provider: parsed.provider, model: parsed.model };
+      }
+    }
+    return { model: storedOverride };
+  }
+
   const runtimeModel = entry?.model?.trim();
   const runtimeProvider = entry?.modelProvider?.trim();
   if (runtimeModel) {
