@@ -441,6 +441,23 @@ describe("processDiscordMessage draft streaming", () => {
     expect(deliverDiscordReply).not.toHaveBeenCalled();
   });
 
+  it("delivers block payloads when blockStreaming is enabled", async () => {
+    dispatchInboundMessage.mockImplementationOnce(async (params?: DispatchInboundParams) => {
+      await params?.dispatcher.sendBlockReply({ text: "stream chunk" });
+      return { queuedFinal: true, counts: { final: 0, tool: 0, block: 1 } };
+    });
+
+    const ctx = await createBaseContext({
+      discordConfig: { streamMode: "off", blockStreaming: true },
+    });
+
+    // oxlint-disable-next-line typescript/no-explicit-any
+    await processDiscordMessage(ctx as any);
+
+    expect(deliverDiscordReply).toHaveBeenCalledTimes(1);
+    expect(deliverDiscordReply.mock.calls[0]?.[0]?.replies).toEqual([{ text: "stream chunk" }]);
+  });
+
   it("streams block previews using draft chunking", async () => {
     const draftStream = createMockDraftStream();
     createDiscordDraftStream.mockReturnValueOnce(draftStream);
