@@ -1416,7 +1416,8 @@ export function createWebSearchTool(options?: {
         return jsonResult(result);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        const isDeprecated = message.includes("410") || message.toLowerCase().includes("deprecated");
+        const isDeprecated =
+          /\b410\b/.test(message) || message.toLowerCase().includes("deprecated");
         return jsonResult({
           error: "web_search_failed",
           provider,
