@@ -303,6 +303,24 @@ export function recomputeNextRuns(state: CronServiceState): boolean {
       if (recomputeJobNextRunAtMs({ state, job, nowMs: now })) {
         changed = true;
       }
+    } else if (job.schedule.kind === "cron" && typeof nextRun === "number" && nextRun > now) {
+      // Repair stale future cron markers (e.g., from older scheduler bugs/timezone drift)
+      // by allowing correction only when recomputed next run is earlier than the stored value.
+      // This never advances execution into a later slot, so it preserves anti-skip behavior.
+      try {
+        const recomputed = computeJobNextRunAtMs(job, now);
+        if (
+          typeof recomputed === "number" &&
+          Number.isFinite(recomputed) &&
+          recomputed > now &&
+          recomputed < nextRun
+        ) {
+          job.state.nextRunAtMs = recomputed;
+          changed = true;
+        }
+      } catch {
+        // Keep existing future marker; schedule error isolation is handled in the due/missing path.
+      }
     }
     return changed;
   });

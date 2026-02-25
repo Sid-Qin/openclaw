@@ -187,6 +187,44 @@ describe("cron schedule error isolation", () => {
     expect(badJob.state.lastError).toBeTruthy();
   });
 
+  it("repairs stale future cron nextRunAtMs when recomputed slot is earlier", () => {
+    vi.setSystemTime(new Date("2026-02-24T11:01:00.000Z")); // 05:01 America/Chicago
+    const job = createJob({
+      id: "daily-6am",
+      name: "Daily 6 AM",
+      schedule: { kind: "cron", expr: "0 6 * * *", tz: "America/Chicago" },
+      state: {
+        // Stale marker incorrectly pointing to tomorrow 06:00 CST.
+        nextRunAtMs: Date.parse("2026-02-25T12:00:00.000Z"),
+      },
+    });
+    const state = createMockState([job]);
+
+    const changed = recomputeNextRuns(state);
+
+    expect(changed).toBe(true);
+    expect(job.state.nextRunAtMs).toBe(Date.parse("2026-02-24T12:00:00.000Z"));
+  });
+
+  it("does not move cron nextRunAtMs forward when stored value is already earlier", () => {
+    vi.setSystemTime(new Date("2026-02-24T11:01:00.000Z")); // 05:01 America/Chicago
+    const expectedToday = Date.parse("2026-02-24T12:00:00.000Z");
+    const job = createJob({
+      id: "daily-6am-no-change",
+      name: "Daily 6 AM No Change",
+      schedule: { kind: "cron", expr: "0 6 * * *", tz: "America/Chicago" },
+      state: {
+        nextRunAtMs: expectedToday,
+      },
+    });
+    const state = createMockState([job]);
+
+    const changed = recomputeNextRuns(state);
+
+    expect(changed).toBe(false);
+    expect(job.state.nextRunAtMs).toBe(expectedToday);
+  });
+
   it("records a clear schedule error when cron expr is missing", () => {
     const badJob = createJob({
       id: "missing-expr",
