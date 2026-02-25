@@ -85,6 +85,42 @@ describe("config env vars", () => {
     });
   });
 
+  it("resolves ${VAR} references in env block values against process.env", async () => {
+    await withEnvOverride(
+      { ANTHROPIC_API_KEY_CO: "resolved-key-value", ANTHROPIC_API_KEY: undefined },
+      async () => {
+        applyConfigEnvVars({
+          env: { ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY_CO}" },
+        } as OpenClawConfig);
+        expect(process.env.ANTHROPIC_API_KEY).toBe("resolved-key-value");
+      },
+    );
+  });
+
+  it("resolves ${VAR} references in env.vars values", async () => {
+    await withEnvOverride(
+      { SOURCE_KEY: "source-value", DEST_KEY: undefined },
+      async () => {
+        applyConfigEnvVars({
+          env: { vars: { DEST_KEY: "${SOURCE_KEY}" } },
+        } as OpenClawConfig);
+        expect(process.env.DEST_KEY).toBe("source-value");
+      },
+    );
+  });
+
+  it("falls through with literal value when ${VAR} reference is missing", async () => {
+    await withEnvOverride(
+      { MISSING_SOURCE: undefined, FALLBACK_KEY: undefined },
+      async () => {
+        applyConfigEnvVars({
+          env: { vars: { FALLBACK_KEY: "${MISSING_SOURCE}" } },
+        } as OpenClawConfig);
+        expect(process.env.FALLBACK_KEY).toBe("${MISSING_SOURCE}");
+      },
+    );
+  });
+
   it("loads ${VAR} substitutions from ~/.openclaw/.env on repeated runtime loads", async () => {
     await withTempHome(async (_home) => {
       await withEnvOverride({ BRAVE_API_KEY: undefined }, async () => {

@@ -3,6 +3,7 @@ import {
   isDangerousHostEnvVarName,
   normalizeEnvVarKey,
 } from "../infra/host-env-security.js";
+import { resolveConfigEnvVars } from "./env-substitution.js";
 import type { OpenClawConfig } from "./types.js";
 
 function isBlockedConfigEnvVar(key: string): boolean {
@@ -75,6 +76,20 @@ export function applyConfigEnvVars(
     if (env[key]?.trim()) {
       continue;
     }
-    env[key] = value;
+    // Resolve ${VAR} references in the value against the current env so that
+    // env-block entries like `"ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY_CO}"`
+    // pick up variables already present in the process environment.
+    let resolved = value;
+    if (value.includes("$")) {
+      try {
+        resolved = resolveConfigEnvVars(value, env) as string;
+      } catch {
+        // If substitution fails (e.g. referenced var not set), fall through
+        // and apply the literal value; the later full-config substitution pass
+        // will surface the error with proper context.
+        resolved = value;
+      }
+    }
+    env[key] = resolved;
   }
 }
