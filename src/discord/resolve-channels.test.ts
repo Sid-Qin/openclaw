@@ -84,7 +84,12 @@ describe("resolveDiscordChannelAllowlist", () => {
         return jsonResponse([{ id: "111222333", name: "My Guild" }]);
       }
       if (url.endsWith("/channels/444555666")) {
-        return jsonResponse({ id: "444555666", name: "gins-clinic", guild_id: "111222333", type: 0 });
+        return jsonResponse({
+          id: "444555666",
+          name: "gins-clinic",
+          guild_id: "111222333",
+          type: 0,
+        });
       }
       return new Response("not found", { status: 404 });
     });
