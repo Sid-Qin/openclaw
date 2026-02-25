@@ -106,4 +106,10 @@ describe("markdownToTelegramHtml", () => {
     expect(res).not.toContain("tg-spoiler");
     expect(res).toContain("||");
   });
+
+  it("keeps valid spoiler pairs when a trailing || is unmatched", () => {
+    const res = markdownToTelegramHtml("||secret|| trailing ||");
+    expect(res).toContain("<tg-spoiler>secret</tg-spoiler>");
+    expect(res).toContain("trailing ||");
+  });
 });
