@@ -702,19 +702,29 @@ export function registerMemoryCli(program: Command) {
   memory
     .command("search")
     .description("Search memory files")
-    .argument("<query>", "Search query")
+    .argument("[query]", "Search query")
+    .option("--query <text>", "Search query (flag alias)")
     .option("--agent <id>", "Agent id (default: default agent)")
     .option("--max-results <n>", "Max results", (value: string) => Number(value))
     .option("--min-score <n>", "Minimum score", (value: string) => Number(value))
     .option("--json", "Print JSON")
     .action(
       async (
-        query: string,
+        queryArg: string | undefined,
         opts: MemoryCommandOptions & {
+          query?: string;
           maxResults?: number;
           minScore?: number;
         },
       ) => {
+        const resolvedQuery = (opts.query ?? queryArg)?.trim() ?? "";
+        if (!resolvedQuery) {
+          defaultRuntime.error(
+            'Missing search query. Use `openclaw memory search "<query>"` or `--query "<query>"`.',
+          );
+          process.exitCode = 1;
+          return;
+        }
         const cfg = loadConfig();
         const agentId = resolveAgent(cfg, opts.agent);
         await withMemoryManagerForAgent({
@@ -723,7 +733,7 @@ export function registerMemoryCli(program: Command) {
           run: async (manager) => {
             let results: Awaited<ReturnType<typeof manager.search>>;
             try {
-              results = await manager.search(query, {
+              results = await manager.search(resolvedQuery, {
                 maxResults: opts.maxResults,
                 minScore: opts.minScore,
               });

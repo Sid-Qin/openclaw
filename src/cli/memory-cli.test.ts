@@ -382,6 +382,22 @@ describe("memory cli", () => {
     expect(close).toHaveBeenCalled();
   });
 
+  it("accepts --query flag for memory search", async () => {
+    const close = vi.fn(async () => {});
+    const search = vi.fn(async () => []);
+    mockManager({ search, close });
+
+    const log = spyRuntimeLogs();
+    await runMemoryCli(["search", "--query", "deployment notes"]);
+
+    expect(search).toHaveBeenCalledWith("deployment notes", {
+      maxResults: undefined,
+      minScore: undefined,
+    });
+    expect(log).toHaveBeenCalledWith("No matches.");
+    expect(close).toHaveBeenCalled();
+  });
+
   it("prints search results as json when requested", async () => {
     const close = vi.fn(async () => {});
     const search = vi.fn(async () => [
