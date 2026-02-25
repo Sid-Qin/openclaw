@@ -307,4 +307,29 @@ describe("gateway bonjour advertiser", () => {
 
     await started.stop();
   });
+
+  it("disables Bonjour on win32 unless explicitly enabled", async () => {
+    enableAdvertiserUnitMode();
+    vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+
+    const started = await startGatewayBonjourAdvertiser({
+      gatewayPort: 18789,
+      sshPort: 2222,
+    });
+    expect(createService).not.toHaveBeenCalled();
+    await started.stop();
+
+    createService.mockClear();
+    process.env.OPENCLAW_ENABLE_BONJOUR_WINDOWS = "1";
+    const destroy = vi.fn().mockResolvedValue(undefined);
+    const advertise = vi.fn().mockResolvedValue(undefined);
+    mockCiaoService({ advertise, destroy });
+
+    const enabled = await startGatewayBonjourAdvertiser({
+      gatewayPort: 18789,
+      sshPort: 2222,
+    });
+    expect(createService).toHaveBeenCalledTimes(1);
+    await enabled.stop();
+  });
 });
