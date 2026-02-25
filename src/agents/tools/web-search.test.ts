@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { withEnv } from "../../test-utils/env.js";
-import { __testing } from "./web-search.js";
+import { createWebSearchTool, __testing } from "./web-search.js";
 
 const {
   inferPerplexityBaseUrlFromApiKey,
@@ -320,5 +320,74 @@ describe("extractKimiCitations", () => {
         ],
       }).toSorted(),
     ).toEqual(["https://example.com/a", "https://example.com/b", "https://example.com/c"]);
+  });
+});
+
+describe("web_search execute error handling", () => {
+  let originalFetch: typeof globalThis.fetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it("returns structured error JSON on API failure instead of throwing", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 410,
+      statusText: "Gone",
+      text: async () => '{"error": "Live search is deprecated"}',
+    });
+
+    const tool = createWebSearchTool({
+      config: {
+        tools: {
+          web: {
+            search: {
+              provider: "grok",
+              grok: { apiKey: "test-key" },
+            },
+          },
+        },
+      },
+    });
+    expect(tool).not.toBeNull();
+
+    const result = await tool!.execute("call-1", { query: "test" });
+    const text = result.content[0]?.type === "text" ? result.content[0].text : "";
+    const payload = JSON.parse(text);
+    expect(payload.error).toBe("web_search_failed");
+    expect(payload.provider).toBe("grok");
+    expect(payload.message).toContain("deprecation");
+    expect(payload.message).toContain("410");
+  });
+
+  it("returns structured error JSON on network failure", async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error("fetch failed"));
+
+    const tool = createWebSearchTool({
+      config: {
+        tools: {
+          web: {
+            search: {
+              provider: "grok",
+              grok: { apiKey: "test-key" },
+            },
+          },
+        },
+      },
+    });
+    expect(tool).not.toBeNull();
+
+    const result = await tool!.execute("call-2", { query: "test" });
+    const text = result.content[0]?.type === "text" ? result.content[0].text : "";
+    const payload = JSON.parse(text);
+    expect(payload.error).toBe("web_search_failed");
+    expect(payload.provider).toBe("grok");
+    expect(payload.message).toContain("fetch failed");
   });
 });

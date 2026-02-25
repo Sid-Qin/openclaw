@@ -1389,30 +1389,43 @@ export function createWebSearchTool(options?: {
           docs: "https://docs.openclaw.ai/tools/web",
         });
       }
-      const result = await runWebSearch({
-        query,
-        count: resolveSearchCount(count, DEFAULT_SEARCH_COUNT),
-        apiKey,
-        timeoutSeconds: resolveTimeoutSeconds(search?.timeoutSeconds, DEFAULT_TIMEOUT_SECONDS),
-        cacheTtlMs: resolveCacheTtlMs(search?.cacheTtlMinutes, DEFAULT_CACHE_TTL_MINUTES),
-        provider,
-        country,
-        search_lang,
-        ui_lang,
-        freshness,
-        perplexityBaseUrl: resolvePerplexityBaseUrl(
-          perplexityConfig,
-          perplexityAuth?.source,
-          perplexityAuth?.apiKey,
-        ),
-        perplexityModel: resolvePerplexityModel(perplexityConfig),
-        grokModel: resolveGrokModel(grokConfig),
-        grokInlineCitations: resolveGrokInlineCitations(grokConfig),
-        geminiModel: resolveGeminiModel(geminiConfig),
-        kimiBaseUrl: resolveKimiBaseUrl(kimiConfig),
-        kimiModel: resolveKimiModel(kimiConfig),
-      });
-      return jsonResult(result);
+      try {
+        const result = await runWebSearch({
+          query,
+          count: resolveSearchCount(count, DEFAULT_SEARCH_COUNT),
+          apiKey,
+          timeoutSeconds: resolveTimeoutSeconds(search?.timeoutSeconds, DEFAULT_TIMEOUT_SECONDS),
+          cacheTtlMs: resolveCacheTtlMs(search?.cacheTtlMinutes, DEFAULT_CACHE_TTL_MINUTES),
+          provider,
+          country,
+          search_lang,
+          ui_lang,
+          freshness,
+          perplexityBaseUrl: resolvePerplexityBaseUrl(
+            perplexityConfig,
+            perplexityAuth?.source,
+            perplexityAuth?.apiKey,
+          ),
+          perplexityModel: resolvePerplexityModel(perplexityConfig),
+          grokModel: resolveGrokModel(grokConfig),
+          grokInlineCitations: resolveGrokInlineCitations(grokConfig),
+          geminiModel: resolveGeminiModel(geminiConfig),
+          kimiBaseUrl: resolveKimiBaseUrl(kimiConfig),
+          kimiModel: resolveKimiModel(kimiConfig),
+        });
+        return jsonResult(result);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const isDeprecated = message.includes("410") || message.toLowerCase().includes("deprecated");
+        return jsonResult({
+          error: "web_search_failed",
+          provider,
+          message: isDeprecated
+            ? `The ${provider} web search API returned a deprecation error. Please update OpenClaw to the latest version or switch to a different search provider. Details: ${message}`
+            : `web_search (${provider}) failed: ${message}`,
+          docs: "https://docs.openclaw.ai/tools/web",
+        });
+      }
     },
   };
 }
