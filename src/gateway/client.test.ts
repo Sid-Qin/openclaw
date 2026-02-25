@@ -209,6 +209,21 @@ describe("GatewayClient security checks", () => {
     expect(wsInstances.length).toBe(1); // WebSocket created
     client.stop();
   });
+
+  it("allows ws:// to non-loopback addresses when sshTransport is true", () => {
+    const onConnectError = vi.fn();
+    const client = new GatewayClient({
+      url: "ws://remote.example.com:18789",
+      sshTransport: true,
+      onConnectError,
+    });
+
+    client.start();
+
+    expect(onConnectError).not.toHaveBeenCalled();
+    expect(wsInstances.length).toBe(1);
+    client.stop();
+  });
 });
 
 describe("GatewayClient close handling", () => {

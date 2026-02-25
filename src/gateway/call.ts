@@ -67,6 +67,8 @@ export type GatewayConnectionDetails = {
   bindDetail?: string;
   remoteFallbackNote?: string;
   message: string;
+  /** True when the remote connection uses SSH transport (encryption via tunnel). */
+  sshTransport?: boolean;
 };
 
 export type ExplicitGatewayAuth = {
@@ -143,7 +145,9 @@ export function buildGatewayConnectionDetails(
   // Security check: block ALL insecure ws:// to non-loopback addresses (CWE-319, CVSS 9.8)
   // This applies to the FINAL resolved URL, regardless of source (config, CLI override, etc).
   // Both credentials and chat/conversation data must not be transmitted over plaintext to remote hosts.
-  if (!isSecureWebSocketUrl(url)) {
+  // Exception: SSH transport provides end-to-end encryption, so ws:// is safe when tunneled.
+  const isSshTransport = remote?.transport === "ssh";
+  if (!isSshTransport && !isSecureWebSocketUrl(url)) {
     throw new Error(
       [
         `SECURITY ERROR: Gateway URL "${url}" uses plaintext ws:// to a non-loopback address.`,
@@ -176,6 +180,7 @@ export function buildGatewayConnectionDetails(
     bindDetail,
     remoteFallbackNote,
     message,
+    sshTransport: isSshTransport || undefined,
   };
 }
 
@@ -333,6 +338,7 @@ async function executeGatewayRequestWithScopes<T>(params: {
       token,
       password,
       tlsFingerprint,
+      sshTransport: params.connectionDetails.sshTransport,
       instanceId: opts.instanceId ?? randomUUID(),
       clientName: opts.clientName ?? GATEWAY_CLIENT_NAMES.CLI,
       clientDisplayName: opts.clientDisplayName,

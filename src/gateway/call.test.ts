@@ -318,6 +318,27 @@ describe("buildGatewayConnectionDetails", () => {
     expect((thrown as Error).message).toContain("openclaw doctor --fix");
   });
 
+  it("allows ws:// to non-loopback addresses when transport is ssh", () => {
+    loadConfig.mockReturnValue({
+      gateway: {
+        mode: "remote",
+        bind: "loopback",
+        remote: {
+          url: "ws://remote.example.com:18789",
+          transport: "ssh",
+          sshTarget: "user@remote.example.com",
+        },
+      },
+    });
+    resolveGatewayPort.mockReturnValue(18789);
+    pickPrimaryTailnetIPv4.mockReturnValue(undefined);
+
+    const details = buildGatewayConnectionDetails();
+
+    expect(details.url).toBe("ws://remote.example.com:18789");
+    expect(details.sshTransport).toBe(true);
+  });
+
   it("allows ws:// for loopback addresses in local mode", () => {
     setLocalLoopbackGatewayConfig();
 
