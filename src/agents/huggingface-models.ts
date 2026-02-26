@@ -125,7 +125,10 @@ export function buildHuggingfaceModelDefinition(
  */
 function inferredMetaFromModelId(id: string): { name: string; reasoning: boolean } {
   const base = id.split("/").pop() ?? id;
-  const reasoning = /r1|reasoning|thinking|reason/i.test(id) || /-\d+[tb]?-thinking/i.test(base);
+  const reasoning =
+    (/(?<!non-)reasoning|(?<!non-)thinking|(?<!non-)reason|\br1\b/i.test(id) ||
+      /-\d+[tb]?-thinking/i.test(base)) &&
+    !/non-?reasoning/i.test(id);
   const name = base.replace(/-/g, " ").replace(/\b(\w)/g, (c) => c.toUpperCase());
   return { name, reasoning };
 }
