@@ -1,8 +1,10 @@
 import {
   installLaunchAgent,
   isLaunchAgentLoaded,
+  launchAgentPlistExists,
   readLaunchAgentProgramArguments,
   readLaunchAgentRuntime,
+  repairLaunchAgentBootstrap,
   restartLaunchAgent,
   stopLaunchAgent,
   uninstallLaunchAgent,
@@ -59,6 +61,10 @@ export type GatewayService = {
   uninstall: (args: GatewayServiceManageArgs) => Promise<void>;
   stop: (args: GatewayServiceControlArgs) => Promise<void>;
   restart: (args: GatewayServiceControlArgs) => Promise<void>;
+  /** Attempt to start a stopped (unloaded) service without a full reinstall.
+   *  Returns true if the service was successfully started, false if recovery
+   *  is not possible (e.g. plist/unit file missing). */
+  start?: (args: GatewayServiceControlArgs) => Promise<boolean>;
   isLoaded: (args: GatewayServiceEnvArgs) => Promise<boolean>;
   readCommand: (env: GatewayServiceEnv) => Promise<GatewayServiceCommandConfig | null>;
   readRuntime: (env: GatewayServiceEnv) => Promise<GatewayServiceRuntime>;
@@ -74,6 +80,17 @@ export function resolveGatewayService(): GatewayService {
       uninstall: uninstallLaunchAgent,
       stop: stopLaunchAgent,
       restart: restartLaunchAgent,
+      start: async ({ env, stdout }) => {
+        const serviceEnv = env ?? (process.env as Record<string, string | undefined>);
+        if (!(await launchAgentPlistExists(serviceEnv))) {
+          return false;
+        }
+        const result = await repairLaunchAgentBootstrap({ env: serviceEnv });
+        if (result.ok) {
+          stdout.write("Re-bootstrapped LaunchAgent from existing plist.\n");
+        }
+        return result.ok;
+      },
       isLoaded: isLaunchAgentLoaded,
       readCommand: readLaunchAgentProgramArguments,
       readRuntime: readLaunchAgentRuntime,

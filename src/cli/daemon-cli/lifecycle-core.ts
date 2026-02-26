@@ -164,6 +164,32 @@ export async function runServiceStart(params: {
     return;
   }
   if (!loaded) {
+    // Service is not loaded (e.g. after `gateway stop` on macOS which bootouts
+    // the LaunchAgent).  If the service supports recovery from an existing
+    // install artifact (plist/unit file), attempt to re-bootstrap before
+    // falling back to the "not loaded" hint.
+    if (params.service.start) {
+      try {
+        const recovered = await params.service.start({ env: process.env, stdout });
+        if (recovered) {
+          let started = true;
+          try {
+            started = await params.service.isLoaded({ env: process.env });
+          } catch {
+            started = false;
+          }
+          emit({
+            ok: true,
+            result: "started",
+            message: `${params.serviceNoun} started.`,
+            service: buildDaemonServiceSnapshot(params.service, started),
+          });
+          return;
+        }
+      } catch {
+        // Recovery failed — fall through to the standard "not loaded" hint.
+      }
+    }
     await handleServiceNotLoaded({
       serviceNoun: params.serviceNoun,
       service: params.service,
