@@ -233,6 +233,27 @@ describe("applyJobPatch", () => {
 
     expect(() => applyJobPatch(job, { enabled: true })).not.toThrow();
   });
+
+  it('accepts delivery { mode: "none" } for sessionTarget="main"', () => {
+    const job = createMainSystemEventJob("job-delivery-none", {
+      mode: "none",
+    });
+
+    expect(() =>
+      applyJobPatch(job, { payload: { kind: "systemEvent", text: "updated" } }),
+    ).not.toThrow();
+    expect(job.delivery).toEqual({ mode: "none" });
+  });
+
+  it('does not clear delivery { mode: "none" } when switching to main', () => {
+    const job = createIsolatedAgentTurnJob("job-none-switch", {
+      mode: "none",
+    });
+
+    expect(() => applyJobPatch(job, switchToMainPatch())).not.toThrow();
+    expect(job.sessionTarget).toBe("main");
+    expect(job.delivery).toEqual({ mode: "none" });
+  });
 });
 
 function createMockState(now: number): CronServiceState {

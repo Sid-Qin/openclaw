@@ -104,6 +104,9 @@ function assertDeliverySupport(job: Pick<CronJob, "sessionTarget" | "delivery">)
   if (!job.delivery) {
     return;
   }
+  if (job.delivery.mode === "none") {
+    return;
+  }
   if (job.delivery.mode === "webhook") {
     const target = normalizeHttpWebhookUrl(job.delivery.to);
     if (!target) {
@@ -452,7 +455,11 @@ export function applyJobPatch(job: CronJob, patch: CronJobPatch) {
   if (patch.delivery) {
     job.delivery = mergeCronDelivery(job.delivery, patch.delivery);
   }
-  if (job.sessionTarget === "main" && job.delivery?.mode !== "webhook") {
+  if (
+    job.sessionTarget === "main" &&
+    job.delivery?.mode !== "webhook" &&
+    job.delivery?.mode !== "none"
+  ) {
     job.delivery = undefined;
   }
   if (patch.state) {
