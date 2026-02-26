@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import {
   codingTools,
   createEditTool,
@@ -61,6 +62,44 @@ import {
   resolveToolProfilePolicy,
 } from "./tool-policy.js";
 import { resolveWorkspaceRoot } from "./workspace-dir.js";
+
+const EDIT_NOT_FOUND_PREFIX = "Could not find the exact text in ";
+const EDIT_CONTENT_HINT_MAX_CHARS = 800;
+
+function wrapEditToolWithContentHint(tool: AnyAgentTool): AnyAgentTool {
+  return {
+    ...tool,
+    execute: async (toolCallId, params, signal, onUpdate) => {
+      try {
+        return await tool.execute(toolCallId, params, signal, onUpdate);
+      } catch (err) {
+        if (err instanceof Error && err.message.startsWith(EDIT_NOT_FOUND_PREFIX)) {
+          const pathMatch = err.message.match(
+            /^Could not find the exact text in (.+?)\.\s/,
+          );
+          if (pathMatch) {
+            try {
+              const raw = await readFile(pathMatch[1], "utf8");
+              const snippet =
+                raw.length <= EDIT_CONTENT_HINT_MAX_CHARS
+                  ? raw
+                  : raw.slice(0, EDIT_CONTENT_HINT_MAX_CHARS) + "\n... (truncated)";
+              throw new Error(
+                `${err.message}\nCurrent file contents:\n${snippet}`,
+              );
+            } catch (readErr) {
+              if (readErr !== err) {
+                throw err;
+              }
+              throw readErr;
+            }
+          }
+        }
+        throw err;
+      }
+    },
+  };
+}
 
 function isOpenAIProvider(provider?: string) {
   const normalized = provider?.trim().toLowerCase();
@@ -375,9 +414,8 @@ export function createOpenClawCodingTools(options?: {
       if (sandboxRoot) {
         return [];
       }
-      // Wrap with param normalization for Claude Code compatibility
       const wrapped = wrapToolParamNormalization(
-        createEditTool(workspaceRoot),
+        wrapEditToolWithContentHint(createEditTool(workspaceRoot)),
         CLAUDE_PARAM_GROUPS.edit,
       );
       return [workspaceOnly ? wrapToolWorkspaceRootGuard(wrapped, workspaceRoot) : wrapped];
