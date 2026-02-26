@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import os from "node:os";
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
+import type { AgentMessage, StreamFn } from "@mariozechner/pi-agent-core";
 import type { ImageContent } from "@mariozechner/pi-ai";
 import { streamSimple } from "@mariozechner/pi-ai";
 import {
@@ -127,6 +127,58 @@ type PromptBuildHookRunner = {
     ctx: PluginHookAgentContext,
   ) => Promise<PluginHookBeforeAgentStartResult | undefined>;
 };
+
+/**
+ * Trim leading/trailing whitespace from tool call names in the LLM response
+ * stream.  Some models return tool names like " read " which causes the
+ * agent loop's exact-match lookup to fail with "Tool not found" (#27045).
+ *
+ * We intercept the async iterator to mutate toolCall content blocks in-place
+ * as they flow through.  Because the partial message objects are the same
+ * references used by the final result, the trimmed names propagate to the
+ * `done` event automatically.
+ */
+function wrapStreamFnTrimToolNames(baseFn: StreamFn): StreamFn {
+  return (model, context, options) => {
+    const stream = baseFn(model, context, options);
+    const origIterator = stream[Symbol.asyncIterator].bind(stream);
+    (stream as unknown as Record<symbol, unknown>)[Symbol.asyncIterator] = function () {
+      const iter = origIterator();
+      return {
+        async next() {
+          const result = await iter.next();
+          if (!result.done && result.value) {
+            const event = result.value as {
+              type?: string;
+              partial?: { content?: unknown[] };
+              message?: { content?: unknown[] };
+            };
+            const contents: unknown[][] = [];
+            if (event.partial?.content) contents.push(event.partial.content);
+            if (event.message?.content) contents.push(event.message.content);
+            for (const content of contents) {
+              for (const block of content) {
+                const b = block as { type?: string; name?: string };
+                if (b.type === "toolCall" && typeof b.name === "string") {
+                  const trimmed = b.name.trim();
+                  if (trimmed !== b.name) b.name = trimmed;
+                }
+              }
+            }
+          }
+          return result;
+        },
+        async return(value?: unknown) {
+          return iter.return?.(value) ?? { done: true as const, value: undefined };
+        },
+        async throw(err?: unknown) {
+          return iter.throw?.(err) ?? { done: true as const, value: undefined };
+        },
+      };
+    };
+    return stream;
+  };
+}
 
 export function injectHistoryImagesIntoMessages(
   messages: AgentMessage[],
@@ -822,6 +874,11 @@ export async function runEmbeddedAttempt(
           activeSession.agent.streamFn,
         );
       }
+
+      // Normalize tool call names from LLM responses: some models return
+      // tool names with leading/trailing whitespace, causing "Tool not found"
+      // errors in the agent loop's exact-match lookup (#27045).
+      activeSession.agent.streamFn = wrapStreamFnTrimToolNames(activeSession.agent.streamFn);
 
       try {
         const prior = await sanitizeSessionHistory({

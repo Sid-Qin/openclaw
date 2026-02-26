@@ -137,7 +137,7 @@ function splitToolExecuteArgs(args: ToolExecuteArgsAny): {
 }
 
 export function toToolDefinitions(tools: AnyAgentTool[]): ToolDefinition[] {
-  return tools.map((tool) => {
+  const defs = tools.map((tool) => {
     const name = tool.name || "tool";
     const normalizedName = normalizeToolName(name);
     const beforeHookWrapped = isToolWrappedWithBeforeToolCallHook(tool);
@@ -240,6 +240,7 @@ export function toToolDefinitions(tools: AnyAgentTool[]): ToolDefinition[] {
       },
     } satisfies ToolDefinition;
   });
+  return defs;
 }
 
 // Convert client tools (OpenResponses hosted tools) to ToolDefinition format
