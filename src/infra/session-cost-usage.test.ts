@@ -442,4 +442,36 @@ example
     expect(lastPoint?.cumulativeTokens).toBe(165);
     expect(lastPoint?.cumulativeCost).toBeCloseTo(0.055, 8);
   });
+
+  it("includes usage from /new-archived reset transcripts", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-reset-usage-"));
+    const sessionsDir = path.join(root, "agents", "main", "sessions");
+    await fs.mkdir(sessionsDir, { recursive: true });
+
+    const now = new Date();
+    const makeEntry = (input: number, output: number) =>
+      JSON.stringify({
+        type: "message",
+        timestamp: now.toISOString(),
+        message: {
+          role: "assistant",
+          provider: "openai",
+          model: "gpt-5.2",
+          usage: { input, output, cacheRead: 0, cacheWrite: 0, totalTokens: input + output },
+        },
+      });
+
+    await fs.writeFile(path.join(sessionsDir, "sess-reset.jsonl"), makeEntry(10, 5), "utf-8");
+    const archiveTs = now.toISOString().replaceAll(":", "-");
+    await fs.writeFile(
+      path.join(sessionsDir, `sess-reset.jsonl.reset.${archiveTs}`),
+      makeEntry(20, 15),
+      "utf-8",
+    );
+
+    const result = await withStateDir(root, () => loadCostUsageSummary({ days: 30 }));
+
+    expect(result.totals.input).toBe(30);
+    expect(result.totals.output).toBe(20);
+  });
 });
