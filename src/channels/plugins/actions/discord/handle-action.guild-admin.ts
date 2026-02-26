@@ -5,6 +5,7 @@ import {
   readStringArrayParam,
   readStringParam,
 } from "../../../../agents/tools/common.js";
+import { parseBooleanValue } from "../../../../utils/boolean.js";
 import {
   isDiscordModerationAction,
   readDiscordModerationCommand,
@@ -187,12 +188,12 @@ export async function tryHandleDiscordMessageActionGuildAdmin(params: {
       integer: true,
     });
     const parentId = readParentIdParam(actionParams);
-    const nsfw = typeof actionParams.nsfw === "boolean" ? actionParams.nsfw : undefined;
+    const nsfw = parseBooleanValue(actionParams.nsfw);
     const rateLimitPerUser = readNumberParam(actionParams, "rateLimitPerUser", {
       integer: true,
     });
-    const archived = typeof actionParams.archived === "boolean" ? actionParams.archived : undefined;
-    const locked = typeof actionParams.locked === "boolean" ? actionParams.locked : undefined;
+    const archived = parseBooleanValue(actionParams.archived);
+    const locked = parseBooleanValue(actionParams.locked);
     const autoArchiveDuration = readNumberParam(actionParams, "autoArchiveDuration", {
       integer: true,
     });

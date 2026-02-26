@@ -29,6 +29,7 @@ import {
   readStringArrayParam,
   readStringParam,
 } from "./common.js";
+import { parseBooleanValue } from "../../utils/boolean.js";
 
 function readParentIdParam(params: Record<string, unknown>): string | null | undefined {
   if (params.clearParent === true) {
@@ -326,12 +327,12 @@ export async function handleDiscordGuildAction(
       const topic = readStringParam(params, "topic");
       const position = readNumberParam(params, "position", { integer: true });
       const parentId = readParentIdParam(params);
-      const nsfw = params.nsfw as boolean | undefined;
+      const nsfw = parseBooleanValue(params.nsfw);
       const rateLimitPerUser = readNumberParam(params, "rateLimitPerUser", {
         integer: true,
       });
-      const archived = typeof params.archived === "boolean" ? params.archived : undefined;
-      const locked = typeof params.locked === "boolean" ? params.locked : undefined;
+      const archived = parseBooleanValue(params.archived);
+      const locked = parseBooleanValue(params.locked);
       const autoArchiveDuration = readNumberParam(params, "autoArchiveDuration", {
         integer: true,
       });
