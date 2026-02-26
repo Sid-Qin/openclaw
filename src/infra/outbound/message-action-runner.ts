@@ -21,6 +21,7 @@ import {
   type GatewayClientName,
 } from "../../utils/message-channel.js";
 import { throwIfAborted } from "./abort.js";
+import { normalizeDeliverableOutboundChannel } from "./channel-resolution.js";
 import {
   listConfiguredMessageChannels,
   resolveMessageChannelSelection,
@@ -742,6 +743,20 @@ export async function runMessageAction(
     const inferredChannel = normalizeMessageChannel(input.toolContext?.currentChannelProvider);
     if (inferredChannel && isDeliverableMessageChannel(inferredChannel)) {
       params.channel = inferredChannel;
+    }
+  } else {
+    const normalizedExplicit = normalizeDeliverableOutboundChannel(explicitChannel);
+    if (!normalizedExplicit) {
+      // The model passed something that isn't a valid channel type (e.g. a
+      // Discord channel snowflake instead of "discord").  Fall back to the
+      // current channel and treat the invalid hint as a target id.
+      const inferredChannel = normalizeMessageChannel(input.toolContext?.currentChannelProvider);
+      if (inferredChannel && isDeliverableMessageChannel(inferredChannel)) {
+        if (!params.target && !params.to) {
+          params.target = explicitChannel;
+        }
+        params.channel = inferredChannel;
+      }
     }
   }
 

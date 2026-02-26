@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { DEFAULT_MODEL, DEFAULT_PROVIDER } from "../agents/defaults.js";
 import { loadModelCatalog } from "../agents/model-catalog.js";
 import {
@@ -10,6 +12,8 @@ import { cleanStaleLockFiles } from "../agents/session-write-lock.js";
 import type { CliDeps } from "../cli/deps.js";
 import type { loadConfig } from "../config/config.js";
 import { resolveStateDir } from "../config/paths.js";
+import { loadSessionStore, updateSessionStore } from "../config/sessions/store.js";
+import type { SessionEntry } from "../config/sessions/types.js";
 import { startGmailWatcherWithLogs } from "../hooks/gmail-watcher-lifecycle.js";
 import {
   clearInternalHooks,
@@ -29,6 +33,59 @@ import { startGatewayMemoryBackend } from "./server-startup-memory.js";
 
 const SESSION_LOCK_STALE_MS = 30 * 60 * 1000;
 
+const STALE_SESSION_MODEL_FIELDS: (keyof SessionEntry)[] = [
+  "model",
+  "modelProvider",
+  "fallbackNoticeSelectedModel",
+  "fallbackNoticeActiveModel",
+  "fallbackNoticeReason",
+];
+
+/**
+ * Clear stale runtime model state from all session entries.
+ * After a gateway restart, sessions should use the configured default model,
+ * not the last runtime or fallback model from the previous lifecycle.
+ * Explicit user overrides (modelOverride/providerOverride) are preserved.
+ */
+async function clearStaleSessionModelState(params: {
+  stateDir: string;
+  log: { warn: (msg: string) => void };
+}): Promise<void> {
+  const sessionDirs = await resolveAgentSessionDirs(params.stateDir);
+  for (const sessionsDir of sessionDirs) {
+    const storePath = path.join(sessionsDir, "sessions.json");
+    if (!fs.existsSync(storePath)) {
+      continue;
+    }
+    try {
+      const store = loadSessionStore(storePath, { skipCache: true });
+      let changed = false;
+      for (const entry of Object.values(store)) {
+        if (!entry || typeof entry !== "object") {
+          continue;
+        }
+        for (const field of STALE_SESSION_MODEL_FIELDS) {
+          if ((entry as Record<string, unknown>)[field] !== undefined) {
+            delete (entry as Record<string, unknown>)[field];
+            changed = true;
+          }
+        }
+      }
+      if (changed) {
+        await updateSessionStore(storePath, (s) => {
+          for (const [key, entry] of Object.entries(store)) {
+            if (entry) {
+              s[key] = entry;
+            }
+          }
+        });
+      }
+    } catch (err) {
+      params.log.warn(`session model cleanup failed for ${storePath}: ${String(err)}`);
+    }
+  }
+}
+
 export async function startGatewaySidecars(params: {
   cfg: ReturnType<typeof loadConfig>;
   pluginRegistry: ReturnType<typeof loadOpenClawPlugins>;
@@ -44,8 +101,8 @@ export async function startGatewaySidecars(params: {
   logChannels: { info: (msg: string) => void; error: (msg: string) => void };
   logBrowser: { error: (msg: string) => void };
 }) {
+  const stateDir = resolveStateDir(process.env);
   try {
-    const stateDir = resolveStateDir(process.env);
     const sessionDirs = await resolveAgentSessionDirs(stateDir);
     for (const sessionsDir of sessionDirs) {
       await cleanStaleLockFiles({
@@ -57,6 +114,12 @@ export async function startGatewaySidecars(params: {
     }
   } catch (err) {
     params.log.warn(`session lock cleanup failed on startup: ${String(err)}`);
+  }
+
+  try {
+    await clearStaleSessionModelState({ stateDir, log: params.log });
+  } catch (err) {
+    params.log.warn(`session model state cleanup failed on startup: ${String(err)}`);
   }
 
   // Start OpenClaw browser control server (unless disabled via config).

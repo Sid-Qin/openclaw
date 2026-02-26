@@ -349,6 +349,20 @@ describe("runMessageAction context isolation", () => {
     expect(result.channel).toBe("slack");
   });
 
+  it("falls back to current channel when channel param is an invalid id", async () => {
+    const result = await runDrySend({
+      cfg: slackConfig,
+      actionParams: {
+        channel: "C99999999",
+        message: "hi",
+      },
+      toolContext: { currentChannelId: "C12345678", currentChannelProvider: "slack" },
+    });
+
+    expect(result.kind).toBe("send");
+    expect(result.channel).toBe("slack");
+  });
+
   it("blocks cross-provider sends by default", async () => {
     await expect(
       runDrySend({
