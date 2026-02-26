@@ -44,6 +44,32 @@ const asFiniteNumber = (value: unknown): number | undefined => {
   return value;
 };
 
+/**
+ * Pick the best finite number from a list of candidates, preferring non-zero
+ * values over zero. Some OpenAI-compatible providers return both naming
+ * conventions (e.g. `input_tokens: 0` alongside `prompt_tokens: 4`), where
+ * one set contains placeholder zeros. The nullish coalescing (`??`) chain
+ * stops at the first defined value even when it is zero, hiding the correct
+ * count in a later field. This helper falls through zeros to find a non-zero
+ * candidate, falling back to zero only when all candidates are zero.
+ */
+const bestFiniteCandidate = (...candidates: unknown[]): number | undefined => {
+  let zeroFallback: number | undefined;
+  for (const candidate of candidates) {
+    const n = asFiniteNumber(candidate);
+    if (n === undefined) {
+      continue;
+    }
+    if (n > 0) {
+      return n;
+    }
+    if (zeroFallback === undefined) {
+      zeroFallback = n;
+    }
+  }
+  return zeroFallback;
+};
+
 export function hasNonzeroUsage(usage?: NormalizedUsage | null): usage is NormalizedUsage {
   if (!usage) {
     return false;
@@ -58,15 +84,19 @@ export function normalizeUsage(raw?: UsageLike | null): NormalizedUsage | undefi
     return undefined;
   }
 
-  const input = asFiniteNumber(
-    raw.input ?? raw.inputTokens ?? raw.input_tokens ?? raw.promptTokens ?? raw.prompt_tokens,
+  const input = bestFiniteCandidate(
+    raw.input,
+    raw.inputTokens,
+    raw.input_tokens,
+    raw.promptTokens,
+    raw.prompt_tokens,
   );
-  const output = asFiniteNumber(
-    raw.output ??
-      raw.outputTokens ??
-      raw.output_tokens ??
-      raw.completionTokens ??
-      raw.completion_tokens,
+  const output = bestFiniteCandidate(
+    raw.output,
+    raw.outputTokens,
+    raw.output_tokens,
+    raw.completionTokens,
+    raw.completion_tokens,
   );
   const cacheRead = asFiniteNumber(
     raw.cacheRead ??

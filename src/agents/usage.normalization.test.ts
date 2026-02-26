@@ -38,6 +38,23 @@ describe("normalizeUsage", () => {
     expect(normalizeUsage({})).toBeUndefined();
   });
 
+  it("falls through zero input_tokens to non-zero prompt_tokens (OpenAI-compat proxy)", () => {
+    const usage = normalizeUsage({
+      input_tokens: 0,
+      output_tokens: 0,
+      prompt_tokens: 4,
+      completion_tokens: 222,
+      total_tokens: 226,
+    });
+    expect(usage).toEqual({
+      input: 4,
+      output: 222,
+      cacheRead: undefined,
+      cacheWrite: undefined,
+      total: 226,
+    });
+  });
+
   it("guards against empty/zero usage overwrites", () => {
     expect(hasNonzeroUsage(undefined)).toBe(false);
     expect(hasNonzeroUsage(null)).toBe(false);

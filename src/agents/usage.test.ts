@@ -97,6 +97,55 @@ describe("normalizeUsage", () => {
     const usage = normalizeUsage(undefined);
     expect(usage).toBeUndefined();
   });
+
+  it("prefers non-zero prompt_tokens over zero input_tokens", () => {
+    const usage = normalizeUsage({
+      input_tokens: 0,
+      output_tokens: 0,
+      prompt_tokens: 4,
+      completion_tokens: 222,
+      total_tokens: 226,
+    });
+    expect(usage).toEqual({
+      input: 4,
+      output: 222,
+      cacheRead: undefined,
+      cacheWrite: undefined,
+      total: 226,
+    });
+  });
+
+  it("uses input_tokens when it is non-zero even if prompt_tokens also exists", () => {
+    const usage = normalizeUsage({
+      input_tokens: 100,
+      prompt_tokens: 50,
+      output_tokens: 200,
+      completion_tokens: 150,
+    });
+    expect(usage).toEqual({
+      input: 100,
+      output: 200,
+      cacheRead: undefined,
+      cacheWrite: undefined,
+      total: undefined,
+    });
+  });
+
+  it("returns zero when all token fields are zero", () => {
+    const usage = normalizeUsage({
+      input_tokens: 0,
+      output_tokens: 0,
+      prompt_tokens: 0,
+      completion_tokens: 0,
+    });
+    expect(usage).toEqual({
+      input: 0,
+      output: 0,
+      cacheRead: undefined,
+      cacheWrite: undefined,
+      total: undefined,
+    });
+  });
 });
 
 describe("hasNonzeroUsage", () => {
