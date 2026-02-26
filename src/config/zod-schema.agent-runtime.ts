@@ -263,6 +263,7 @@ export const ToolsWebSearchSchema = z
         z.literal("grok"),
         z.literal("gemini"),
         z.literal("kimi"),
+        z.literal("tavily"),
       ])
       .optional(),
     apiKey: z.string().optional().register(sensitive),
@@ -297,6 +298,13 @@ export const ToolsWebSearchSchema = z
         apiKey: z.string().optional().register(sensitive),
         baseUrl: z.string().optional(),
         model: z.string().optional(),
+      })
+      .strict()
+      .optional(),
+    tavily: z
+      .object({
+        apiKey: z.string().optional().register(sensitive),
+        searchDepth: z.union([z.literal("basic"), z.literal("advanced")]).optional(),
       })
       .strict()
       .optional(),
