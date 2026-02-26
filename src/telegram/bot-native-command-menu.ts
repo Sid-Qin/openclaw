@@ -119,7 +119,7 @@ export function syncTelegramMenuCommands(params: {
       return;
     }
 
-    let retryCommands = commandsToRegister;
+    let retryCommands = commandsToRegister.slice(0, TELEGRAM_MAX_COMMANDS);
     while (retryCommands.length > 0) {
       try {
         await withTelegramApiErrorLogging({

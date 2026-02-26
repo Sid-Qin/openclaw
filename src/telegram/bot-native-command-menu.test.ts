@@ -124,4 +124,29 @@ describe("bot-native-command-menu", () => {
       "Telegram rejected 100 commands (BOT_COMMANDS_TOO_MUCH); retrying with 80.",
     );
   });
+
+  it("hard-caps commands to TELEGRAM_MAX_COMMANDS even when caller sends more", async () => {
+    const deleteMyCommands = vi.fn(async () => undefined);
+    const setMyCommands = vi.fn().mockResolvedValue(undefined);
+
+    syncTelegramMenuCommands({
+      bot: {
+        api: {
+          deleteMyCommands,
+          setMyCommands,
+        },
+      } as unknown as Parameters<typeof syncTelegramMenuCommands>[0]["bot"],
+      runtime: {} as Parameters<typeof syncTelegramMenuCommands>[0]["runtime"],
+      commandsToRegister: Array.from({ length: 150 }, (_, i) => ({
+        command: `cmd_${i}`,
+        description: `Command ${i}`,
+      })),
+    });
+
+    await vi.waitFor(() => {
+      expect(setMyCommands).toHaveBeenCalled();
+    });
+    const payload = setMyCommands.mock.calls[0]?.[0] as Array<unknown>;
+    expect(payload).toHaveLength(100);
+  });
 });
