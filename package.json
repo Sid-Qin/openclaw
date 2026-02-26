@@ -229,6 +229,9 @@
   "packageManager": "pnpm@10.23.0",
   "pnpm": {
     "minimumReleaseAge": 2880,
+    "patchedDependencies": {
+      "@mariozechner/pi-ai@0.55.1": "patches/@mariozechner__pi-ai@0.55.1.patch"
+    },
     "overrides": {
       "hono": "4.11.10",
       "fast-xml-parser": "5.3.6",
