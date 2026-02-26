@@ -152,6 +152,9 @@ export function createTypingController(params: {
       return;
     }
     await ensureStart();
+    if (sealed || runComplete) {
+      return;
+    }
     typingLoop.start();
   };
 

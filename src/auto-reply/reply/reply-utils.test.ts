@@ -192,6 +192,33 @@ describe("typing controller", () => {
     await vi.advanceTimersByTimeAsync(5_000);
     expect(onReplyStart).toHaveBeenCalledTimes(1);
   });
+
+  it("does not start typing loop when cleanup fires during ensureStart await", async () => {
+    vi.useFakeTimers();
+    let resolveOnReplyStart: () => void;
+    const onReplyStart = vi.fn().mockImplementation(
+      () => new Promise<void>((resolve) => { resolveOnReplyStart = resolve; }),
+    );
+    const onCleanup = vi.fn();
+    const typing = createTypingController({
+      onReplyStart,
+      onCleanup,
+      typingIntervalSeconds: 1,
+      typingTtlMs: 30_000,
+    });
+
+    const loopPromise = typing.startTypingLoop();
+    expect(onReplyStart).toHaveBeenCalledTimes(1);
+
+    typing.markRunComplete();
+    typing.markDispatchIdle();
+
+    resolveOnReplyStart!();
+    await loopPromise;
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(onReplyStart).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("resolveTypingMode", () => {

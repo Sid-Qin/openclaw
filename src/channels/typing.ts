@@ -42,6 +42,9 @@ export function createTypingCallbacks(params: {
     stopSent = false;
     keepaliveLoop.stop();
     await fireStart();
+    if (closed) {
+      return;
+    }
     keepaliveLoop.start();
   };
 

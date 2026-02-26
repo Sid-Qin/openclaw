@@ -109,4 +109,30 @@ describe("createTypingCallbacks", () => {
       vi.useRealTimers();
     }
   });
+
+  it("does not restart keepalive when idle fires during start await", async () => {
+    vi.useFakeTimers();
+    try {
+      let resolveStart: () => void;
+      const start = vi.fn().mockImplementation(
+        () => new Promise<void>((resolve) => { resolveStart = resolve; }),
+      );
+      const onStartError = vi.fn();
+      const callbacks = createTypingCallbacks({ start, onStartError });
+
+      const replyPromise = callbacks.onReplyStart();
+
+      expect(start).toHaveBeenCalledTimes(1);
+
+      callbacks.onIdle?.();
+
+      resolveStart!();
+      await replyPromise;
+
+      await vi.advanceTimersByTimeAsync(9_000);
+      expect(start).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
