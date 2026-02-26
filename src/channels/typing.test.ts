@@ -86,6 +86,69 @@ describe("createTypingCallbacks", () => {
     expect(stop).toHaveBeenCalledTimes(1);
   });
 
+  it("stops keepalive after consecutive start errors", async () => {
+    vi.useFakeTimers();
+    try {
+      const start = vi.fn().mockRejectedValue(new Error("401 Unauthorized"));
+      const onStartError = vi.fn();
+      const callbacks = createTypingCallbacks({
+        start,
+        onStartError,
+        maxConsecutiveErrors: 3,
+      });
+
+      await callbacks.onReplyStart();
+      expect(start).toHaveBeenCalledTimes(1);
+      expect(onStartError).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(start).toHaveBeenCalledTimes(2);
+
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(start).toHaveBeenCalledTimes(3);
+
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(start).toHaveBeenCalledTimes(3);
+      expect(onStartError).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("resets error counter on successful start", async () => {
+    vi.useFakeTimers();
+    try {
+      let callCount = 0;
+      const start = vi.fn().mockImplementation(async () => {
+        callCount++;
+        if (callCount === 2) {
+          throw new Error("transient");
+        }
+      });
+      const onStartError = vi.fn();
+      const callbacks = createTypingCallbacks({
+        start,
+        onStartError,
+        maxConsecutiveErrors: 2,
+      });
+
+      await callbacks.onReplyStart();
+      expect(start).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(onStartError).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(start).toHaveBeenCalledTimes(3);
+      expect(onStartError).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(start).toHaveBeenCalledTimes(4);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("does not restart keepalive after idle cleanup", async () => {
     vi.useFakeTimers();
     try {

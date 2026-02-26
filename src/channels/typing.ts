@@ -7,17 +7,22 @@ export type TypingCallbacks = {
   onCleanup?: () => void;
 };
 
+const MAX_CONSECUTIVE_ERRORS = 3;
+
 export function createTypingCallbacks(params: {
   start: () => Promise<void>;
   stop?: () => Promise<void>;
   onStartError: (err: unknown) => void;
   onStopError?: (err: unknown) => void;
   keepaliveIntervalMs?: number;
+  maxConsecutiveErrors?: number;
 }): TypingCallbacks {
   const stop = params.stop;
   const keepaliveIntervalMs = params.keepaliveIntervalMs ?? 3_000;
+  const maxErrors = params.maxConsecutiveErrors ?? MAX_CONSECUTIVE_ERRORS;
   let stopSent = false;
   let closed = false;
+  let consecutiveErrors = 0;
 
   const fireStart = async () => {
     if (closed) {
@@ -25,8 +30,14 @@ export function createTypingCallbacks(params: {
     }
     try {
       await params.start();
+      consecutiveErrors = 0;
     } catch (err) {
+      consecutiveErrors++;
       params.onStartError(err);
+      if (consecutiveErrors >= maxErrors) {
+        closed = true;
+        keepaliveLoop.stop();
+      }
     }
   };
 
