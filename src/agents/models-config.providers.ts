@@ -365,12 +365,30 @@ function resolveApiKeyFromProfiles(params: {
   return undefined;
 }
 
+const DEPRECATED_GOOGLE_MODEL_REDIRECTS: Record<string, string> = {
+  "gemini-1.5-flash": "gemini-2.5-flash",
+  "gemini-1.5-flash-latest": "gemini-2.5-flash",
+  "gemini-1.5-flash-8b": "gemini-2.5-flash",
+  "gemini-1.5-pro": "gemini-2.5-pro",
+  "gemini-1.5-pro-latest": "gemini-2.5-pro",
+  "gemini-2.0-flash": "gemini-2.5-flash",
+  "gemini-2.0-flash-lite": "gemini-2.5-flash",
+};
+
 export function normalizeGoogleModelId(id: string): string {
   if (id === "gemini-3-pro") {
     return "gemini-3-pro-preview";
   }
   if (id === "gemini-3-flash") {
     return "gemini-3-flash-preview";
+  }
+  const redirect = DEPRECATED_GOOGLE_MODEL_REDIRECTS[id];
+  if (redirect) {
+    log.warn(
+      `Google model "${id}" has been deprecated; automatically redirecting to "${redirect}". ` +
+        `Update your config to use "${redirect}" directly.`,
+    );
+    return redirect;
   }
   return id;
 }
