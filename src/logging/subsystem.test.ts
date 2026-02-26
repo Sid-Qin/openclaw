@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import * as consoleModule from "./console.js";
 import { setConsoleSubsystemFilter } from "./console.js";
 import { resetLogger, setLoggerOverride } from "./logger.js";
 import { createSubsystemLogger } from "./subsystem.js";
@@ -52,5 +53,17 @@ describe("createSubsystemLogger().isEnabled", () => {
 
     expect(log.isEnabled("info", "file")).toBe(true);
     expect(log.isEnabled("info")).toBe(true);
+  });
+
+  it("uses local console timestamp formatter for pretty output", () => {
+    setLoggerOverride({ level: "silent", consoleLevel: "info", consoleStyle: "pretty" });
+    const timestampSpy = vi.spyOn(consoleModule, "formatConsoleTimestamp");
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const log = createSubsystemLogger("agent/embedded");
+
+    log.info("hello");
+
+    expect(timestampSpy).toHaveBeenCalledWith("pretty");
+    expect(consoleSpy).toHaveBeenCalledTimes(1);
   });
 });
