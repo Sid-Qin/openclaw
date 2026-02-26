@@ -14,6 +14,25 @@ const ANTHROPIC_SONNET_46_MODEL_ID = "claude-sonnet-4-6";
 const ANTHROPIC_SONNET_46_DOT_MODEL_ID = "claude-sonnet-4.6";
 const ANTHROPIC_SONNET_TEMPLATE_MODEL_IDS = ["claude-sonnet-4-5", "claude-sonnet-4.5"] as const;
 
+const ANTIGRAVITY_SONNET_46_MODEL_ID = "claude-sonnet-4-6";
+const ANTIGRAVITY_SONNET_46_DOT_MODEL_ID = "claude-sonnet-4.6";
+const ANTIGRAVITY_SONNET_TEMPLATE_IDS = ["claude-sonnet-4-5", "claude-sonnet-4.5"] as const;
+const ANTIGRAVITY_SONNET_46_THINKING_MODEL_ID = "claude-sonnet-4-6-thinking";
+const ANTIGRAVITY_SONNET_46_DOT_THINKING_MODEL_ID = "claude-sonnet-4.6-thinking";
+const ANTIGRAVITY_SONNET_THINKING_TEMPLATE_IDS = [
+  "claude-sonnet-4-5-thinking",
+  "claude-sonnet-4.5-thinking",
+] as const;
+const ANTIGRAVITY_GEMINI_31_PRO_MODEL_ID = "gemini-3.1-pro-preview";
+const ANTIGRAVITY_GEMINI_TEMPLATE_IDS = ["gemini-3-pro", "gemini-2.5-pro"] as const;
+const ANTIGRAVITY_GEMINI_31_PRO_THINKING_MODEL_ID = "gemini-3.1-pro-preview-thinking";
+const ANTIGRAVITY_GEMINI_THINKING_TEMPLATE_IDS = [
+  "gemini-3-pro-thinking",
+  "gemini-2.5-pro-thinking",
+  "gemini-3-pro",
+  "gemini-2.5-pro",
+] as const;
+
 const ZAI_GLM5_MODEL_ID = "glm-5";
 const ZAI_GLM5_TEMPLATE_MODEL_IDS = ["glm-4.7"] as const;
 
@@ -40,6 +59,8 @@ function cloneFirstTemplateModel(params: {
   return undefined;
 }
 
+const CODEX_GPT53_ELIGIBLE_PROVIDERS = new Set(["openai-codex", "github-copilot"]);
+
 function resolveOpenAICodexGpt53FallbackModel(
   provider: string,
   modelId: string,
@@ -47,7 +68,7 @@ function resolveOpenAICodexGpt53FallbackModel(
 ): Model<Api> | undefined {
   const normalizedProvider = normalizeProviderId(provider);
   const trimmedModelId = modelId.trim();
-  if (normalizedProvider !== "openai-codex") {
+  if (!CODEX_GPT53_ELIGIBLE_PROVIDERS.has(normalizedProvider)) {
     return undefined;
   }
   if (trimmedModelId.toLowerCase() !== OPENAI_CODEX_GPT_53_MODEL_ID) {
@@ -200,6 +221,87 @@ function resolveZaiGlm5ForwardCompatModel(
   } as Model<Api>);
 }
 
+function resolveAntigravityForwardCompatModel(
+  provider: string,
+  modelId: string,
+  modelRegistry: ModelRegistry,
+): Model<Api> | undefined {
+  const normalizedProvider = normalizeProviderId(provider);
+  if (normalizedProvider !== "google-antigravity") {
+    return undefined;
+  }
+
+  const trimmedModelId = modelId.trim();
+  const lower = trimmedModelId.toLowerCase();
+
+  const matchModel = (dash: string, dot: string) =>
+    lower === dash || lower === dot || lower.startsWith(`${dash}-`) || lower.startsWith(`${dot}-`);
+
+  // Claude Sonnet 4.6 thinking variants
+  if (
+    matchModel(ANTIGRAVITY_SONNET_46_THINKING_MODEL_ID, ANTIGRAVITY_SONNET_46_DOT_THINKING_MODEL_ID)
+  ) {
+    const templateIds: string[] = [];
+    if (lower.startsWith(ANTIGRAVITY_SONNET_46_THINKING_MODEL_ID)) {
+      templateIds.push(
+        lower.replace(ANTIGRAVITY_SONNET_46_THINKING_MODEL_ID, "claude-sonnet-4-5-thinking"),
+      );
+    }
+    if (lower.startsWith(ANTIGRAVITY_SONNET_46_DOT_THINKING_MODEL_ID)) {
+      templateIds.push(
+        lower.replace(ANTIGRAVITY_SONNET_46_DOT_THINKING_MODEL_ID, "claude-sonnet-4.5-thinking"),
+      );
+    }
+    templateIds.push(...ANTIGRAVITY_SONNET_THINKING_TEMPLATE_IDS);
+    return cloneFirstTemplateModel({
+      normalizedProvider,
+      trimmedModelId,
+      templateIds,
+      modelRegistry,
+    });
+  }
+
+  // Claude Sonnet 4.6 non-thinking variants
+  if (matchModel(ANTIGRAVITY_SONNET_46_MODEL_ID, ANTIGRAVITY_SONNET_46_DOT_MODEL_ID)) {
+    const templateIds: string[] = [];
+    if (lower.startsWith(ANTIGRAVITY_SONNET_46_MODEL_ID)) {
+      templateIds.push(lower.replace(ANTIGRAVITY_SONNET_46_MODEL_ID, "claude-sonnet-4-5"));
+    }
+    if (lower.startsWith(ANTIGRAVITY_SONNET_46_DOT_MODEL_ID)) {
+      templateIds.push(lower.replace(ANTIGRAVITY_SONNET_46_DOT_MODEL_ID, "claude-sonnet-4.5"));
+    }
+    templateIds.push(...ANTIGRAVITY_SONNET_TEMPLATE_IDS);
+    return cloneFirstTemplateModel({
+      normalizedProvider,
+      trimmedModelId,
+      templateIds,
+      modelRegistry,
+    });
+  }
+
+  // Gemini 3.1 Pro thinking variants
+  if (lower === ANTIGRAVITY_GEMINI_31_PRO_THINKING_MODEL_ID) {
+    return cloneFirstTemplateModel({
+      normalizedProvider,
+      trimmedModelId,
+      templateIds: [...ANTIGRAVITY_GEMINI_THINKING_TEMPLATE_IDS],
+      modelRegistry,
+    });
+  }
+
+  // Gemini 3.1 Pro non-thinking variants
+  if (lower === ANTIGRAVITY_GEMINI_31_PRO_MODEL_ID) {
+    return cloneFirstTemplateModel({
+      normalizedProvider,
+      trimmedModelId,
+      templateIds: [...ANTIGRAVITY_GEMINI_TEMPLATE_IDS],
+      modelRegistry,
+    });
+  }
+
+  return undefined;
+}
+
 export function resolveForwardCompatModel(
   provider: string,
   modelId: string,
@@ -209,6 +311,7 @@ export function resolveForwardCompatModel(
     resolveOpenAICodexGpt53FallbackModel(provider, modelId, modelRegistry) ??
     resolveAnthropicOpus46ForwardCompatModel(provider, modelId, modelRegistry) ??
     resolveAnthropicSonnet46ForwardCompatModel(provider, modelId, modelRegistry) ??
-    resolveZaiGlm5ForwardCompatModel(provider, modelId, modelRegistry)
+    resolveZaiGlm5ForwardCompatModel(provider, modelId, modelRegistry) ??
+    resolveAntigravityForwardCompatModel(provider, modelId, modelRegistry)
   );
 }
