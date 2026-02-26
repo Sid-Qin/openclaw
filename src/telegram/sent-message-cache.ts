@@ -42,6 +42,30 @@ export function recordSentMessage(chatId: number | string, messageId: number): v
 }
 
 /**
+ * Return the most recently sent message ID for a chat, or undefined if none.
+ */
+export function getLastSentMessageId(chatId: number | string): number | undefined {
+  const key = getChatKey(chatId);
+  const entry = sentMessages.get(key);
+  if (!entry || entry.timestamps.size === 0) {
+    return undefined;
+  }
+  cleanupExpired(entry);
+  if (entry.timestamps.size === 0) {
+    return undefined;
+  }
+  let latestId: number | undefined;
+  let latestTs = -1;
+  for (const [msgId, ts] of entry.timestamps) {
+    if (ts > latestTs) {
+      latestTs = ts;
+      latestId = msgId;
+    }
+  }
+  return latestId;
+}
+
+/**
  * Check if a message was sent by the bot.
  */
 export function wasSentByBot(chatId: number | string, messageId: number): boolean {

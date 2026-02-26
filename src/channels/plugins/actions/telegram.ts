@@ -12,6 +12,7 @@ import {
   listEnabledTelegramAccounts,
 } from "../../../telegram/accounts.js";
 import { isTelegramInlineButtonsEnabled } from "../../../telegram/inline-buttons.js";
+import { getLastSentMessageId } from "../../../telegram/sent-message-cache.js";
 import type { ChannelMessageActionAdapter, ChannelMessageActionName } from "../types.js";
 import { createUnionActionGate, listTokenSourcedAccounts } from "./shared.js";
 
@@ -122,14 +123,18 @@ export const telegramMessageActions: ChannelMessageActionAdapter = {
     }
 
     if (action === "react") {
+      const explicitId = readStringOrNumberParam(params, "messageId");
+      const chatId = readTelegramChatIdParam(params);
       const messageId =
-        readStringOrNumberParam(params, "messageId") ?? toolContext?.currentMessageId;
+        explicitId ??
+        (chatId ? getLastSentMessageId(chatId) : undefined) ??
+        toolContext?.currentMessageId;
       const emoji = readStringParam(params, "emoji", { allowEmpty: true });
       const remove = typeof params.remove === "boolean" ? params.remove : undefined;
       return await handleTelegramAction(
         {
           action: "react",
-          chatId: readTelegramChatIdParam(params),
+          chatId,
           messageId,
           emoji,
           remove,
