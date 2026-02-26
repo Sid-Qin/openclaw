@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import { VERSION } from "../version.js";
@@ -36,6 +37,28 @@ const SERVICE_PROXY_ENV_KEYS = [
   "all_proxy",
 ] as const;
 
+function detectMacosSystemProxy(): { http?: string; https?: string } {
+  if (process.platform !== "darwin") {
+    return {};
+  }
+  try {
+    const raw = execSync("scutil --proxy", { timeout: 3000 }).toString("utf8");
+    const httpEnabled = /HTTPEnable\s*:\s*1/.test(raw);
+    const httpsEnabled = /HTTPSEnable\s*:\s*1/.test(raw);
+    const httpHost = raw.match(/HTTPProxy\s*:\s*(\S+)/)?.[1];
+    const httpPort = raw.match(/HTTPPort\s*:\s*(\d+)/)?.[1];
+    const httpsHost = raw.match(/HTTPSProxy\s*:\s*(\S+)/)?.[1];
+    const httpsPort = raw.match(/HTTPSPort\s*:\s*(\d+)/)?.[1];
+    return {
+      http: httpEnabled && httpHost && httpPort ? `http://${httpHost}:${httpPort}` : undefined,
+      https:
+        httpsEnabled && httpsHost && httpsPort ? `http://${httpsHost}:${httpsPort}` : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
 function readServiceProxyEnvironment(
   env: Record<string, string | undefined>,
 ): Record<string, string | undefined> {
@@ -50,6 +73,17 @@ function readServiceProxyEnvironment(
       continue;
     }
     out[key] = trimmed;
+  }
+  if (!out.HTTP_PROXY && !out.http_proxy && !out.HTTPS_PROXY && !out.https_proxy) {
+    const system = detectMacosSystemProxy();
+    if (system.http) {
+      out.HTTP_PROXY = system.http;
+      out.http_proxy = system.http;
+    }
+    if (system.https) {
+      out.HTTPS_PROXY = system.https;
+      out.https_proxy = system.https;
+    }
   }
   return out;
 }
