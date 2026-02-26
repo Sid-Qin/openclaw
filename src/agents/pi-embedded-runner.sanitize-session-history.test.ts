@@ -546,6 +546,25 @@ describe("sanitizeSessionHistory", () => {
     expect(types).toContain("thinking");
   });
 
+  it("preserves signatures for Anthropic provider (preserveSignatures: true)", async () => {
+    setNonGoogleModelApi();
+
+    await sanitizeSessionHistory({
+      messages: makeThinkingAndTextAssistantMessages("anthropic_sig_abc123"),
+      modelApi: "anthropic-messages",
+      provider: "anthropic",
+      modelId: "claude-sonnet-4-6",
+      sessionManager: makeMockSessionManager(),
+      sessionId: TEST_SESSION_ID,
+    });
+
+    expect(helpers.sanitizeSessionMessagesImages).toHaveBeenCalledWith(
+      expect.anything(),
+      "session:history",
+      expect.objectContaining({ preserveSignatures: true }),
+    );
+  });
+
   it("does not drop thinking blocks for non-claude copilot models", async () => {
     setNonGoogleModelApi();
 
