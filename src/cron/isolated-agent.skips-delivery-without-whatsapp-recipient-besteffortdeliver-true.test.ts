@@ -33,6 +33,15 @@ function expectDeliveredOk(result: Awaited<ReturnType<typeof runCronIsolatedAgen
   expect(result.delivered).toBe(true);
 }
 
+function expectAnnounceDispatchedOk(
+  result: Awaited<ReturnType<typeof runCronIsolatedAgentTurn>>,
+): void {
+  expect(result.status).toBe("ok");
+  // Announce delivery cannot confirm channel-level send; delivered is
+  // undefined ("unknown") rather than true when bestEffort is off.
+  expect(result.delivered).toBeUndefined();
+}
+
 async function expectBestEffortTelegramNotDelivered(
   payload: Record<string, unknown>,
 ): Promise<void> {
@@ -76,7 +85,7 @@ async function expectExplicitTelegramTargetAnnounce(params: {
       deps,
     });
 
-    expectDeliveredOk(res);
+    expectAnnounceDispatchedOk(res);
     expect(runSubagentAnnounceFlow).toHaveBeenCalledTimes(1);
     const announceArgs = vi.mocked(runSubagentAnnounceFlow).mock.calls[0]?.[0] as
       | {

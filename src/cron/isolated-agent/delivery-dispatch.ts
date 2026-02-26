@@ -116,7 +116,7 @@ type DispatchCronDeliveryParams = {
 
 export type DispatchCronDeliveryState = {
   result?: RunCronAgentTurnResult;
-  delivered: boolean;
+  delivered?: boolean;
   deliveryAttempted: boolean;
   summary?: string;
   outputText?: string;
@@ -133,8 +133,9 @@ export async function dispatchCronDelivery(
   let deliveryPayloads = params.deliveryPayloads;
 
   // `true` means we confirmed at least one outbound send reached the target.
+  // `undefined` means delivery was attempted but channel confirmation is unavailable.
   // Keep this strict so timer fallback can safely decide whether to wake main.
-  let delivered = params.skipMessagingToolDelivery;
+  let delivered: boolean | undefined = params.skipMessagingToolDelivery ? true : false;
   let deliveryAttempted = params.skipMessagingToolDelivery;
   const failDeliveryTarget = (error: string) =>
     params.withRunSession({
@@ -314,7 +315,13 @@ export async function dispatchCronDelivery(
         signal: params.abortSignal,
       });
       if (didAnnounce) {
-        delivered = true;
+        // The announce flow dispatches via queue/steer/gateway-agent, which
+        // confirms the message was *accepted* but NOT that the outbound channel
+        // (e.g. Telegram) successfully sent it.  Mark delivery as confirmed
+        // only for best-effort mode; otherwise leave it undefined so
+        // resolveDeliveryStatus reports "unknown" instead of a false positive
+        // "delivered" (#27069).
+        delivered = params.deliveryBestEffort ? true : undefined;
       } else {
         const message = "cron announce delivery failed";
         if (!params.deliveryBestEffort) {
