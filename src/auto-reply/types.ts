@@ -27,6 +27,8 @@ export type GetReplyOptions = {
   onTypingCleanup?: () => void;
   onTypingController?: (typing: TypingController) => void;
   isHeartbeat?: boolean;
+  /** Suppress typing indicators for system/internal messages (cron results, subagent reports, exec completions). */
+  suppressTyping?: boolean;
   /** Resolved heartbeat model override (provider/model string from merged per-agent config). */
   heartbeatModelOverride?: string;
   /** If true, suppress tool error warning payloads for this run. */

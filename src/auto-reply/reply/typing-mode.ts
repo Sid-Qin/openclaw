@@ -7,6 +7,8 @@ export type TypingModeContext = {
   isGroupChat: boolean;
   wasMentioned: boolean;
   isHeartbeat: boolean;
+  /** Suppress typing for system/internal messages (cron results, subagent reports, exec completions). */
+  suppressTyping?: boolean;
 };
 
 export const DEFAULT_GROUP_TYPING_MODE: TypingMode = "message";
@@ -16,8 +18,9 @@ export function resolveTypingMode({
   isGroupChat,
   wasMentioned,
   isHeartbeat,
+  suppressTyping,
 }: TypingModeContext): TypingMode {
-  if (isHeartbeat) {
+  if (isHeartbeat || suppressTyping) {
     return "never";
   }
   if (configured) {

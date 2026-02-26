@@ -238,6 +238,7 @@ export async function runPreparedReply(
     isGroupChat,
     wasMentioned,
     isHeartbeat,
+    suppressTyping: opts?.suppressTyping,
   });
   const shouldInjectGroupIntro = Boolean(
     isGroupChat && (isFirstTurnInSession || sessionEntry?.groupActivationNeedsSystemIntro),
