@@ -308,7 +308,7 @@ export const ToolsWebSearchSchema = z
 export const ToolsWebFetchFirecrawlSchema = z
   .object({
     enabled: z.boolean().optional(),
-    apiKey: z.string().optional(),
+    apiKey: z.string().optional().register(sensitive),
     baseUrl: z.string().optional(),
     onlyMainContent: z.boolean().optional(),
     maxAgeMs: z.number().nonnegative().optional(),
