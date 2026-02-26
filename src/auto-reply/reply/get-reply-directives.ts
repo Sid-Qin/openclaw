@@ -252,7 +252,8 @@ export async function resolveReplyDirectives(params: {
       }
     }
   }
-  let directives = commandAuthorized
+  const effectiveAuthorized = commandAuthorized || command.isAuthorizedSender;
+  let directives = effectiveAuthorized
     ? parsedDirectives
     : {
         ...parsedDirectives,
