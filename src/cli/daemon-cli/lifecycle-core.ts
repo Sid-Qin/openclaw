@@ -164,22 +164,30 @@ export async function runServiceStart(params: {
     return;
   }
   if (!loaded) {
-    await handleServiceNotLoaded({
-      serviceNoun: params.serviceNoun,
-      service: params.service,
-      loaded,
-      renderStartHints: params.renderStartHints,
-      json,
-      emit,
-    });
-    return;
-  }
-  try {
-    await params.service.restart({ env: process.env, stdout });
-  } catch (err) {
-    const hints = params.renderStartHints();
-    fail(`${params.serviceNoun} start failed: ${String(err)}`, hints);
-    return;
+    // Service was stopped or never bootstrapped. Try restart which
+    // re-bootstraps the service on macOS (bootout is a no-op when
+    // already unloaded) and re-enables on Linux/Windows.
+    try {
+      await params.service.restart({ env: process.env, stdout });
+    } catch (err) {
+      await handleServiceNotLoaded({
+        serviceNoun: params.serviceNoun,
+        service: params.service,
+        loaded,
+        renderStartHints: params.renderStartHints,
+        json,
+        emit,
+      });
+      return;
+    }
+  } else {
+    try {
+      await params.service.restart({ env: process.env, stdout });
+    } catch (err) {
+      const hints = params.renderStartHints();
+      fail(`${params.serviceNoun} start failed: ${String(err)}`, hints);
+      return;
+    }
   }
 
   let started = true;
