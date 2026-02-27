@@ -6,6 +6,16 @@ function normalize(value: string | undefined): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
+function isCrossPlatformHomeMismatch(envHome: string, systemHome: string): boolean {
+  const normalizedEnv = path.resolve(envHome);
+  const normalizedSystem = path.resolve(systemHome);
+  const envIsLinuxHome = /^\/home\//.test(normalizedEnv);
+  const envIsMacHome = /^\/Users\//.test(normalizedEnv);
+  const systemIsLinuxHome = /^\/home\//.test(normalizedSystem);
+  const systemIsMacHome = /^\/Users\//.test(normalizedSystem);
+  return (envIsLinuxHome && systemIsMacHome) || (envIsMacHome && systemIsLinuxHome);
+}
+
 export function resolveEffectiveHomeDir(
   env: NodeJS.ProcessEnv = process.env,
   homedir: () => string = os.homedir,
@@ -15,11 +25,11 @@ export function resolveEffectiveHomeDir(
 }
 
 function resolveRawHomeDir(env: NodeJS.ProcessEnv, homedir: () => string): string | undefined {
+  const systemHome = normalizeSafe(homedir);
   const explicitHome = normalize(env.OPENCLAW_HOME);
   if (explicitHome) {
     if (explicitHome === "~" || explicitHome.startsWith("~/") || explicitHome.startsWith("~\\")) {
-      const fallbackHome =
-        normalize(env.HOME) ?? normalize(env.USERPROFILE) ?? normalizeSafe(homedir);
+      const fallbackHome = normalize(env.HOME) ?? normalize(env.USERPROFILE) ?? systemHome;
       if (fallbackHome) {
         return explicitHome.replace(/^~(?=$|[\\/])/, fallbackHome);
       }
@@ -30,6 +40,9 @@ function resolveRawHomeDir(env: NodeJS.ProcessEnv, homedir: () => string): strin
 
   const envHome = normalize(env.HOME);
   if (envHome) {
+    if (systemHome && isCrossPlatformHomeMismatch(envHome, systemHome)) {
+      return systemHome;
+    }
     return envHome;
   }
 
@@ -38,7 +51,7 @@ function resolveRawHomeDir(env: NodeJS.ProcessEnv, homedir: () => string): strin
     return userProfile;
   }
 
-  return normalizeSafe(homedir);
+  return systemHome;
 }
 
 function normalizeSafe(homedir: () => string): string | undefined {

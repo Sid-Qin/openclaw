@@ -35,6 +35,21 @@ describe("resolveEffectiveHomeDir", () => {
 
     expect(resolveEffectiveHomeDir(env)).toBe(path.resolve("/home/alice/svc"));
   });
+
+  it("falls back to system homedir when HOME looks cross-platform mismatched", () => {
+    const env = {
+      HOME: "/home/node",
+    } as NodeJS.ProcessEnv;
+    expect(resolveEffectiveHomeDir(env, () => "/Users/alice")).toBe(path.resolve("/Users/alice"));
+  });
+
+  it("still honors explicit OPENCLAW_HOME even if cross-platform-looking", () => {
+    const env = {
+      OPENCLAW_HOME: "/home/node/custom",
+      HOME: "/home/node",
+    } as NodeJS.ProcessEnv;
+    expect(resolveEffectiveHomeDir(env, () => "/Users/alice")).toBe(path.resolve("/home/node/custom"));
+  });
 });
 
 describe("resolveRequiredHomeDir", () => {
