@@ -616,6 +616,12 @@ export const FIELD_HELP: Record<string, string> = {
   "tools.web.fetch.cacheTtlMinutes": "Cache TTL in minutes for web_fetch results.",
   "tools.web.fetch.maxRedirects": "Maximum redirects allowed for web_fetch (default: 3).",
   "tools.web.fetch.userAgent": "Override User-Agent header for web_fetch requests.",
+  "tools.web.fetch.ssrfPolicy":
+    "SSRF guardrail settings for web_fetch network requests. Use to unblock fake-IP proxy environments (Surge, Clash) or trusted internal networks.",
+  "tools.web.fetch.ssrfPolicy.dangerouslyAllowPrivateNetwork":
+    "Allow web_fetch to reach private/internal network addresses. Default: false.",
+  "tools.web.fetch.ssrfPolicy.allowRfc2544BenchmarkRange":
+    "Allow web_fetch to reach RFC 2544 benchmark range (198.18.0.0/15). Needed for fake-IP proxy environments (Surge, Clash, etc.). Default: false.",
   "tools.web.fetch.readability":
     "Use Readability to extract main content from HTML (fallbacks to basic HTML cleanup).",
   "tools.web.fetch.firecrawl.enabled": "Enable Firecrawl fallback for web_fetch (if configured).",

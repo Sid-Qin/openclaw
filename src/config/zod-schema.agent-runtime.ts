@@ -314,6 +314,13 @@ export const ToolsWebFetchSchema = z
     cacheTtlMinutes: z.number().nonnegative().optional(),
     maxRedirects: z.number().int().nonnegative().optional(),
     userAgent: z.string().optional(),
+    ssrfPolicy: z
+      .object({
+        dangerouslyAllowPrivateNetwork: z.boolean().optional(),
+        allowRfc2544BenchmarkRange: z.boolean().optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .optional();
