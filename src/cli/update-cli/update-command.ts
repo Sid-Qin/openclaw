@@ -99,10 +99,10 @@ function resolveGatewayInstallEntrypointCandidates(root?: string): string[] {
     return [];
   }
   return [
-    path.join(root, "dist", "entry.js"),
-    path.join(root, "dist", "entry.mjs"),
     path.join(root, "dist", "index.js"),
     path.join(root, "dist", "index.mjs"),
+    path.join(root, "dist", "entry.js"),
+    path.join(root, "dist", "entry.mjs"),
   ];
 }
 
@@ -823,8 +823,11 @@ export async function updateCommand(opts: UpdateCommandOptions): Promise<void> {
       const loaded = await resolveGatewayService().isLoaded({ env: process.env });
       if (loaded) {
         restartScriptPath = await prepareRestartScript(process.env);
-        refreshGatewayServiceEnv = true;
       }
+      // Always refresh service env after update so the LaunchAgent plist
+      // stays in sync with the current entrypoint, even when the service
+      // was not loaded at the time of update.
+      refreshGatewayServiceEnv = true;
     } catch {
       // Ignore errors during pre-check; fallback to standard restart
     }
