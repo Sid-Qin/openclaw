@@ -3370,4 +3370,92 @@ describe("BlueBubbles webhook monitor", () => {
       expect(mockDispatchReplyWithBufferedBlockDispatcher).not.toHaveBeenCalled();
     });
   });
+
+  describe("attachment-only messages", () => {
+    it("accepts attachment-only messages with no text", async () => {
+      const account = createMockAccount({ dmPolicy: "open" });
+      const config: OpenClawConfig = {};
+      const core = createMockRuntime();
+      setBlueBubblesRuntime(core);
+
+      unregister = registerBlueBubblesWebhookTarget({
+        account,
+        config,
+        runtime: { log: vi.fn(), error: vi.fn() },
+        core,
+        path: "/bluebubbles-webhook",
+      });
+
+      const payload = {
+        type: "new-message",
+        data: {
+          text: null,
+          handle: { address: "+15551234567" },
+          isGroup: false,
+          isFromMe: false,
+          guid: "msg-attachment-1",
+          chatGuid: "iMessage;-;+15551234567",
+          date: Date.now(),
+          attachments: [
+            {
+              guid: "att-guid-1",
+              mimeType: "image/jpeg",
+              transferName: "photo.jpg",
+              totalBytes: 50000,
+            },
+          ],
+        },
+      };
+
+      const req = createMockRequest("POST", "/bluebubbles-webhook", payload);
+      const res = createMockResponse();
+
+      await handleBlueBubblesWebhookRequest(req, res);
+      await flushAsync();
+
+      expect(res.statusCode).toBe(200);
+      expect(mockDispatchReplyWithBufferedBlockDispatcher).toHaveBeenCalled();
+    });
+
+    it("accepts flat webhook payload with attachments", async () => {
+      const account = createMockAccount({ dmPolicy: "open" });
+      const config: OpenClawConfig = {};
+      const core = createMockRuntime();
+      setBlueBubblesRuntime(core);
+
+      unregister = registerBlueBubblesWebhookTarget({
+        account,
+        config,
+        runtime: { log: vi.fn(), error: vi.fn() },
+        core,
+        path: "/bluebubbles-webhook",
+      });
+
+      const payload = {
+        guid: "msg-flat-1",
+        handle: { address: "+15551234567" },
+        isGroup: false,
+        isFromMe: false,
+        chatGuid: "iMessage;-;+15551234567",
+        date: Date.now(),
+        attachments: [
+          {
+            guid: "att-guid-2",
+            mimeType: "image/png",
+            transferName: "screenshot.png",
+            totalBytes: 120000,
+          },
+        ],
+      };
+
+      const req = createMockRequest("POST", "/bluebubbles-webhook", payload);
+      const res = createMockResponse();
+
+      await handleBlueBubblesWebhookRequest(req, res);
+      await flushAsync();
+
+      expect(res.statusCode).toBe(200);
+      expect(mockDispatchReplyWithBufferedBlockDispatcher).toHaveBeenCalled();
+    });
+  });
 });

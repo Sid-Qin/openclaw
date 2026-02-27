@@ -664,7 +664,19 @@ function extractMessagePayload(payload: Record<string, unknown>): Record<string,
   if (message) {
     return message;
   }
+  if (looksLikeMessagePayload(payload)) {
+    return payload;
+  }
   return null;
+}
+
+function looksLikeMessagePayload(payload: Record<string, unknown>): boolean {
+  return (
+    payload["guid"] !== undefined ||
+    payload["handle"] !== undefined ||
+    payload["senderId"] !== undefined ||
+    (Array.isArray(payload["attachments"]) && payload["attachments"].length > 0)
+  );
 }
 
 export function normalizeWebhookMessage(
@@ -724,10 +736,13 @@ export function normalizeWebhookMessage(
         : timestampRaw * 1000
       : undefined;
 
-  // BlueBubbles may omit `handle` in webhook payloads; for DM chat GUIDs we can still infer sender.
   const senderFallbackFromChatGuid =
     !senderId && !isGroup && chatGuid ? extractHandleFromChatGuid(chatGuid) : null;
-  const normalizedSender = normalizeBlueBubblesHandle(senderId || senderFallbackFromChatGuid || "");
+  const senderFallbackFromChatIdentifier =
+    !senderId && !senderFallbackFromChatGuid && !isGroup && chatIdentifier ? chatIdentifier : null;
+  const normalizedSender = normalizeBlueBubblesHandle(
+    senderId || senderFallbackFromChatGuid || senderFallbackFromChatIdentifier || "",
+  );
   if (!normalizedSender) {
     return null;
   }
