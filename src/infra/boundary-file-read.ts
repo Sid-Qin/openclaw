@@ -4,6 +4,20 @@ import { resolveBoundaryPath, resolveBoundaryPathSync } from "./boundary-path.js
 import type { PathAliasPolicy } from "./path-alias-guards.js";
 import { openVerifiedFileSync, type SafeOpenSyncFailureReason } from "./safe-open-sync.js";
 
+/**
+ * Package managers like pnpm and bun use content-addressable stores where
+ * every file is a hardlink (nlink > 1).  These are read-only store paths
+ * controlled by the package manager, not user-writable plugin directories,
+ * so the hardlink-escape attack vector does not apply.
+ */
+function isPackageManagerStorePath(canonicalPath: string): boolean {
+  const normalized = canonicalPath.split(path.sep).join("/");
+  return (
+    normalized.includes("/node_modules/.pnpm/") ||
+    normalized.includes("/.bun/install/cache/")
+  );
+}
+
 type BoundaryReadFs = Pick<
   typeof fs,
   | "closeSync"
@@ -69,10 +83,15 @@ export function openBoundaryFileSync(params: OpenBoundaryFileSyncParams): Bounda
     return { ok: false, reason: "validation", error };
   }
 
+  const rejectHardlinks =
+    (params.rejectHardlinks ?? true) &&
+    !isPackageManagerStorePath(resolvedPath) &&
+    process.env.OPENCLAW_PLUGIN_ALLOW_HARDLINKS !== "true";
+
   const opened = openVerifiedFileSync({
     filePath: absolutePath,
     resolvedPath,
-    rejectHardlinks: params.rejectHardlinks ?? true,
+    rejectHardlinks,
     maxBytes: params.maxBytes,
     ioFs,
   });
