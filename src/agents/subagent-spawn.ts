@@ -49,6 +49,7 @@ export type SpawnSubagentContext = {
   agentGroupChannel?: string | null;
   agentGroupSpace?: string | null;
   requesterAgentIdOverride?: string;
+  agentImages?: Array<{ type: "image"; data: string; mimeType: string }>;
 };
 
 export const SUBAGENT_SPAWN_ACCEPTED_NOTE =
@@ -100,6 +101,42 @@ function summarizeError(err: unknown): string {
     return err;
   }
   return "error";
+}
+
+function normalizeAttachmentFileExt(mimeType: string): string {
+  const raw = mimeType.split("/", 2)[1]?.trim().toLowerCase() || "";
+  const clean = raw.replace(/[^a-z0-9]+/g, "");
+  if (!clean) {
+    return "bin";
+  }
+  if (clean === "jpeg") {
+    return "jpg";
+  }
+  return clean;
+}
+
+function toSpawnAttachments(images?: Array<{ type: "image"; data: string; mimeType: string }>) {
+  if (!Array.isArray(images) || images.length === 0) {
+    return undefined;
+  }
+  const attachments = images
+    .map((image, index) => {
+      const mimeType = typeof image.mimeType === "string" ? image.mimeType.trim() : "";
+      const content = typeof image.data === "string" ? image.data.trim() : "";
+      if (!mimeType || !content) {
+        return null;
+      }
+      return {
+        type: "image",
+        mimeType,
+        fileName: `spawn-image-${index + 1}.${normalizeAttachmentFileExt(mimeType)}`,
+        content,
+      };
+    })
+    .filter((entry): entry is { type: "image"; mimeType: string; fileName: string; content: string } =>
+      Boolean(entry),
+    );
+  return attachments.length > 0 ? attachments : undefined;
 }
 
 async function ensureThreadBindingForSubagentSpawn(params: {
@@ -404,6 +441,7 @@ export async function spawnSubagentDirect(
     .join("\n\n");
 
   const childIdem = crypto.randomUUID();
+  const childAttachments = toSpawnAttachments(ctx.agentImages);
   let childRunId: string = childIdem;
   try {
     const response = await callGateway<{ runId: string }>({
@@ -417,6 +455,7 @@ export async function spawnSubagentDirect(
         threadId: requesterOrigin?.threadId != null ? String(requesterOrigin.threadId) : undefined,
         idempotencyKey: childIdem,
         deliver: false,
+        attachments: childAttachments,
         lane: AGENT_LANE_SUBAGENT,
         extraSystemPrompt: childSystemPrompt,
         thinking: thinkingOverride,

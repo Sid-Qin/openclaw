@@ -304,4 +304,43 @@ describe("openclaw-tools: subagents (sessions_spawn model + thinking)", () => {
     });
     expect(spawnedTimeout).toBe(2);
   });
+
+  it("sessions_spawn forwards parent images as child attachments", async () => {
+    const calls: Array<{ method?: string; params?: unknown }> = [];
+
+    callGatewayMock.mockImplementation(async (opts: unknown) => {
+      const request = opts as { method?: string; params?: unknown };
+      calls.push(request);
+      if (request.method === "agent") {
+        return { runId: "run-images", status: "accepted" };
+      }
+      return {};
+    });
+
+    const tool = await getSessionsSpawnTool({
+      agentSessionKey: "discord:group:req",
+      agentChannel: "discord",
+      agentImages: [{ type: "image", data: "aGVsbG8=", mimeType: "image/png" }],
+    });
+
+    const result = await tool.execute("call-images", {
+      task: "inspect parent image",
+    });
+    expect(result.details).toMatchObject({
+      status: "accepted",
+      runId: "run-images",
+    });
+
+    const agentCall = calls.find((call) => call.method === "agent");
+    expect(agentCall?.params).toMatchObject({
+      attachments: [
+        {
+          type: "image",
+          mimeType: "image/png",
+          fileName: "spawn-image-1.png",
+          content: "aGVsbG8=",
+        },
+      ],
+    });
+  });
 });

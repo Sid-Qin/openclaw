@@ -115,4 +115,24 @@ describe("sessions_spawn tool", () => {
     );
     expect(hoisted.spawnSubagentDirectMock).not.toHaveBeenCalled();
   });
+
+  it("forwards parent images to subagent spawn context", async () => {
+    const tool = createSessionsSpawnTool({
+      agentSessionKey: "agent:main:main",
+      agentImages: [{ type: "image", data: "aGVsbG8=", mimeType: "image/png" }],
+    });
+
+    await tool.execute("call-images", {
+      task: "analyze parent image",
+    });
+
+    expect(hoisted.spawnSubagentDirectMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        task: "analyze parent image",
+      }),
+      expect.objectContaining({
+        agentImages: [{ type: "image", data: "aGVsbG8=", mimeType: "image/png" }],
+      }),
+    );
+  });
 });
