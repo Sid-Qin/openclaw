@@ -498,6 +498,14 @@ export function normalizeProviders(params: {
       normalizedProvider = antigravityNormalized;
     }
 
+    if (
+      (normalizedKey === "minimax" || normalizedKey === "minimax-portal") &&
+      normalizedProvider.authHeader === undefined
+    ) {
+      mutated = true;
+      normalizedProvider = { ...normalizedProvider, authHeader: true };
+    }
+
     next[key] = normalizedProvider;
   }
 
