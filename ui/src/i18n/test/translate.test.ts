@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { i18n, t } from "../lib/translate.ts";
 
 describe("i18n", () => {
@@ -21,11 +21,7 @@ describe("i18n", () => {
   });
 
   it("should fallback to English if key is missing in another locale", async () => {
-    // We haven't registered other locales in the test environment yet,
-    // but the logic should fallback to 'en' map which is always there.
-    await i18n.setLocale("zh-CN");
-    // Since we don't mock the import, it might fail to load zh-CN,
-    // but let's assume it falls back to English for now.
+    await i18n.setLocale("zh-Hans");
     expect(t("common.health")).toBeDefined();
   });
 
@@ -34,23 +30,32 @@ describe("i18n", () => {
       locale: string;
       translations: Record<string, unknown>;
     };
-    internal.locale = "zh-CN";
-    delete internal.translations["zh-CN"];
+    internal.locale = "zh-Hans";
+    delete internal.translations["zh-Hans"];
 
-    await i18n.setLocale("zh-CN");
+    await i18n.setLocale("zh-Hans");
     expect(t("common.health")).toBe("健康状况");
   });
 
-  it("loads saved non-English locale on startup", async () => {
-    localStorage.setItem("openclaw.i18n.locale", "zh-CN");
-    vi.resetModules();
-    const fresh = await import("../lib/translate.ts");
+  it("sets and persists zh-Hans locale", async () => {
+    await i18n.setLocale("zh-Hans");
+    expect(i18n.getLocale()).toBe("zh-Hans");
+    expect(localStorage.getItem("openclaw.i18n.locale")).toBe("zh-Hans");
+    expect(t("common.health")).toBe("健康状况");
+  });
 
-    for (let index = 0; index < 5 && fresh.i18n.getLocale() !== "zh-CN"; index += 1) {
-      await Promise.resolve();
-    }
+  it("sets and persists zh-Hant locale", async () => {
+    await i18n.setLocale("zh-Hant");
+    expect(i18n.getLocale()).toBe("zh-Hant");
+    expect(localStorage.getItem("openclaw.i18n.locale")).toBe("zh-Hant");
+    expect(t("common.health")).toBeDefined();
+  });
 
-    expect(fresh.i18n.getLocale()).toBe("zh-CN");
-    expect(fresh.t("common.health")).toBe("健康状况");
+  it("isSupportedLocale rejects legacy zh-CN and zh-TW codes", async () => {
+    const { isSupportedLocale } = await import("../lib/translate.ts");
+    expect(isSupportedLocale("zh-Hans")).toBe(true);
+    expect(isSupportedLocale("zh-Hant")).toBe(true);
+    expect(isSupportedLocale("zh-CN")).toBe(false);
+    expect(isSupportedLocale("zh-TW")).toBe(false);
   });
 });

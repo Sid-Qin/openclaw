@@ -1,6 +1,6 @@
 import type { TranslationMap } from "../lib/types.ts";
 
-export const zh_CN: TranslationMap = {
+export const zh_Hans: TranslationMap = {
   common: {
     version: "版本",
     health: "健康状况",
@@ -114,8 +114,8 @@ export const zh_CN: TranslationMap = {
   },
   languages: {
     en: "English",
-    zhCN: "简体中文 (简体中文)",
-    zhTW: "繁體中文 (繁体中文)",
+    zhHans: "简体中文 (简体中文)",
+    zhHant: "繁體中文 (繁体中文)",
     ptBR: "Português (巴西葡萄牙语)",
   },
 };

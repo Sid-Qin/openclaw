@@ -117,8 +117,8 @@ export const pt_BR: TranslationMap = {
   },
   languages: {
     en: "English",
-    zhCN: "简体中文 (Chinês Simplificado)",
-    zhTW: "繁體中文 (Chinês Tradicional)",
+    zhHans: "简体中文 (Chinês Simplificado)",
+    zhHant: "繁體中文 (Chinês Tradicional)",
     ptBR: "Português (Português Brasileiro)",
   },
 };

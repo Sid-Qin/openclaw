@@ -3,10 +3,22 @@ import type { Locale, TranslationMap } from "./types.ts";
 
 type Subscriber = (locale: Locale) => void;
 
-export const SUPPORTED_LOCALES: ReadonlyArray<Locale> = ["en", "zh-CN", "zh-TW", "pt-BR"];
+export const SUPPORTED_LOCALES: ReadonlyArray<Locale> = ["en", "zh-Hans", "zh-Hant", "pt-BR"];
+
+const LEGACY_LOCALE_MAP: Record<string, Locale> = {
+  "zh-CN": "zh-Hans",
+  "zh-TW": "zh-Hant",
+};
 
 export function isSupportedLocale(value: string | null | undefined): value is Locale {
   return value !== null && value !== undefined && SUPPORTED_LOCALES.includes(value as Locale);
+}
+
+function migrateLegacyLocale(value: string | null | undefined): Locale | undefined {
+  if (value && value in LEGACY_LOCALE_MAP) {
+    return LEGACY_LOCALE_MAP[value];
+  }
+  return undefined;
 }
 
 class I18nManager {
@@ -23,9 +35,13 @@ class I18nManager {
     if (isSupportedLocale(saved)) {
       return saved;
     }
+    const migrated = migrateLegacyLocale(saved);
+    if (migrated) {
+      return migrated;
+    }
     const navLang = navigator.language;
     if (navLang.startsWith("zh")) {
-      return navLang === "zh-TW" || navLang === "zh-HK" ? "zh-TW" : "zh-CN";
+      return navLang === "zh-TW" || navLang === "zh-HK" ? "zh-Hant" : "zh-Hans";
     }
     if (navLang.startsWith("pt")) {
       return "pt-BR";
@@ -58,10 +74,10 @@ class I18nManager {
     if (needsTranslationLoad) {
       try {
         let module: Record<string, TranslationMap>;
-        if (locale === "zh-CN") {
-          module = await import("../locales/zh-CN.ts");
-        } else if (locale === "zh-TW") {
-          module = await import("../locales/zh-TW.ts");
+        if (locale === "zh-Hans") {
+          module = await import("../locales/zh-Hans.ts");
+        } else if (locale === "zh-Hant") {
+          module = await import("../locales/zh-Hant.ts");
         } else if (locale === "pt-BR") {
           module = await import("../locales/pt-BR.ts");
         } else {
