@@ -976,6 +976,7 @@ export async function handleFeishuMessage(params: {
       chatId: ctx.chatId,
       replyToMessageId: ctx.messageId,
       replyInThread,
+      rootId: ctx.rootId,
       mentionTargets: ctx.mentionTargets,
       accountId: account.accountId,
     });
