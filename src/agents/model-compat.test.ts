@@ -181,6 +181,69 @@ describe("normalizeModelCompat", () => {
       (normalized.compat as { supportsDeveloperRole?: boolean } | undefined)?.supportsDeveloperRole,
     ).toBe(false);
   });
+
+  it("defaults NVIDIA MiniMax compat to legacy-safe OpenAI fields", () => {
+    const model = {
+      ...baseModel(),
+      provider: "nvidia",
+      id: "minimaxai/minimax-m2.5",
+      name: "minimaxai/minimax-m2.5",
+      baseUrl: "https://integrate.api.nvidia.com/v1",
+    };
+    delete (model as { compat?: unknown }).compat;
+
+    const normalized = normalizeModelCompat(model);
+    const compat = normalized.compat as
+      | {
+          supportsStore?: boolean;
+          supportsDeveloperRole?: boolean;
+          supportsReasoningEffort?: boolean;
+          supportsUsageInStreaming?: boolean;
+          maxTokensField?: "max_completion_tokens" | "max_tokens";
+        }
+      | undefined;
+
+    expect(compat).toMatchObject({
+      supportsStore: false,
+      supportsDeveloperRole: false,
+      supportsReasoningEffort: false,
+      supportsUsageInStreaming: false,
+      maxTokensField: "max_tokens",
+    });
+  });
+
+  it("preserves explicit NVIDIA MiniMax compat overrides", () => {
+    const model = {
+      ...baseModel(),
+      provider: "nvidia",
+      id: "minimaxai/minimax-m2.5",
+      name: "minimaxai/minimax-m2.5",
+      baseUrl: "https://integrate.api.nvidia.com/v1",
+      compat: {
+        supportsStore: true,
+        supportsReasoningEffort: true,
+        supportsUsageInStreaming: true,
+        maxTokensField: "max_completion_tokens" as const,
+      },
+    };
+
+    const normalized = normalizeModelCompat(model);
+    const compat = normalized.compat as
+      | {
+          supportsStore?: boolean;
+          supportsReasoningEffort?: boolean;
+          supportsUsageInStreaming?: boolean;
+          maxTokensField?: "max_completion_tokens" | "max_tokens";
+        }
+      | undefined;
+
+    expect(compat).toMatchObject({
+      supportsStore: true,
+      supportsReasoningEffort: true,
+      supportsUsageInStreaming: true,
+      maxTokensField: "max_completion_tokens",
+    });
+  });
 });
 
 describe("isModernModelRef", () => {

@@ -424,6 +424,61 @@ function normalizeAntigravityProvider(provider: ProviderConfig): ProviderConfig 
   return normalizeProviderModels(provider, normalizeAntigravityModelId);
 }
 
+const NVIDIA_MINIMAX_MODEL_ID_PREFIX = "minimaxai/";
+const NVIDIA_MINIMAX_COMPAT_DEFAULTS: NonNullable<ProviderModelConfig["compat"]> = {
+  supportsStore: false,
+  supportsDeveloperRole: false,
+  supportsReasoningEffort: false,
+  supportsUsageInStreaming: false,
+  maxTokensField: "max_tokens",
+};
+
+function isNvidiaMinimaxModelId(modelId: string): boolean {
+  return modelId.trim().toLowerCase().startsWith(NVIDIA_MINIMAX_MODEL_ID_PREFIX);
+}
+
+/**
+ * NVIDIA-hosted MiniMax endpoints advertise OpenAI compatibility, but reject
+ * several newer OpenAI payload fields in practice (e.g. reasoning_effort,
+ * store, stream_options, max_completion_tokens). Default these models to a
+ * stricter compat profile so basic chat runs stay stable.
+ */
+function normalizeNvidiaProvider(provider: ProviderConfig): ProviderConfig {
+  let mutated = false;
+  const models = provider.models.map((model) => {
+    if (!isNvidiaMinimaxModelId(model.id)) {
+      return model;
+    }
+
+    const compat = model.compat ?? {};
+    const nextCompat: NonNullable<ProviderModelConfig["compat"]> = {
+      ...compat,
+      supportsStore: compat.supportsStore ?? NVIDIA_MINIMAX_COMPAT_DEFAULTS.supportsStore,
+      supportsDeveloperRole:
+        compat.supportsDeveloperRole ?? NVIDIA_MINIMAX_COMPAT_DEFAULTS.supportsDeveloperRole,
+      supportsReasoningEffort:
+        compat.supportsReasoningEffort ?? NVIDIA_MINIMAX_COMPAT_DEFAULTS.supportsReasoningEffort,
+      supportsUsageInStreaming:
+        compat.supportsUsageInStreaming ?? NVIDIA_MINIMAX_COMPAT_DEFAULTS.supportsUsageInStreaming,
+      maxTokensField: compat.maxTokensField ?? NVIDIA_MINIMAX_COMPAT_DEFAULTS.maxTokensField,
+    };
+
+    const compatChanged =
+      compat.supportsStore !== nextCompat.supportsStore ||
+      compat.supportsDeveloperRole !== nextCompat.supportsDeveloperRole ||
+      compat.supportsReasoningEffort !== nextCompat.supportsReasoningEffort ||
+      compat.supportsUsageInStreaming !== nextCompat.supportsUsageInStreaming ||
+      compat.maxTokensField !== nextCompat.maxTokensField;
+    if (!compatChanged) {
+      return model;
+    }
+
+    mutated = true;
+    return { ...model, compat: nextCompat };
+  });
+  return mutated ? { ...provider, models } : provider;
+}
+
 export function normalizeProviders(params: {
   providers: ModelsConfig["providers"];
   agentDir: string;
@@ -496,6 +551,14 @@ export function normalizeProviders(params: {
         mutated = true;
       }
       normalizedProvider = antigravityNormalized;
+    }
+
+    if (normalizedKey === "nvidia") {
+      const nvidiaNormalized = normalizeNvidiaProvider(normalizedProvider);
+      if (nvidiaNormalized !== normalizedProvider) {
+        mutated = true;
+      }
+      normalizedProvider = nvidiaNormalized;
     }
 
     next[key] = normalizedProvider;

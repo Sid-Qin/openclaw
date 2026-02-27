@@ -5,7 +5,11 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { withEnvAsync } from "../test-utils/env.js";
 import { resolveApiKeyForProvider } from "./model-auth.js";
-import { buildNvidiaProvider, resolveImplicitProviders } from "./models-config.providers.js";
+import {
+  buildNvidiaProvider,
+  normalizeProviders,
+  resolveImplicitProviders,
+} from "./models-config.providers.js";
 
 describe("NVIDIA provider", () => {
   it("should include nvidia when NVIDIA_API_KEY is configured", async () => {
@@ -45,6 +49,36 @@ describe("NVIDIA provider", () => {
     expect(modelIds).toContain("nvidia/llama-3.1-nemotron-70b-instruct");
     expect(modelIds).toContain("meta/llama-3.3-70b-instruct");
     expect(modelIds).toContain("nvidia/mistral-nemo-minitron-8b-8k-instruct");
+  });
+
+  it("normalizes NVIDIA MiniMax model compat defaults in explicit providers", () => {
+    const agentDir = mkdtempSync(join(tmpdir(), "openclaw-test-"));
+    const builtIn = buildNvidiaProvider();
+    const providers = {
+      nvidia: {
+        ...builtIn,
+        apiKey: "NVIDIA_API_KEY",
+        models: [
+          {
+            ...builtIn.models[0],
+            id: "minimaxai/minimax-m2.5",
+            name: "MiniMax M2.5",
+            reasoning: true,
+          },
+        ],
+      },
+    };
+
+    const normalized = normalizeProviders({ providers, agentDir });
+    const compat = normalized?.nvidia?.models[0]?.compat;
+
+    expect(compat).toMatchObject({
+      supportsStore: false,
+      supportsDeveloperRole: false,
+      supportsReasoningEffort: false,
+      supportsUsageInStreaming: false,
+      maxTokensField: "max_tokens",
+    });
   });
 });
 

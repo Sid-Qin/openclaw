@@ -16,6 +16,43 @@ function isAnthropicMessagesModel(model: Model<Api>): model is Model<"anthropic-
   return model.api === "anthropic-messages";
 }
 
+const NVIDIA_MINIMAX_MODEL_PREFIX = "minimaxai/";
+
+function isNvidiaMinimaxModel(model: Model<"openai-completions">): boolean {
+  return (
+    model.provider === "nvidia" &&
+    model.id.trim().toLowerCase().startsWith(NVIDIA_MINIMAX_MODEL_PREFIX)
+  );
+}
+
+function normalizeNvidiaMinimaxCompat(
+  model: Model<"openai-completions">,
+): Model<"openai-completions"> {
+  if (!isNvidiaMinimaxModel(model)) {
+    return model;
+  }
+
+  const compat = model.compat ?? {};
+  const nextCompat = {
+    ...compat,
+    supportsStore: compat.supportsStore ?? false,
+    supportsDeveloperRole: compat.supportsDeveloperRole ?? false,
+    supportsReasoningEffort: compat.supportsReasoningEffort ?? false,
+    supportsUsageInStreaming: compat.supportsUsageInStreaming ?? false,
+    maxTokensField: compat.maxTokensField ?? "max_tokens",
+  };
+  const changed =
+    compat.supportsStore !== nextCompat.supportsStore ||
+    compat.supportsDeveloperRole !== nextCompat.supportsDeveloperRole ||
+    compat.supportsReasoningEffort !== nextCompat.supportsReasoningEffort ||
+    compat.supportsUsageInStreaming !== nextCompat.supportsUsageInStreaming ||
+    compat.maxTokensField !== nextCompat.maxTokensField;
+  if (!changed) {
+    return model;
+  }
+  return { ...model, compat: nextCompat };
+}
+
 /**
  * pi-ai constructs the Anthropic API endpoint as `${baseUrl}/v1/messages`.
  * If a user configures `baseUrl` with a trailing `/v1` (e.g. the previously
@@ -40,24 +77,30 @@ export function normalizeModelCompat(model: Model<Api>): Model<Api> {
     }
   }
 
-  const isZai = model.provider === "zai" || baseUrl.includes("api.z.ai");
-  const isMoonshot =
-    model.provider === "moonshot" ||
-    baseUrl.includes("moonshot.ai") ||
-    baseUrl.includes("moonshot.cn");
-  const isDashScope = model.provider === "dashscope" || isDashScopeCompatibleEndpoint(baseUrl);
-  if ((!isZai && !isMoonshot && !isDashScope) || !isOpenAiCompletionsModel(model)) {
+  if (!isOpenAiCompletionsModel(model)) {
     return model;
   }
 
-  const openaiModel = model;
+  const openaiModel = normalizeNvidiaMinimaxCompat(model);
+  const openaiBaseUrl = openaiModel.baseUrl ?? "";
+  const isZai = openaiModel.provider === "zai" || openaiBaseUrl.includes("api.z.ai");
+  const isMoonshot =
+    openaiModel.provider === "moonshot" ||
+    openaiBaseUrl.includes("moonshot.ai") ||
+    openaiBaseUrl.includes("moonshot.cn");
+  const isDashScope =
+    openaiModel.provider === "dashscope" || isDashScopeCompatibleEndpoint(openaiBaseUrl);
+  if (!isZai && !isMoonshot && !isDashScope) {
+    return openaiModel;
+  }
+
   const compat = openaiModel.compat ?? undefined;
   if (compat?.supportsDeveloperRole === false) {
-    return model;
+    return openaiModel;
   }
 
-  openaiModel.compat = compat
-    ? { ...compat, supportsDeveloperRole: false }
-    : { supportsDeveloperRole: false };
-  return openaiModel;
+  return {
+    ...openaiModel,
+    compat: compat ? { ...compat, supportsDeveloperRole: false } : { supportsDeveloperRole: false },
+  };
 }
