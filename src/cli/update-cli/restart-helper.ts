@@ -86,7 +86,14 @@ rm -f "$0"
 # Standalone restart script — survives parent process termination.
 # Wait briefly to ensure file locks are released after update.
 sleep 1
-launchctl kickstart -k 'gui/${uid}/${escaped}'
+label='${escaped}'
+domain='gui/${uid}'
+service="$domain/$label"
+plist="$HOME/Library/LaunchAgents/$label.plist"
+# Stop old gateway process first, then bootstrap the updated plist and start.
+launchctl bootout "$service" >/dev/null 2>&1 || true
+launchctl bootstrap "$domain" "$plist" >/dev/null 2>&1 || true
+launchctl kickstart -k "$service"
 # Self-cleanup
 rm -f "$0"
 `;
