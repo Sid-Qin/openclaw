@@ -387,10 +387,21 @@ export const buildTelegramMessageContext = async ({
     }
   }
 
-  const hasAnyMention = (msg.entities ?? msg.caption_entities ?? []).some(
-    (ent) => ent.type === "mention",
-  );
-  const explicitlyMentioned = botUsername ? hasBotMention(msg, botUsername) : false;
+  const entities = msg.entities ?? msg.caption_entities ?? [];
+  const hasAnyMention = entities.some((ent) => {
+    if (ent.type === "mention" || ent.type === "text_mention") {
+      return true;
+    }
+    if (ent.type !== "text_link") {
+      return false;
+    }
+    const url = (ent as { url?: string }).url;
+    return typeof url === "string" && /^tg:\/\/user\?id=\d+$/i.test(url.trim());
+  });
+  const explicitlyMentioned = hasBotMention(msg, {
+    botUsername,
+    botId: primaryCtx.me?.id,
+  });
 
   const computedWasMentioned = matchesMentionWithExplicit({
     text: msg.text ?? msg.caption ?? "",

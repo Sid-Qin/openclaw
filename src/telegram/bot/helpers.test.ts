@@ -4,6 +4,7 @@ import {
   buildTypingThreadParams,
   describeReplyTarget,
   expandTextLinks,
+  hasBotMention,
   normalizeForwardedContext,
   resolveTelegramForumThreadId,
 } from "./helpers.js";
@@ -65,6 +66,54 @@ describe("thread id normalization", () => {
     },
   ])("normalizes thread ids to integers", ({ build, expected }) => {
     expect(build()).toEqual(expected);
+  });
+});
+
+describe("hasBotMention", () => {
+  it("matches classic @username mentions", () => {
+    expect(
+      hasBotMention(
+        {
+          text: "hello @MyBot",
+          entities: [{ type: "mention", offset: 6, length: 6 }],
+          // oxlint-disable-next-line typescript/no-explicit-any
+        } as any,
+        { botUsername: "mybot", botId: 123 },
+      ),
+    ).toBe(true);
+  });
+
+  it("matches text_mention entities by bot id", () => {
+    expect(
+      hasBotMention(
+        {
+          text: "hello bot",
+          entities: [
+            {
+              type: "text_mention",
+              offset: 6,
+              length: 3,
+              user: { id: 123, username: "mybot" },
+            },
+          ],
+          // oxlint-disable-next-line typescript/no-explicit-any
+        } as any,
+        { botUsername: "mybot", botId: 123 },
+      ),
+    ).toBe(true);
+  });
+
+  it("matches tg://user text_link mention entities by bot id", () => {
+    expect(
+      hasBotMention(
+        {
+          text: "mention",
+          entities: [{ type: "text_link", offset: 0, length: 7, url: "tg://user?id=123" }],
+          // oxlint-disable-next-line typescript/no-explicit-any
+        } as any,
+        { botUsername: "mybot", botId: 123 },
+      ),
+    ).toBe(true);
   });
 });
 

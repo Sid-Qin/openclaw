@@ -247,19 +247,61 @@ export function buildGroupLabel(msg: Message, chatId: number | string, messageTh
   return `group:${chatId}${topicSuffix}`;
 }
 
-export function hasBotMention(msg: Message, botUsername: string) {
-  const text = (msg.text ?? msg.caption ?? "").toLowerCase();
-  if (text.includes(`@${botUsername}`)) {
+type BotMentionIdentity =
+  | string
+  | {
+      botUsername?: string;
+      botId?: number;
+    };
+
+function parseTelegramTextLinkUserId(url?: string): number | undefined {
+  if (!url) {
+    return undefined;
+  }
+  const match = /^tg:\/\/user\?id=(\d+)$/.exec(url.trim());
+  if (!match?.[1]) {
+    return undefined;
+  }
+  const parsed = Number.parseInt(match[1], 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+export function hasBotMention(msg: Message, identity: BotMentionIdentity) {
+  const resolvedIdentity =
+    typeof identity === "string" ? { botUsername: identity, botId: undefined } : identity;
+  const botUsername = resolvedIdentity.botUsername?.toLowerCase();
+  const botId = resolvedIdentity.botId;
+  const textSource = msg.text ?? msg.caption ?? "";
+  const normalizedText = textSource.toLowerCase();
+
+  if (botUsername && normalizedText.includes(`@${botUsername}`)) {
     return true;
   }
+
   const entities = msg.entities ?? msg.caption_entities ?? [];
   for (const ent of entities) {
-    if (ent.type !== "mention") {
+    if (ent.type === "mention" && botUsername) {
+      const slice = textSource.slice(ent.offset, ent.offset + ent.length);
+      if (slice.toLowerCase() === `@${botUsername}`) {
+        return true;
+      }
       continue;
     }
-    const slice = (msg.text ?? msg.caption ?? "").slice(ent.offset, ent.offset + ent.length);
-    if (slice.toLowerCase() === `@${botUsername}`) {
-      return true;
+    if (ent.type === "text_mention") {
+      const user = (ent as { user?: { id?: number; username?: string } }).user;
+      if (botId != null && user?.id === botId) {
+        return true;
+      }
+      if (botUsername && typeof user?.username === "string" && user.username.toLowerCase() === botUsername) {
+        return true;
+      }
+      continue;
+    }
+    if (ent.type === "text_link" && botId != null) {
+      const url = (ent as { url?: string }).url;
+      if (parseTelegramTextLinkUserId(url) === botId) {
+        return true;
+      }
     }
   }
   return false;
