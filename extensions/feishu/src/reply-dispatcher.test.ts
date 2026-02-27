@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const resolveFeishuAccountMock = vi.hoisted(() => vi.fn());
 const getFeishuRuntimeMock = vi.hoisted(() => vi.fn());
@@ -7,6 +7,8 @@ const sendMarkdownCardFeishuMock = vi.hoisted(() => vi.fn());
 const createFeishuClientMock = vi.hoisted(() => vi.fn());
 const resolveReceiveIdTypeMock = vi.hoisted(() => vi.fn());
 const createReplyDispatcherWithTypingMock = vi.hoisted(() => vi.fn());
+const addTypingIndicatorMock = vi.hoisted(() => vi.fn());
+const removeTypingIndicatorMock = vi.hoisted(() => vi.fn());
 const streamingInstances = vi.hoisted(() => [] as any[]);
 
 vi.mock("./accounts.js", () => ({ resolveFeishuAccount: resolveFeishuAccountMock }));
@@ -17,6 +19,10 @@ vi.mock("./send.js", () => ({
 }));
 vi.mock("./client.js", () => ({ createFeishuClient: createFeishuClientMock }));
 vi.mock("./targets.js", () => ({ resolveReceiveIdType: resolveReceiveIdTypeMock }));
+vi.mock("./typing.js", () => ({
+  addTypingIndicator: addTypingIndicatorMock,
+  removeTypingIndicator: removeTypingIndicatorMock,
+}));
 vi.mock("./streaming-card.js", () => ({
   FeishuStreamingSession: class {
     active = false;
@@ -38,9 +44,15 @@ vi.mock("./streaming-card.js", () => ({
 import { createFeishuReplyDispatcher } from "./reply-dispatcher.js";
 
 describe("createFeishuReplyDispatcher streaming behavior", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     streamingInstances.length = 0;
+    addTypingIndicatorMock.mockResolvedValue({ messageId: "m1", reactionId: "r1" });
+    removeTypingIndicatorMock.mockResolvedValue(undefined);
 
     resolveFeishuAccountMock.mockReturnValue({
       accountId: "main",
@@ -112,5 +124,25 @@ describe("createFeishuReplyDispatcher streaming behavior", () => {
     expect(streamingInstances[0].close).toHaveBeenCalledTimes(1);
     expect(sendMessageFeishuMock).not.toHaveBeenCalled();
     expect(sendMarkdownCardFeishuMock).not.toHaveBeenCalled();
+  });
+
+  it("does not keepalive-spam typing reactions", async () => {
+    vi.useFakeTimers();
+    createFeishuReplyDispatcher({
+      cfg: {} as never,
+      agentId: "agent",
+      runtime: { log: vi.fn(), error: vi.fn() } as never,
+      chatId: "oc_chat",
+      replyToMessageId: "msg-1",
+    });
+
+    const options = createReplyDispatcherWithTypingMock.mock.calls[0]?.[0];
+    options.onReplyStart?.();
+    await Promise.resolve();
+    expect(addTypingIndicatorMock).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(20_000);
+    await Promise.resolve();
+    expect(addTypingIndicatorMock).toHaveBeenCalledTimes(1);
   });
 });

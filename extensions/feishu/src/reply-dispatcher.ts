@@ -66,6 +66,9 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
         action: "stop",
         error: err,
       }),
+    // Feishu typing indicator uses reaction APIs; periodic keepalive can
+    // generate excessive reaction writes and consume quota quickly.
+    keepaliveIntervalMs: 0,
   });
 
   const textChunkLimit = core.channel.text.resolveTextChunkLimit(cfg, "feishu", accountId, {
