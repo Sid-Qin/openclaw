@@ -7,11 +7,12 @@
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
   gap: 0;
-  height: calc(100vh - 160px);
-  margin: -16px;
-  border-radius: var(--radius-xl);
+  min-height: 0;
+  max-height: calc(100vh - 200px);
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background: var(--panel);
+  animation: rise 0.35s var(--ease-out) backwards;
 }
 
 /* ===========================================
