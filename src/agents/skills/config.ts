@@ -52,6 +52,27 @@ function isBundledSkill(entry: SkillEntry): boolean {
   return BUNDLED_SOURCES.has(entry.skill.source);
 }
 
+export function shouldBypassLocalBinChecks(
+  config?: OpenClawConfig,
+  eligibility?: SkillEligibilityContext,
+): boolean {
+  if (eligibility?.sandbox?.assumeBinsAvailable === true) {
+    return true;
+  }
+  const defaultSandboxMode = config?.agents?.defaults?.sandbox?.mode;
+  if (defaultSandboxMode && defaultSandboxMode !== "off") {
+    return true;
+  }
+  const agentList = config?.agents?.list;
+  if (!Array.isArray(agentList)) {
+    return false;
+  }
+  return agentList.some((entry) => {
+    const mode = entry?.sandbox?.mode;
+    return typeof mode === "string" && mode !== "off";
+  });
+}
+
 export function resolveBundledAllowlist(config?: OpenClawConfig): string[] | undefined {
   return normalizeAllowlist(config?.skills?.allowBundled);
 }
@@ -83,12 +104,13 @@ export function shouldIncludeSkill(params: {
   if (!isBundledSkillAllowed(entry, allowBundled)) {
     return false;
   }
+  const bypassLocalBinChecks = shouldBypassLocalBinChecks(config, eligibility);
   return evaluateRuntimeEligibility({
     os: entry.metadata?.os,
     remotePlatforms: eligibility?.remote?.platforms,
     always: entry.metadata?.always,
     requires: entry.metadata?.requires,
-    hasBin: hasBinary,
+    hasBin: bypassLocalBinChecks ? () => true : hasBinary,
     hasRemoteBin: eligibility?.remote?.hasBin,
     hasAnyRemoteBin: eligibility?.remote?.hasAnyBin,
     hasEnv: (envName) =>

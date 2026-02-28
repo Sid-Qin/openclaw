@@ -9,6 +9,7 @@ export {
   resolveConfigPath,
   resolveRuntimePlatform,
   resolveSkillConfig,
+  shouldBypassLocalBinChecks,
 } from "./skills/config.js";
 export {
   applySkillEnvOverrides,

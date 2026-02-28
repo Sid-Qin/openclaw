@@ -77,6 +77,14 @@ export type SkillEligibilityContext = {
     hasAnyBin: (bins: string[]) => boolean;
     note?: string;
   };
+  sandbox?: {
+    /**
+     * When true, skip host-side requires.bins checks because execution happens
+     * in sandbox/container runtime where bin availability differs from gateway.
+     */
+    assumeBinsAvailable: boolean;
+    note?: string;
+  };
 };
 
 export type SkillSnapshot = {

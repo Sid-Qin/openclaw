@@ -72,6 +72,32 @@ describe("buildWorkspaceSkillStatus", () => {
     expect(skill?.missing.config).toContain("browser.enabled");
     expect(skill?.install[0]?.id).toBe("brew");
   });
+  it("treats requires.bins as satisfied when sandbox mode is enabled", async () => {
+    const entry = makeEntry({
+      name: "sandbox-bin-skill",
+      requires: {
+        bins: ["fakebin"],
+      },
+    });
+
+    const report = withEnv({ PATH: "" }, () =>
+      buildWorkspaceSkillStatus("/tmp/ws", {
+        entries: [entry],
+        config: {
+          agents: {
+            defaults: {
+              sandbox: { mode: "all" },
+            },
+          },
+        },
+      }),
+    );
+    const skill = report.skills.find((reportEntry) => reportEntry.name === "sandbox-bin-skill");
+
+    expect(skill).toBeDefined();
+    expect(skill?.eligible).toBe(true);
+    expect(skill?.missing.bins).toEqual([]);
+  });
   it("respects OS-gated skills", async () => {
     const entry = makeEntry({
       name: "os-skill",

@@ -10,6 +10,7 @@ import {
   loadWorkspaceSkillEntries,
   resolveBundledAllowlist,
   resolveSkillConfig,
+  shouldBypassLocalBinChecks,
   resolveSkillsInstallPreferences,
   type SkillEntry,
   type SkillEligibilityContext,
@@ -190,12 +191,13 @@ function buildSkillStatus(
     bundledNames && bundledNames.size > 0
       ? bundledNames.has(entry.skill.name)
       : entry.skill.source === "openclaw-bundled";
+  const bypassLocalBinChecks = shouldBypassLocalBinChecks(config, eligibility);
 
   const { emoji, homepage, required, missing, requirementsSatisfied, configChecks } =
     evaluateEntryRequirementsForCurrentPlatform({
       always,
       entry,
-      hasLocalBin: hasBinary,
+      hasLocalBin: bypassLocalBinChecks ? () => true : hasBinary,
       remote: eligibility?.remote,
       isEnvSatisfied,
       isConfigSatisfied,

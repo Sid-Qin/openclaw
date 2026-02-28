@@ -110,6 +110,29 @@ describe("buildWorkspaceSkillsPrompt", () => {
     expect(defaultPrompt).not.toContain("anybin-skill");
     expect(defaultPrompt).not.toContain("env-skill");
 
+    const sandboxPrompt = withEnv({ HOME: workspaceDir, PATH: "" }, () =>
+      buildWorkspaceSkillsPrompt(workspaceDir, {
+        managedSkillsDir,
+        config: {
+          agents: {
+            defaults: {
+              sandbox: { mode: "all" },
+            },
+          },
+        },
+        eligibility: {
+          remote: {
+            platforms: ["linux"],
+            hasBin: () => false,
+            hasAnyBin: () => false,
+            note: "",
+          },
+        },
+      }),
+    );
+    expect(sandboxPrompt).toContain("bin-skill");
+    expect(sandboxPrompt).toContain("anybin-skill");
+
     const gatedPrompt = withEnv({ HOME: workspaceDir, PATH: "" }, () =>
       buildWorkspaceSkillsPrompt(workspaceDir, {
         managedSkillsDir,
