@@ -527,6 +527,26 @@ export const registerTelegramHandlers = ({
     if (!isGroup) {
       return false;
     }
+    const peerId = buildTelegramGroupPeerId(chatId, resolvedThreadId);
+    const parentPeer = buildTelegramParentPeer({
+      isGroup,
+      resolvedThreadId,
+      chatId,
+    });
+    const routeForPolicy = resolveAgentRoute({
+      cfg,
+      channel: "telegram",
+      accountId,
+      peer: {
+        kind: "group",
+        id: peerId,
+      },
+      parentPeer,
+    });
+    const hasPeerBinding =
+      routeForPolicy.matchedBy === "binding.peer" ||
+      routeForPolicy.matchedBy === "binding.peer.parent";
+    const enforceAllowlistAuthorization = effectiveGroupAllow.hasEntries || !hasPeerBinding;
     const policyAccess = evaluateTelegramGroupPolicyAccess({
       isGroup,
       chatId,
@@ -540,7 +560,7 @@ export const registerTelegramHandlers = ({
       resolveGroupPolicy,
       enforcePolicy: true,
       useTopicAndGroupOverrides: true,
-      enforceAllowlistAuthorization: true,
+      enforceAllowlistAuthorization,
       allowEmptyAllowlistEntries: false,
       requireSenderForAllowlistAuthorization: true,
       checkChatAllowlist: true,
