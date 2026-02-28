@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   resolveSessionAgentId: vi.fn(() => "agent-from-key"),
@@ -25,7 +25,9 @@ const mocks = vi.hoisted(() => ({
   })),
   normalizeChannelId: vi.fn((channel: string) => channel),
   resolveOutboundTarget: vi.fn(() => ({ ok: true as const, to: "+15550002" })),
-  deliverOutboundPayloads: vi.fn(async () => []),
+  deliverOutboundPayloads: vi.fn(async () => [
+    { channel: "whatsapp", messageId: "msg-1", toJid: "+15550002" },
+  ]),
   enqueueSystemEvent: vi.fn(),
 }));
 
@@ -79,6 +81,23 @@ vi.mock("../infra/system-events.js", () => ({
 const { scheduleRestartSentinelWake } = await import("./server-restart-sentinel.js");
 
 describe("scheduleRestartSentinelWake", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.consumeRestartSentinel.mockResolvedValue({
+      payload: {
+        sessionKey: "agent:main:main",
+        deliveryContext: {
+          channel: "whatsapp",
+          to: "+15550002",
+          accountId: "acct-2",
+        },
+      },
+    });
+    mocks.deliverOutboundPayloads.mockResolvedValue([
+      { channel: "whatsapp", messageId: "msg-1", toJid: "+15550002" },
+    ]);
+  });
+
   it("forwards session context to outbound delivery", async () => {
     await scheduleRestartSentinelWake({ deps: {} as never });
 
@@ -87,8 +106,30 @@ describe("scheduleRestartSentinelWake", () => {
         channel: "whatsapp",
         to: "+15550002",
         session: { key: "agent:main:main", agentId: "agent-from-key" },
+        bestEffort: false,
       }),
     );
     expect(mocks.enqueueSystemEvent).not.toHaveBeenCalled();
+  });
+
+  it("enqueues a fallback system event when outbound reports no deliveries", async () => {
+    mocks.deliverOutboundPayloads.mockResolvedValueOnce([]);
+
+    await scheduleRestartSentinelWake({ deps: {} as never });
+
+    expect(mocks.enqueueSystemEvent).toHaveBeenCalledWith(
+      "restart summary\nrestart sentinel wake produced no outbound delivery",
+      { sessionKey: "agent:main:main" },
+    );
+  });
+
+  it("enqueues a fallback system event when outbound throws", async () => {
+    mocks.deliverOutboundPayloads.mockRejectedValueOnce(new Error("send failed"));
+
+    await scheduleRestartSentinelWake({ deps: {} as never });
+
+    expect(mocks.enqueueSystemEvent).toHaveBeenCalledWith("restart summary\nError: send failed", {
+      sessionKey: "agent:main:main",
+    });
   });
 });

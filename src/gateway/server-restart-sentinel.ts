@@ -89,7 +89,7 @@ export async function scheduleRestartSentinelWake(_params: { deps: CliDeps }) {
   });
 
   try {
-    await deliverOutboundPayloads({
+    const delivered = await deliverOutboundPayloads({
       cfg,
       channel,
       to: resolved.to,
@@ -98,8 +98,13 @@ export async function scheduleRestartSentinelWake(_params: { deps: CliDeps }) {
       threadId: resolvedThreadId,
       payloads: [{ text: message }],
       session: outboundSession,
-      bestEffort: true,
+      bestEffort: false,
     });
+    if (delivered.length === 0) {
+      enqueueSystemEvent(`${summary}\nrestart sentinel wake produced no outbound delivery`, {
+        sessionKey,
+      });
+    }
   } catch (err) {
     enqueueSystemEvent(`${summary}\n${String(err)}`, { sessionKey });
   }
