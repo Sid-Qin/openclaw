@@ -296,7 +296,9 @@ export async function tryFastAbortFromMessage(params: {
     const { entry, key } = resolveSessionEntryForKey(store, targetKey);
     const sessionId = entry?.sessionId;
     const aborted = sessionId ? abortEmbeddedPiRun(sessionId) : false;
-    const cleared = clearSessionQueues([key ?? targetKey, sessionId]);
+    const cleared = clearSessionQueues([key ?? targetKey, sessionId], {
+      clearFollowups: false,
+    });
     if (cleared.followupCleared > 0 || cleared.laneCleared > 0) {
       logVerbose(
         `abort: cleared followups=${cleared.followupCleared} lane=${cleared.laneCleared} keys=${cleared.keys.join(",")}`,

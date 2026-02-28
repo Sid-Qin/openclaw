@@ -246,7 +246,7 @@ describe("abort detection", () => {
     expect(result.handled).toBe(true);
   });
 
-  it("fast-abort clears queued followups and session lane", async () => {
+  it("fast-abort preserves queued followups but clears session lane", async () => {
     const sessionKey = "telegram:123";
     const sessionId = "session-123";
     const { root, cfg } = await createAbortConfig({
@@ -287,7 +287,7 @@ describe("abort detection", () => {
     });
 
     expect(result.handled).toBe(true);
-    expect(getFollowupQueueDepth(sessionKey)).toBe(0);
+    expect(getFollowupQueueDepth(sessionKey)).toBe(1);
     expect(commandQueueMocks.clearCommandLane).toHaveBeenCalledWith(`session:${sessionKey}`);
   });
 

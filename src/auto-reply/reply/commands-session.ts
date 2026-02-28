@@ -492,7 +492,9 @@ export const handleStopCommand: CommandHandler = async (params, allowTextCommand
     sessionEntry: params.sessionEntry,
     sessionStore: params.sessionStore,
   });
-  const cleared = clearSessionQueues([abortTarget.key, abortTarget.sessionId]);
+  const cleared = clearSessionQueues([abortTarget.key, abortTarget.sessionId], {
+    clearFollowups: false,
+  });
   if (cleared.followupCleared > 0 || cleared.laneCleared > 0) {
     logVerbose(
       `stop: cleared followups=${cleared.followupCleared} lane=${cleared.laneCleared} keys=${cleared.keys.join(",")}`,
