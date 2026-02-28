@@ -625,6 +625,28 @@ describe("CronService", () => {
     await store.cleanup();
   });
 
+  it("does not post isolated heartbeat-only summaries to main", async () => {
+    const runIsolatedAgentJob = vi.fn(async () => ({
+      status: "ok" as const,
+      summary: "HEARTBEAT_OK",
+      delivered: false,
+      deliveryAttempted: false,
+    }));
+    const { store, cron, enqueueSystemEvent, requestHeartbeatNow, events } =
+      await createIsolatedAnnounceHarness(runIsolatedAgentJob);
+    await runIsolatedAnnounceJobAndWait({
+      cron,
+      events,
+      name: "weekly heartbeat ack",
+      status: "ok",
+    });
+    expect(runIsolatedAgentJob).toHaveBeenCalledTimes(1);
+    expect(enqueueSystemEvent).not.toHaveBeenCalled();
+    expect(requestHeartbeatNow).not.toHaveBeenCalled();
+    cron.stop();
+    await store.cleanup();
+  });
+
   it("does not post isolated summary to main when announce delivery was attempted", async () => {
     const runIsolatedAgentJob = vi.fn(async () => ({
       status: "ok" as const,

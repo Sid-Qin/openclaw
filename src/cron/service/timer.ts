@@ -1,3 +1,7 @@
+import {
+  DEFAULT_HEARTBEAT_ACK_MAX_CHARS,
+  stripHeartbeatToken,
+} from "../../auto-reply/heartbeat.js";
 import type { HeartbeatRunResult } from "../../infra/heartbeat-wake.js";
 import { DEFAULT_AGENT_ID } from "../../routing/session-key.js";
 import { resolveCronDeliveryPlan } from "../delivery.js";
@@ -32,6 +36,13 @@ const MAX_TIMER_DELAY_MS = 60_000;
  * but always breaks an infinite re-trigger cycle.  (See #17821)
  */
 const MIN_REFIRE_GAP_MS = 2_000;
+
+function isHeartbeatOnlySummary(summaryText: string): boolean {
+  return stripHeartbeatToken(summaryText, {
+    mode: "heartbeat",
+    maxAckChars: DEFAULT_HEARTBEAT_ACK_MAX_CHARS,
+  }).shouldSkip;
+}
 
 type TimedCronRunOutcome = CronRunOutcome &
   CronRunTelemetry & {
@@ -726,12 +737,14 @@ export async function executeJobCore(
   const deliveryPlan = resolveCronDeliveryPlan(job);
   const suppressMainSummary =
     res.status === "error" && res.errorKind === "delivery-target" && deliveryPlan.requested;
+  const suppressHeartbeatSummary = summaryText ? isHeartbeatOnlySummary(summaryText) : false;
   if (
     summaryText &&
     deliveryPlan.requested &&
     !res.delivered &&
     res.deliveryAttempted !== true &&
-    !suppressMainSummary
+    !suppressMainSummary &&
+    !suppressHeartbeatSummary
   ) {
     const prefix = "Cron";
     const label =
