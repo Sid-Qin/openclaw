@@ -487,13 +487,21 @@ describe("gateway server sessions", () => {
     const reset = await rpcReq<{
       ok: true;
       key: string;
-      entry: { sessionId: string; modelProvider?: string; model?: string };
+      entry: {
+        sessionId: string;
+        modelProvider?: string;
+        model?: string;
+        providerOverride?: string;
+        modelOverride?: string;
+      };
     }>(ws, "sessions.reset", { key: "agent:main:main" });
     expect(reset.ok).toBe(true);
     expect(reset.payload?.key).toBe("agent:main:main");
     expect(reset.payload?.entry.sessionId).not.toBe("sess-main");
-    expect(reset.payload?.entry.modelProvider).toBe("anthropic");
-    expect(reset.payload?.entry.model).toBe("claude-sonnet-4-6");
+    expect(reset.payload?.entry.modelProvider).toBeUndefined();
+    expect(reset.payload?.entry.model).toBeUndefined();
+    expect(reset.payload?.entry.providerOverride).toBe("openai");
+    expect(reset.payload?.entry.modelOverride).toBe("gpt-test-a");
     const filesAfterReset = await fs.readdir(dir);
     expect(filesAfterReset.some((f) => f.startsWith("sess-main.jsonl.reset."))).toBe(true);
 
@@ -505,6 +513,53 @@ describe("gateway server sessions", () => {
     expect((badThinking.error as { message?: unknown } | undefined)?.message ?? "").toMatch(
       /invalid thinkinglevel/i,
     );
+
+    ws.close();
+  });
+
+  test("sessions.reset drops stale runtime model so updated defaults apply immediately", async () => {
+    const { dir } = await createSessionStoreDir();
+    testState.agentConfig = { model: { primary: "anthropic/claude-opus-4-6" } };
+    await writeSingleLineSession(dir, "sess-main", "hello");
+    await writeSessionStore({
+      entries: {
+        main: {
+          sessionId: "sess-main",
+          updatedAt: Date.now(),
+          modelProvider: "anthropic",
+          model: "claude-opus-4-6",
+        },
+      },
+    });
+
+    const { ws } = await openClient();
+    const before = await rpcReq<{
+      sessions: Array<{ key: string; modelProvider?: string; model?: string }>;
+    }>(ws, "sessions.list", {});
+    expect(before.ok).toBe(true);
+    const mainBefore = before.payload?.sessions.find((s) => s.key === "agent:main:main");
+    expect(mainBefore?.modelProvider).toBe("anthropic");
+    expect(mainBefore?.model).toBe("claude-opus-4-6");
+
+    // Simulate dynamic config reload switching the default primary model.
+    testState.agentConfig = { model: { primary: "anthropic/claude-sonnet-4-6" } };
+
+    const reset = await rpcReq<{
+      ok: true;
+      entry: { sessionId: string; modelProvider?: string; model?: string };
+    }>(ws, "sessions.reset", { key: "main" });
+    expect(reset.ok).toBe(true);
+    expect(reset.payload?.entry.sessionId).not.toBe("sess-main");
+    expect(reset.payload?.entry.modelProvider).toBeUndefined();
+    expect(reset.payload?.entry.model).toBeUndefined();
+
+    const after = await rpcReq<{
+      sessions: Array<{ key: string; modelProvider?: string; model?: string }>;
+    }>(ws, "sessions.list", {});
+    expect(after.ok).toBe(true);
+    const mainAfter = after.payload?.sessions.find((s) => s.key === "agent:main:main");
+    expect(mainAfter?.modelProvider).toBe("anthropic");
+    expect(mainAfter?.model).toBe("claude-sonnet-4-6");
 
     ws.close();
   });
