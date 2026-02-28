@@ -6,6 +6,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../globals.js", () => ({
   danger: (text: string) => text,
   logVerbose: () => {},
+  shouldLogVerbose: () => false,
 }));
 
 vi.mock("../pairing/pairing-labels.js", () => ({
@@ -163,7 +164,13 @@ describe("handleLineWebhookEvents", () => {
 
     await handleLineWebhookEvents([event], {
       cfg: {
-        channels: { line: { groupPolicy: "allowlist", groupAllowFrom: ["user-3"] } },
+        channels: {
+          line: {
+            groupPolicy: "allowlist",
+            groupAllowFrom: ["user-3"],
+            groups: { "*": { requireMention: false } },
+          },
+        },
       },
       account: {
         accountId: "default",
@@ -171,7 +178,11 @@ describe("handleLineWebhookEvents", () => {
         channelAccessToken: "token",
         channelSecret: "secret",
         tokenSource: "config",
-        config: { groupPolicy: "allowlist", groupAllowFrom: ["user-3"] },
+        config: {
+          groupPolicy: "allowlist",
+          groupAllowFrom: ["user-3"],
+          groups: { "*": { requireMention: false } },
+        },
       },
       runtime: createRuntime(),
       mediaMaxBytes: 1,
@@ -247,5 +258,113 @@ describe("handleLineWebhookEvents", () => {
 
     expect(processMessage).not.toHaveBeenCalled();
     expect(buildLineMessageContextMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks group text when requireMention is enabled and no mention is detected", async () => {
+    const processMessage = vi.fn();
+    const event = {
+      type: "message",
+      message: { id: "m5", type: "text", text: "hello team" },
+      replyToken: "reply-token",
+      timestamp: Date.now(),
+      source: { type: "group", groupId: "group-5", userId: "user-5" },
+      mode: "active",
+      webhookEventId: "evt-5",
+      deliveryContext: { isRedelivery: false },
+    } as MessageEvent;
+
+    await handleLineWebhookEvents([event], {
+      cfg: {
+        channels: { line: { groupPolicy: "open", groups: { "*": { requireMention: true } } } },
+      },
+      account: {
+        accountId: "default",
+        enabled: true,
+        channelAccessToken: "token",
+        channelSecret: "secret",
+        tokenSource: "config",
+        config: { groupPolicy: "open", groups: { "*": { requireMention: true } } },
+      },
+      runtime: createRuntime(),
+      mediaMaxBytes: 1,
+      processMessage,
+    });
+
+    expect(processMessage).not.toHaveBeenCalled();
+    expect(buildLineMessageContextMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts group text when LINE native mention marks the bot as mentioned", async () => {
+    const processMessage = vi.fn();
+    const event = {
+      type: "message",
+      message: {
+        id: "m6",
+        type: "text",
+        text: "@openclaw ping",
+        mention: { mentionees: [{ isSelf: true }] },
+      },
+      replyToken: "reply-token",
+      timestamp: Date.now(),
+      source: { type: "group", groupId: "group-6", userId: "user-6" },
+      mode: "active",
+      webhookEventId: "evt-6",
+      deliveryContext: { isRedelivery: false },
+    } as unknown as MessageEvent;
+
+    await handleLineWebhookEvents([event], {
+      cfg: {
+        channels: { line: { groupPolicy: "open", groups: { "*": { requireMention: true } } } },
+      },
+      account: {
+        accountId: "default",
+        enabled: true,
+        channelAccessToken: "token",
+        channelSecret: "secret",
+        tokenSource: "config",
+        config: { groupPolicy: "open", groups: { "*": { requireMention: true } } },
+      },
+      runtime: createRuntime(),
+      mediaMaxBytes: 1,
+      processMessage,
+    });
+
+    expect(buildLineMessageContextMock).toHaveBeenCalledTimes(1);
+    expect(processMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("accepts group text when mentionPatterns match even without native mention metadata", async () => {
+    const processMessage = vi.fn();
+    const event = {
+      type: "message",
+      message: { id: "m7", type: "text", text: "@openclaw please help" },
+      replyToken: "reply-token",
+      timestamp: Date.now(),
+      source: { type: "group", groupId: "group-7", userId: "user-7" },
+      mode: "active",
+      webhookEventId: "evt-7",
+      deliveryContext: { isRedelivery: false },
+    } as MessageEvent;
+
+    await handleLineWebhookEvents([event], {
+      cfg: {
+        messages: { groupChat: { mentionPatterns: ["@openclaw"] } },
+        channels: { line: { groupPolicy: "open", groups: { "*": { requireMention: true } } } },
+      },
+      account: {
+        accountId: "default",
+        enabled: true,
+        channelAccessToken: "token",
+        channelSecret: "secret",
+        tokenSource: "config",
+        config: { groupPolicy: "open", groups: { "*": { requireMention: true } } },
+      },
+      runtime: createRuntime(),
+      mediaMaxBytes: 1,
+      processMessage,
+    });
+
+    expect(buildLineMessageContextMock).toHaveBeenCalledTimes(1);
+    expect(processMessage).toHaveBeenCalledTimes(1);
   });
 });

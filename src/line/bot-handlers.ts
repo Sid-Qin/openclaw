@@ -7,6 +7,7 @@ import type {
   LeaveEvent,
   PostbackEvent,
 } from "@line/bot-sdk";
+import { buildMentionRegexes, matchesMentionPatterns } from "../auto-reply/reply/mentions.js";
 import type { OpenClawConfig } from "../config/config.js";
 import {
   resolveAllowlistProviderRuntimeGroupPolicy,
@@ -20,6 +21,7 @@ import {
   readChannelAllowFromStore,
   upsertChannelPairingRequest,
 } from "../pairing/pairing-store.js";
+import { resolveAgentRoute } from "../routing/resolve-route.js";
 import type { RuntimeEnv } from "../runtime.js";
 import {
   firstDefined,
@@ -63,6 +65,39 @@ function resolveLineGroupConfig(params: {
     return groups[params.roomId] ?? groups[`room:${params.roomId}`] ?? groups["*"];
   }
   return groups["*"];
+}
+
+function extractLineMessageText(event: MessageEvent | PostbackEvent): string {
+  if (event.type !== "message" || event.message.type !== "text") {
+    return "";
+  }
+  return event.message.text ?? "";
+}
+
+function hasLineSelfMention(event: MessageEvent | PostbackEvent): boolean {
+  if (event.type !== "message" || event.message.type !== "text") {
+    return false;
+  }
+  const mentionees = (event.message as { mention?: { mentionees?: Array<{ isSelf?: boolean }> } })
+    .mention?.mentionees;
+  return Array.isArray(mentionees) && mentionees.some((mention) => mention?.isSelf === true);
+}
+
+function resolveLinePeerId(params: {
+  isGroup: boolean;
+  groupId?: string;
+  roomId?: string;
+  senderId: string;
+}): string {
+  if (params.isGroup) {
+    if (params.groupId) {
+      return `group:${params.groupId}`;
+    }
+    if (params.roomId) {
+      return `room:${params.roomId}`;
+    }
+  }
+  return params.senderId || "unknown";
 }
 
 async function sendLinePairingReply(params: {
@@ -189,6 +224,27 @@ async function shouldProcessLineEvent(
       }
       if (!isSenderAllowed({ allow: effectiveGroupAllow, senderId })) {
         logVerbose(`Blocked line group message from ${senderId} (groupPolicy: allowlist)`);
+        return false;
+      }
+    }
+    if (event.type === "message") {
+      const route = resolveAgentRoute({
+        cfg,
+        channel: "line",
+        accountId: account.accountId,
+        peer: {
+          kind: "group",
+          id: resolveLinePeerId({ isGroup, groupId, roomId, senderId }),
+        },
+      });
+      const mentionRegexes = buildMentionRegexes(cfg, route.agentId);
+      const messageText = extractLineMessageText(event);
+      const wasMentionedByPattern = matchesMentionPatterns(messageText, mentionRegexes);
+      const wasMentionedByMetadata = hasLineSelfMention(event);
+      const requireMention =
+        typeof groupConfig?.requireMention === "boolean" ? groupConfig.requireMention : true;
+      if (requireMention && !wasMentionedByMetadata && !wasMentionedByPattern) {
+        logVerbose("Blocked line group message (requireMention: no mention detected)");
         return false;
       }
     }
