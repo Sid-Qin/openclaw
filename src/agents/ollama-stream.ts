@@ -411,8 +411,51 @@ function resolveOllamaChatUrl(baseUrl: string): string {
   return `${apiBase}/api/chat`;
 }
 
+function resolveOllamaChatCandidateUrls(baseUrl: string): string[] {
+  const primary = resolveOllamaChatUrl(baseUrl);
+  const candidates = [primary];
+  try {
+    const parsed = new URL(primary);
+    if (parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost") {
+      const fallback = new URL(primary);
+      fallback.hostname = parsed.hostname === "127.0.0.1" ? "localhost" : "127.0.0.1";
+      const fallbackUrl = fallback.toString();
+      if (!candidates.includes(fallbackUrl)) {
+        candidates.push(fallbackUrl);
+      }
+    }
+  } catch {
+    // Ignore malformed candidate parsing and keep primary URL only.
+  }
+  return candidates;
+}
+
+function formatOllamaTransportError(params: { attemptedUrls: string[]; error: unknown }): string {
+  const err = params.error instanceof Error ? params.error : new Error(String(params.error));
+  const cause = err && typeof err === "object" ? (err as { cause?: unknown }).cause : undefined;
+  const causeText =
+    cause && typeof cause === "object"
+      ? [
+          (cause as { code?: unknown }).code,
+          (cause as { errno?: unknown }).errno,
+          (cause as { message?: unknown }).message,
+        ]
+          .filter((part): part is string | number => typeof part === "string" || typeof part === "number")
+          .map((part) => String(part))
+          .join(" ")
+      : undefined;
+  const detail = [err.message?.trim(), causeText?.trim()].filter(Boolean).join(" | ") || String(err);
+  const tried = params.attemptedUrls.join(" -> ");
+  const localhostHint = params.attemptedUrls.some((url) =>
+    url.startsWith("http://127.0.0.1:") || url.startsWith("http://localhost:"),
+  )
+    ? " If Ollama runs in another network namespace (Windows host vs WSL/Docker), set models.providers.<provider>.baseUrl to a reachable host/IP."
+    : "";
+  return `Ollama request failed (${tried}): ${detail}.${localhostHint}`;
+}
+
 export function createOllamaStreamFn(baseUrl: string): StreamFn {
-  const chatUrl = resolveOllamaChatUrl(baseUrl);
+  const chatCandidates = resolveOllamaChatCandidateUrls(baseUrl);
 
   return (model, context, options) => {
     const stream = createAssistantMessageEventStream();
@@ -452,16 +495,35 @@ export function createOllamaStreamFn(baseUrl: string): StreamFn {
           headers.Authorization = `Bearer ${options.apiKey}`;
         }
 
-        const response = await fetch(chatUrl, {
-          method: "POST",
-          headers,
-          body: JSON.stringify(body),
-          signal: options?.signal,
-        });
+        let response: Response | undefined;
+        let responseUrl = chatCandidates[0] ?? resolveOllamaChatUrl(baseUrl);
+        let lastTransportError: unknown;
+        for (const candidateUrl of chatCandidates) {
+          responseUrl = candidateUrl;
+          try {
+            response = await fetch(candidateUrl, {
+              method: "POST",
+              headers,
+              body: JSON.stringify(body),
+              signal: options?.signal,
+            });
+            break;
+          } catch (err) {
+            lastTransportError = err;
+          }
+        }
+        if (!response) {
+          throw new Error(
+            formatOllamaTransportError({
+              attemptedUrls: chatCandidates,
+              error: lastTransportError ?? new Error("unknown fetch error"),
+            }),
+          );
+        }
 
         if (!response.ok) {
           const errorText = await response.text().catch(() => "unknown error");
-          throw new Error(`Ollama API error ${response.status}: ${errorText}`);
+          throw new Error(`Ollama API error ${response.status} (${responseUrl}): ${errorText}`);
         }
 
         if (!response.body) {

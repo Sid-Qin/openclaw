@@ -381,4 +381,70 @@ describe("createOllamaStreamFn", () => {
       },
     );
   });
+
+  it("retries localhost alias when loopback transport fails", async () => {
+    const originalFetch = globalThis.fetch;
+    const fetchMock = vi.fn(async (url: string | URL) => {
+      const resolved = String(url);
+      if (resolved === "http://127.0.0.1:11434/api/chat") {
+        throw new TypeError("fetch failed");
+      }
+      if (resolved === "http://localhost:11434/api/chat") {
+        return new Response(
+          [
+            '{"model":"m","created_at":"t","message":{"role":"assistant","content":"ok"},"done":false}',
+            '{"model":"m","created_at":"t","message":{"role":"assistant","content":""},"done":true,"prompt_eval_count":1,"eval_count":1}',
+          ].join("\n") + "\n",
+          {
+            status: 200,
+            headers: { "Content-Type": "application/x-ndjson" },
+          },
+        );
+      }
+      throw new Error(`Unexpected fetch URL: ${resolved}`);
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    try {
+      const stream = await createOllamaTestStream({
+        baseUrl: "http://127.0.0.1:11434",
+      });
+      const events = await collectStreamEvents(stream);
+      expect(events.at(-1)?.type).toBe("done");
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        1,
+        "http://127.0.0.1:11434/api/chat",
+        expect.any(Object),
+      );
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        2,
+        "http://localhost:11434/api/chat",
+        expect.any(Object),
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("includes attempted loopback URLs in transport errors", async () => {
+    const originalFetch = globalThis.fetch;
+    const fetchMock = vi.fn(async () => {
+      throw new TypeError("fetch failed");
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    try {
+      const stream = await createOllamaTestStream({
+        baseUrl: "http://127.0.0.1:11434",
+      });
+      const events = await collectStreamEvents(stream);
+      const errorEvent = events.find((event) => (event as { type?: string }).type === "error") as
+        | { error?: { errorMessage?: string } }
+        | undefined;
+      expect(errorEvent?.error?.errorMessage).toContain("Ollama request failed");
+      expect(errorEvent?.error?.errorMessage).toContain("http://127.0.0.1:11434/api/chat");
+      expect(errorEvent?.error?.errorMessage).toContain("http://localhost:11434/api/chat");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });
