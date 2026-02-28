@@ -111,7 +111,10 @@ import {
   selectCompactionTimeoutSnapshot,
   shouldFlagCompactionTimeout,
 } from "./compaction-timeout.js";
-import { pruneProcessedHistoryImages } from "./history-image-prune.js";
+import {
+  pruneImagesForTextOnlyModels,
+  pruneProcessedHistoryImages,
+} from "./history-image-prune.js";
 import { detectAndLoadPromptImages } from "./images.js";
 import type { EmbeddedRunAttemptParams, EmbeddedRunAttemptResult } from "./types.js";
 
@@ -1241,8 +1244,13 @@ export async function runEmbeddedAttempt(
         try {
           // Idempotent cleanup for legacy sessions with persisted image payloads.
           // Called each run; only mutates already-answered user turns that still carry image blocks.
-          const didPruneImages = pruneProcessedHistoryImages(activeSession.messages);
-          if (didPruneImages) {
+          const didPruneProcessedImages = pruneProcessedHistoryImages(activeSession.messages);
+          // Non-vision models cannot consume transcript image blocks. Prune all persisted
+          // user-image history (including unanswered turns) to avoid repeated 400 loops.
+          const didPruneTextOnlyImages = modelHasVision
+            ? false
+            : pruneImagesForTextOnlyModels(activeSession.messages);
+          if (didPruneProcessedImages || didPruneTextOnlyImages) {
             activeSession.agent.replaceMessages(activeSession.messages);
           }
 
