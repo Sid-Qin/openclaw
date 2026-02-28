@@ -113,4 +113,31 @@ describe("dashboardCommand bind selection", () => {
       basePath: undefined,
     });
   });
+
+  it("exits early when control UI is disabled", async () => {
+    mocks.readConfigFileSnapshot.mockResolvedValue({
+      path: "/tmp/openclaw.json",
+      exists: true,
+      raw: "{}",
+      parsed: {},
+      valid: true,
+      config: {
+        gateway: {
+          controlUi: { enabled: false },
+        },
+      },
+      issues: [],
+      legacyIssues: [],
+    });
+
+    await dashboardCommand(runtime, { noOpen: true });
+
+    expect(mocks.resolveGatewayPort).not.toHaveBeenCalled();
+    expect(mocks.resolveControlUiLinks).not.toHaveBeenCalled();
+    expect(mocks.copyToClipboard).not.toHaveBeenCalled();
+    expect(runtime.error).toHaveBeenCalledWith(
+      "Dashboard is disabled because gateway.controlUi.enabled=false.",
+    );
+    expect(runtime.exit).toHaveBeenCalledWith(1);
+  });
 });

@@ -19,6 +19,12 @@ export async function dashboardCommand(
 ) {
   const snapshot = await readConfigFileSnapshot();
   const cfg = snapshot.valid ? snapshot.config : {};
+  if (cfg.gateway?.controlUi?.enabled === false) {
+    runtime.error("Dashboard is disabled because gateway.controlUi.enabled=false.");
+    runtime.error("Enable it with: openclaw config set gateway.controlUi.enabled true");
+    runtime.exit(1);
+    return;
+  }
   const port = resolveGatewayPort(cfg);
   const bind = cfg.gateway?.bind ?? "loopback";
   const basePath = cfg.gateway?.controlUi?.basePath;

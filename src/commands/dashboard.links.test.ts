@@ -115,4 +115,27 @@ describe("dashboardCommand", () => {
       "Browser launch disabled (--no-open). Use the URL above.",
     );
   });
+
+  it("fails fast when control UI is disabled in config", async () => {
+    readConfigFileSnapshotMock.mockResolvedValue({
+      path: "/tmp/openclaw.json",
+      exists: true,
+      raw: "{}",
+      parsed: {},
+      valid: true,
+      config: { gateway: { controlUi: { enabled: false } } },
+      issues: [],
+      legacyIssues: [],
+    });
+
+    await dashboardCommand(runtime);
+
+    expect(resolveControlUiLinksMock).not.toHaveBeenCalled();
+    expect(copyToClipboardMock).not.toHaveBeenCalled();
+    expect(openUrlMock).not.toHaveBeenCalled();
+    expect(runtime.error).toHaveBeenCalledWith(
+      "Dashboard is disabled because gateway.controlUi.enabled=false.",
+    );
+    expect(runtime.exit).toHaveBeenCalledWith(1);
+  });
 });
