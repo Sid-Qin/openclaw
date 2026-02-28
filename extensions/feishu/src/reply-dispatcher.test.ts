@@ -113,7 +113,11 @@ describe("createFeishuReplyDispatcher streaming behavior", () => {
 
     expect(streamingInstances).toHaveLength(1);
     expect(streamingInstances[0].start).toHaveBeenCalledTimes(1);
-    expect(streamingInstances[0].start).toHaveBeenCalledWith("oc_chat", "chat_id", "om_root_topic");
+    expect(streamingInstances[0].start).toHaveBeenCalledWith("oc_chat", "chat_id", {
+      replyToMessageId: undefined,
+      replyInThread: undefined,
+      rootId: "om_root_topic",
+    });
     expect(streamingInstances[0].close).toHaveBeenCalledTimes(1);
     expect(sendMessageFeishuMock).not.toHaveBeenCalled();
     expect(sendMarkdownCardFeishuMock).not.toHaveBeenCalled();

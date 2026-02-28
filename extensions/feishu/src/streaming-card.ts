@@ -147,14 +147,15 @@ export class FeishuStreamingSession {
     // Topic-group replies require root_id routing. Prefer create+root_id when available.
     let sendRes;
     if (options?.rootId) {
+      const createData = {
+        receive_id: receiveId,
+        msg_type: "interactive",
+        content: cardContent,
+        root_id: options.rootId,
+      };
       sendRes = await this.client.im.message.create({
         params: { receive_id_type: receiveIdType },
-        data: {
-          receive_id: receiveId,
-          msg_type: "interactive",
-          content: cardContent,
-          root_id: options.rootId,
-        },
+        data: createData,
       });
     } else if (options?.replyToMessageId) {
       sendRes = await this.client.im.message.reply({

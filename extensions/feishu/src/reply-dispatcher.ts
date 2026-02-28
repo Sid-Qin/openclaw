@@ -36,8 +36,16 @@ export type CreateFeishuReplyDispatcherParams = {
 
 export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherParams) {
   const core = getFeishuRuntime();
-  const { cfg, agentId, chatId, replyToMessageId, replyInThread, rootId, mentionTargets, accountId } =
-    params;
+  const {
+    cfg,
+    agentId,
+    chatId,
+    replyToMessageId,
+    replyInThread,
+    rootId,
+    mentionTargets,
+    accountId,
+  } = params;
   const account = resolveFeishuAccount({ cfg, accountId });
   const prefixContext = createReplyPrefixContext({ cfg, agentId });
 
