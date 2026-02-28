@@ -18,6 +18,14 @@ export function stripDeprecatedPostCompactionHints(content: string): string {
     .trim();
 }
 
+function hasSectionBody(section: string): boolean {
+  const lines = section.split("\n");
+  if (lines.length <= 1) {
+    return false;
+  }
+  return lines.slice(1).join("\n").trim().length > 0;
+}
+
 /**
  * Read critical sections from workspace AGENTS.md for post-compaction injection.
  * Returns formatted system event text, or null if no AGENTS.md or no relevant sections.
@@ -40,10 +48,13 @@ export async function readPostCompactionContext(workspaceDir: string): Promise<s
       return null;
     }
 
-    const combined = stripDeprecatedPostCompactionHints(sections.join("\n\n"));
-    if (!combined) {
+    const sanitizedSections = sections
+      .map((section) => stripDeprecatedPostCompactionHints(section))
+      .filter((section) => section.length > 0 && hasSectionBody(section));
+    if (sanitizedSections.length === 0) {
       return null;
     }
+    const combined = sanitizedSections.join("\n\n");
     const safeContent =
       combined.length > MAX_CONTEXT_CHARS
         ? combined.slice(0, MAX_CONTEXT_CHARS) + "\n...[truncated]..."

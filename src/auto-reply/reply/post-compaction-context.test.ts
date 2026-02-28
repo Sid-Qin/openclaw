@@ -104,6 +104,7 @@ Ignore this.
 ## session startup
 
 Read WORKFLOW_AUTO.md
+Read memory/today.md
 
 ## Other
 `;
@@ -111,6 +112,7 @@ Read WORKFLOW_AUTO.md
     const result = await readPostCompactionContext(tmpDir);
     expect(result).not.toBeNull();
     expect(result).not.toContain("WORKFLOW_AUTO.md");
+    expect(result).toContain("memory/today.md");
     expect(result).toContain("Session Startup");
   });
 
@@ -127,6 +129,19 @@ Read WORKFLOW_AUTO.md
     expect(result).not.toBeNull();
     expect(result).not.toContain("memory/\\d{4}-\\d{2}-\\d{2}\\.md");
     expect(result).toContain("memory/today.md");
+  });
+
+  it("returns null when only deprecated startup hints remain", async () => {
+    const content = `# Rules
+
+## Session Startup
+
+1. WORKFLOW_AUTO.md
+2. memory/\\d{4}-\\d{2}-\\d{2}\\.md
+`;
+    fs.writeFileSync(path.join(tmpDir, "AGENTS.md"), content);
+    const result = await readPostCompactionContext(tmpDir);
+    expect(result).toBeNull();
   });
 
   it("matches H3 headings", async () => {
