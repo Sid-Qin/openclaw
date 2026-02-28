@@ -78,4 +78,32 @@ describe("resolveSlackAccount SLACK_USER_TOKEN env fallback", () => {
 
     expect(account.config.userToken).toBeUndefined();
   });
+
+  it("uses env fallback when config.userToken is whitespace", () => {
+    process.env.SLACK_USER_TOKEN = "xoxp-env-token";
+
+    const account = resolveSlackAccount({
+      cfg: {
+        channels: {
+          slack: { botToken: "xoxb-bot", userToken: "   " },
+        },
+      } as OpenClawConfig,
+    });
+
+    expect(account.config.userToken).toBe("xoxp-env-token");
+  });
+
+  it("normalizes config.userToken before exposing account config", () => {
+    delete process.env.SLACK_USER_TOKEN;
+
+    const account = resolveSlackAccount({
+      cfg: {
+        channels: {
+          slack: { botToken: "xoxb-bot", userToken: "  xoxp-config-token  " },
+        },
+      } as OpenClawConfig,
+    });
+
+    expect(account.config.userToken).toBe("xoxp-config-token");
+  });
 });
