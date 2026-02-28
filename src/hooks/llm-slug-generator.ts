@@ -19,6 +19,39 @@ import { createSubsystemLogger } from "../logging/subsystem.js";
 
 const log = createSubsystemLogger("llm-slug-generator");
 
+const SLUG_ERROR_RESPONSE_RE =
+  /\b(request timed out|timed out before a response|gateway timeout|validation failed|internal error|must have required property)\b/i;
+
+function extractSlugCandidate(text: string): string | null {
+  const firstLine = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line.length > 0);
+  if (!firstLine) {
+    return null;
+  }
+  const withoutLabel = firstLine.replace(/^slug\s*[:=-]\s*/i, "").trim();
+  if (!withoutLabel || SLUG_ERROR_RESPONSE_RE.test(withoutLabel)) {
+    return null;
+  }
+  const words = withoutLabel
+    .replace(/^[`"'([{]+/, "")
+    .replace(/[`"')\]}.,:;!?]+$/, "")
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length === 0 || words.length > 2) {
+    return null;
+  }
+  const slug = words
+    .join("-")
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 30);
+  return slug || null;
+}
+
 /**
  * Generate a short 1-2 word filename slug from session content using LLM
  */
@@ -69,16 +102,8 @@ Reply with ONLY the slug, nothing else. Examples: "vendor-pitch", "api-design", 
     if (result.payloads && result.payloads.length > 0) {
       const text = result.payloads[0]?.text;
       if (text) {
-        // Clean up the response - extract just the slug
-        const slug = text
-          .trim()
-          .toLowerCase()
-          .replace(/[^a-z0-9-]/g, "-")
-          .replace(/-+/g, "-")
-          .replace(/^-|-$/g, "")
-          .slice(0, 30); // Max 30 chars
-
-        return slug || null;
+        // Keep only strict 1-2 word slug responses and ignore timeout/error text.
+        return extractSlugCandidate(text);
       }
     }
 
