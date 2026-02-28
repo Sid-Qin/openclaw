@@ -87,11 +87,11 @@ function resolvePrivateApiDecision(params: {
   wantsEffect: boolean;
 }): PrivateApiDecision {
   const { privateApiStatus, wantsReplyThread, wantsEffect } = params;
-  const needsPrivateApi = wantsReplyThread || wantsEffect;
-  const canUsePrivateApi =
-    needsPrivateApi && isBlueBubblesPrivateApiStatusEnabled(privateApiStatus);
+  const needsPrivateApiFeatures = wantsReplyThread || wantsEffect;
+  // Prefer Private API for all sends when we know it is available.
+  const canUsePrivateApi = isBlueBubblesPrivateApiStatusEnabled(privateApiStatus);
   const throwEffectDisabledError = wantsEffect && privateApiStatus === false;
-  if (!needsPrivateApi || privateApiStatus !== null) {
+  if (!needsPrivateApiFeatures || privateApiStatus !== null) {
     return { canUsePrivateApi, throwEffectDisabledError };
   }
   const requested = [
