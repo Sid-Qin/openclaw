@@ -8,6 +8,7 @@ const md = new MarkdownIt({
 });
 
 md.enable("strikethrough");
+md.enable("table");
 
 const { escapeHtml } = md.utils;
 

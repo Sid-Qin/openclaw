@@ -30,4 +30,13 @@ describe("markdownToMatrixHtml", () => {
     const html = markdownToMatrixHtml("line1\nline2");
     expect(html).toContain("<br");
   });
+
+  it("renders markdown tables as HTML tables", () => {
+    const html = markdownToMatrixHtml(
+      "| # | Issue | Status |\n| - | ----- | ------ |\n| 1 | Fix bug | Done |",
+    );
+    expect(html).toContain("<table>");
+    expect(html).toContain("<thead>");
+    expect(html).toContain("<tbody>");
+  });
 });

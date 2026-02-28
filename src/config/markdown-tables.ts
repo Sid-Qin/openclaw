@@ -15,6 +15,7 @@ type MarkdownConfigSection = MarkdownConfigEntry & {
 };
 
 const DEFAULT_TABLE_MODES = new Map<string, MarkdownTableMode>([
+  ["matrix", "off"],
   ["signal", "bullets"],
   ["whatsapp", "bullets"],
 ]);
@@ -47,7 +48,12 @@ export function resolveMarkdownTableMode(params: {
   channel?: string | null;
   accountId?: string | null;
 }): MarkdownTableMode {
-  const channel = normalizeChannelId(params.channel);
+  const normalizedChannel = normalizeChannelId(params.channel);
+  const fallbackChannel =
+    typeof params.channel === "string" && params.channel.trim().length > 0
+      ? params.channel.trim().toLowerCase()
+      : null;
+  const channel = normalizedChannel ?? fallbackChannel;
   const defaultMode = channel ? (DEFAULT_TABLE_MODES.get(channel) ?? "code") : "code";
   if (!channel || !params.cfg) {
     return defaultMode;
