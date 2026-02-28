@@ -111,6 +111,17 @@ export function shouldEnableWindowsGitBashPasteFallback(params?: {
   return termProgram.includes("mintty");
 }
 
+export function shouldIgnoreTuiStopError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const code = (error as { code?: unknown }).code;
+  if (code === "EBADF" && /setRawMode/i.test(error.message)) {
+    return true;
+  }
+  return /setRawMode\s+EBADF/i.test(error.message);
+}
+
 export function createSubmitBurstCoalescer(params: {
   submit: (value: string) => void;
   enabled: boolean;
@@ -770,7 +781,13 @@ export async function runTui(opts: TuiOptions) {
     }
     exitRequested = true;
     client.stop();
-    tui.stop();
+    try {
+      tui.stop();
+    } catch (error) {
+      if (!shouldIgnoreTuiStopError(error)) {
+        throw error;
+      }
+    }
     process.exit(0);
   };
 

@@ -5,6 +5,7 @@ import {
   resolveCtrlCAction,
   resolveFinalAssistantText,
   resolveGatewayDisconnectState,
+  shouldIgnoreTuiStopError,
   resolveTuiSessionKey,
 } from "./tui.js";
 
@@ -148,5 +149,18 @@ describe("resolveCtrlCAction", () => {
       action: "warn",
       nextLastCtrlCAt: 3501,
     });
+  });
+});
+
+describe("shouldIgnoreTuiStopError", () => {
+  it("ignores setRawMode EBADF errors during shutdown", () => {
+    const err = new Error("setRawMode EBADF") as Error & { code?: string };
+    err.code = "EBADF";
+    expect(shouldIgnoreTuiStopError(err)).toBe(true);
+  });
+
+  it("does not ignore unrelated errors", () => {
+    expect(shouldIgnoreTuiStopError(new Error("socket closed"))).toBe(false);
+    expect(shouldIgnoreTuiStopError("setRawMode EBADF")).toBe(false);
   });
 });
