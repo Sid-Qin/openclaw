@@ -308,8 +308,8 @@ export async function sendFileFeishu(params: {
   cfg: ClawdbotConfig;
   to: string;
   fileKey: string;
-  /** Use "media" for video, "audio" for audio, "file" for documents */
-  msgType?: "file" | "media" | "audio";
+  /** Feishu supports "audio" for voice and "file" for generic files (including videos). */
+  msgType?: "file" | "audio";
   replyToMessageId?: string;
   replyInThread?: boolean;
   accountId?: string;
@@ -447,8 +447,9 @@ export async function sendMediaFeishu(params: {
       fileType,
       accountId,
     });
-    // Feishu API: opus -> "audio", mp4 -> "media", everything else -> "file"
-    const msgType = fileType === "opus" ? "audio" : fileType === "mp4" ? "media" : "file";
+    // Feishu does not accept a standalone video/media message type here.
+    // Use "file" for videos and other generic attachments, "audio" for opus voice.
+    const msgType = fileType === "opus" ? "audio" : "file";
     return sendFileFeishu({
       cfg,
       to,
