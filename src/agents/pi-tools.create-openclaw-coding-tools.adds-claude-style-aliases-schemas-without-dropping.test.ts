@@ -129,6 +129,17 @@ describe("createOpenClawCodingTools", () => {
         undefined,
       );
 
+      await wrapped.execute("tool-quoted", {
+        file_path: ' "C:/Users/test/workspace/src/Layout.jsx" ',
+        content: "x",
+      });
+      expect(execute).toHaveBeenCalledWith(
+        "tool-quoted",
+        { path: "C:/Users/test/workspace/src/Layout.jsx", content: "x" },
+        undefined,
+        undefined,
+      );
+
       await expect(wrapped.execute("tool-2", { content: "x" })).rejects.toThrow(
         /Missing required parameter/,
       );
