@@ -115,6 +115,49 @@ describe("fetchMinimaxUsage", () => {
     ]);
   });
 
+  it("prefers total-remaining when used count conflicts with remaining counters", async () => {
+    const mockFetch = createProviderUsageFetch(async () =>
+      makeResponse(200, {
+        data: {
+          total: 100,
+          used: 95,
+          remain_count: 95,
+          usage_percent: 95,
+        },
+      }),
+    );
+
+    const result = await fetchMinimaxUsage("key", 5000, mockFetch);
+    expect(result.windows).toEqual([
+      {
+        label: "5h",
+        usedPercent: 5,
+        resetAt: undefined,
+      },
+    ]);
+  });
+
+  it("prefers count-derived usage for remain_count/limit_count payloads", async () => {
+    const mockFetch = createProviderUsageFetch(async () =>
+      makeResponse(200, {
+        data: {
+          limit_count: 100,
+          remain_count: 95,
+          usage_percent: 95,
+        },
+      }),
+    );
+
+    const result = await fetchMinimaxUsage("key", 5000, mockFetch);
+    expect(result.windows).toEqual([
+      {
+        label: "5h",
+        usedPercent: 5,
+        resetAt: undefined,
+      },
+    ]);
+  });
+
   it("returns unsupported response shape when no usage fields are present", async () => {
     const mockFetch = createProviderUsageFetch(async () =>
       makeResponse(200, { data: { foo: "bar" } }),

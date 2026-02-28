@@ -74,6 +74,8 @@ const USED_KEYS = [
 
 const TOTAL_KEYS = [
   "total",
+  "total_count",
+  "totalCount",
   "total_amount",
   "totalAmount",
   "total_tokens",
@@ -96,6 +98,14 @@ const TOTAL_KEYS = [
   "totalPrompts",
   "current_interval_total_count",
   "currentIntervalTotalCount",
+  "limit_count",
+  "limitCount",
+  "max_count",
+  "maxCount",
+  "quota_total_count",
+  "quotaTotalCount",
+  "current_interval_limit_count",
+  "currentIntervalLimitCount",
   "limit",
   "quota",
   "quota_limit",
@@ -106,6 +116,10 @@ const TOTAL_KEYS = [
 const REMAINING_KEYS = [
   "remain",
   "remaining",
+  "remain_count",
+  "remainCount",
+  "remaining_count",
+  "remainingCount",
   "remain_amount",
   "remainingAmount",
   "remaining_amount",
@@ -132,6 +146,12 @@ const REMAINING_KEYS = [
   "promptLeft",
   "prompts_left",
   "promptsLeft",
+  "current_interval_remain_count",
+  "currentIntervalRemainCount",
+  "available_count",
+  "availableCount",
+  "left_count",
+  "leftCount",
   "left",
 ] as const;
 
@@ -274,8 +294,16 @@ function deriveUsedPercent(payload: Record<string, unknown>): number | null {
   const total = pickNumber(payload, TOTAL_KEYS);
   let used = pickNumber(payload, USED_KEYS);
   const remaining = pickNumber(payload, REMAINING_KEYS);
-  if (used === undefined && remaining !== undefined && total !== undefined) {
-    used = total - remaining;
+  const usedFromRemaining =
+    remaining !== undefined && total !== undefined ? total - remaining : undefined;
+  if (usedFromRemaining !== undefined) {
+    if (used === undefined) {
+      used = usedFromRemaining;
+    } else if (Number.isFinite(used) && Math.abs(used - usedFromRemaining) > 0.5) {
+      // Some remains payloads expose a "used" field that actually mirrors remaining quota.
+      // When the two counters disagree, trust total-remaining to avoid inverted usage displays.
+      used = usedFromRemaining;
+    }
   }
 
   const fromCounts =
