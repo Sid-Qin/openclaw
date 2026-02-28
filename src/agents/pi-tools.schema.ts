@@ -62,6 +62,76 @@ function mergePropertySchemas(existing: unknown, incoming: unknown): unknown {
   return existing;
 }
 
+function isPlainSchemaObject(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function normalizeAdditionalPropertiesValue(value: unknown): unknown {
+  if (isPlainSchemaObject(value) && Object.keys(value).length === 0) {
+    return true;
+  }
+  return value;
+}
+
+function isCatchAllPattern(pattern: string): boolean {
+  const normalized = pattern.replace(/\s+/g, "");
+  return normalized === "^(.*)$" || normalized === "^.*$" || normalized === ".*";
+}
+
+function splitAnthropicPatternProperties(patternProperties: Record<string, unknown>): {
+  remainingPatternProperties?: Record<string, unknown>;
+  catchAllAdditionalProperties?: unknown;
+} {
+  const remainingPatternProperties: Record<string, unknown> = {};
+  let catchAllAdditionalProperties: unknown;
+  for (const [pattern, nestedSchema] of Object.entries(patternProperties)) {
+    const cleanedNested = cleanSchemaForAnthropic(nestedSchema);
+    if (isCatchAllPattern(pattern)) {
+      if (catchAllAdditionalProperties === undefined) {
+        catchAllAdditionalProperties = normalizeAdditionalPropertiesValue(cleanedNested);
+      }
+      continue;
+    }
+    remainingPatternProperties[pattern] = cleanedNested;
+  }
+  return {
+    remainingPatternProperties:
+      Object.keys(remainingPatternProperties).length > 0 ? remainingPatternProperties : undefined,
+    catchAllAdditionalProperties,
+  };
+}
+
+export function cleanSchemaForAnthropic(schema: unknown): unknown {
+  if (Array.isArray(schema)) {
+    return schema.map((entry) => cleanSchemaForAnthropic(entry));
+  }
+  if (!isPlainSchemaObject(schema)) {
+    return schema;
+  }
+  const record = schema;
+  const cleaned: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(record)) {
+    if (key === "patternProperties") {
+      continue;
+    }
+    cleaned[key] = cleanSchemaForAnthropic(value);
+  }
+  if (isPlainSchemaObject(record.patternProperties)) {
+    const { remainingPatternProperties, catchAllAdditionalProperties } =
+      splitAnthropicPatternProperties(record.patternProperties);
+    if (remainingPatternProperties) {
+      cleaned.patternProperties = remainingPatternProperties;
+    }
+    if (!("additionalProperties" in cleaned) && catchAllAdditionalProperties !== undefined) {
+      cleaned.additionalProperties = catchAllAdditionalProperties;
+    }
+  }
+  if ("additionalProperties" in cleaned) {
+    cleaned.additionalProperties = normalizeAdditionalPropertiesValue(cleaned.additionalProperties);
+  }
+  return cleaned;
+}
+
 export function normalizeToolParameters(
   tool: AnyAgentTool,
   options?: { modelProvider?: string },
@@ -86,13 +156,22 @@ export function normalizeToolParameters(
     options?.modelProvider?.toLowerCase().includes("google") ||
     options?.modelProvider?.toLowerCase().includes("gemini");
   const isAnthropicProvider = options?.modelProvider?.toLowerCase().includes("anthropic");
+  const cleanForProvider = (nextSchema: Record<string, unknown>) => {
+    if (isGeminiProvider && !isAnthropicProvider) {
+      return cleanSchemaForGemini(nextSchema);
+    }
+    if (isAnthropicProvider) {
+      return cleanSchemaForAnthropic(nextSchema);
+    }
+    return nextSchema;
+  };
 
   // If schema already has type + properties (no top-level anyOf to merge),
   // clean it for Gemini compatibility (but only if using Gemini, not Anthropic)
   if ("type" in schema && "properties" in schema && !Array.isArray(schema.anyOf)) {
     return {
       ...tool,
-      parameters: isGeminiProvider && !isAnthropicProvider ? cleanSchemaForGemini(schema) : schema,
+      parameters: cleanForProvider(schema),
     };
   }
 
@@ -107,10 +186,7 @@ export function normalizeToolParameters(
     const schemaWithType = { ...schema, type: "object" };
     return {
       ...tool,
-      parameters:
-        isGeminiProvider && !isAnthropicProvider
-          ? cleanSchemaForGemini(schemaWithType)
-          : schemaWithType,
+      parameters: cleanForProvider(schemaWithType),
     };
   }
 
@@ -120,6 +196,12 @@ export function normalizeToolParameters(
       ? "oneOf"
       : null;
   if (!variantKey) {
+    if (isAnthropicProvider) {
+      return {
+        ...tool,
+        parameters: cleanSchemaForAnthropic(schema),
+      };
+    }
     return tool;
   }
   const variants = schema[variantKey] as unknown[];
@@ -184,10 +266,7 @@ export function normalizeToolParameters(
     // - OpenAI rejects schemas without top-level `type: "object"`.
     // - Anthropic accepts proper JSON Schema with constraints.
     // Merging properties preserves useful enums like `action` while keeping schemas portable.
-    parameters:
-      isGeminiProvider && !isAnthropicProvider
-        ? cleanSchemaForGemini(flattenedSchema)
-        : flattenedSchema,
+    parameters: cleanForProvider(flattenedSchema),
   };
 }
 
