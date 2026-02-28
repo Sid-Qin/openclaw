@@ -133,6 +133,7 @@ describe("OpenAI-compatible HTTP API (e2e)", () => {
             sessionKey?: string;
             message?: string;
             extraSystemPrompt?: string;
+            messageChannel?: string;
           }
         | undefined;
     const getFirstAgentMessage = () => getFirstAgentCall()?.message ?? "";
@@ -202,6 +203,29 @@ describe("OpenAI-compatible HTTP API (e2e)", () => {
         expect((opts as { sessionKey?: string } | undefined)?.sessionKey).toBe(
           "agent:beta:openai:custom",
         );
+        await res.text();
+      }
+
+      {
+        mockAgentOnce([{ text: "hello" }]);
+        const res = await postChatCompletions(
+          port,
+          { model: "openclaw", messages: [{ role: "user", content: "hi" }] },
+          { "x-openclaw-message-channel": "custom-client-channel" },
+        );
+        expect(res.status).toBe(200);
+        expect(getFirstAgentCall()?.messageChannel).toBe("custom-client-channel");
+        await res.text();
+      }
+
+      {
+        mockAgentOnce([{ text: "hello" }]);
+        const res = await postChatCompletions(port, {
+          model: "openclaw",
+          messages: [{ role: "user", content: "hi" }],
+        });
+        expect(res.status).toBe(200);
+        expect(getFirstAgentCall()?.messageChannel).toBe("webchat");
         await res.text();
       }
 
