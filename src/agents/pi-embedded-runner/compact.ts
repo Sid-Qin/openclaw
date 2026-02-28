@@ -359,6 +359,8 @@ export async function compactEmbeddedPiSessionDirect(
       config: params.config,
       sessionKey: params.sessionKey,
       sessionId: params.sessionId,
+      agentId: params.agentId,
+      agentDir,
       warn: makeBootstrapWarn({ sessionLabel, warn: (message) => log.warn(message) }),
     });
     const runAbortController = new AbortController();

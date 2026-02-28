@@ -1,3 +1,5 @@
+import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -79,6 +81,41 @@ describe("resolveBootstrapFilesForRun", () => {
     ).toBe(true);
     expect(warnings).toHaveLength(3);
     expect(warnings[0]).toContain('missing or invalid "path" field');
+  });
+
+  it("warns when bootstrap files are present under agentDir", async () => {
+    const workspaceDir = await makeTempWorkspace("openclaw-bootstrap-");
+    const agentDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-agentdir-"));
+    const warnings: string[] = [];
+    try {
+      await fs.writeFile(path.join(agentDir, "SOUL.md"), "respond in French", "utf-8");
+      await resolveBootstrapFilesForRun({
+        workspaceDir,
+        agentDir,
+        warn: (message) => warnings.push(message),
+      });
+    } finally {
+      await fs.rm(agentDir, { recursive: true, force: true });
+    }
+
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("SOUL.md");
+    expect(warnings[0]).toContain("agentDir=");
+    expect(warnings[0]).toContain("workspaceDir=");
+  });
+
+  it("does not warn when agentDir matches workspaceDir", async () => {
+    const workspaceDir = await makeTempWorkspace("openclaw-bootstrap-");
+    const warnings: string[] = [];
+    await fs.writeFile(path.join(workspaceDir, "SOUL.md"), "shared file", "utf-8");
+
+    await resolveBootstrapFilesForRun({
+      workspaceDir,
+      agentDir: workspaceDir,
+      warn: (message) => warnings.push(message),
+    });
+
+    expect(warnings).toHaveLength(0);
   });
 });
 

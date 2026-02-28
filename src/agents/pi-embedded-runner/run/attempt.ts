@@ -474,6 +474,7 @@ export async function runEmbeddedAttempt(
       workspaceDir: effectiveWorkspace,
     });
 
+    const agentDir = params.agentDir ?? resolveOpenClawAgentDir();
     const sessionLabel = params.sessionKey ?? params.sessionId;
     const { bootstrapFiles: hookAdjustedBootstrapFiles, contextFiles } =
       await resolveBootstrapContextForRun({
@@ -481,6 +482,8 @@ export async function runEmbeddedAttempt(
         config: params.config,
         sessionKey: params.sessionKey,
         sessionId: params.sessionId,
+        agentId: params.agentId,
+        agentDir,
         warn: makeBootstrapWarn({ sessionLabel, warn: (message) => log.warn(message) }),
       });
     const workspaceNotes = hookAdjustedBootstrapFiles.some(
@@ -488,8 +491,6 @@ export async function runEmbeddedAttempt(
     )
       ? ["Reminder: commit your changes in this workspace after edits."]
       : undefined;
-
-    const agentDir = params.agentDir ?? resolveOpenClawAgentDir();
 
     const { defaultAgentId, sessionAgentId } = resolveSessionAgentIds({
       sessionKey: params.sessionKey,
