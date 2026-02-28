@@ -256,6 +256,8 @@ This prevents the user from seeing only "Agent failed before reply" and having n
 
 For long-running background tasks, append a wake trigger to your prompt so OpenClaw gets notified immediately when the agent finishes (instead of waiting for the next heartbeat):
 
+**Prerequisite:** completion notifications are delivered via heartbeat. If `heartbeat.target` is left at the default (`none`), the wake response is generated but not delivered. Set `agents.defaults.heartbeat.target: "last"` (or an explicit channel) before relying on this pattern.
+
 ```
 ... your task here.
 
@@ -271,7 +273,7 @@ bash pty:true workdir:~/project background:true command:"codex --yolo exec 'Buil
 When completely finished, run: openclaw system event --text \"Done: Built todos REST API with CRUD endpoints\" --mode now'"
 ```
 
-This triggers an immediate wake event — Skippy gets pinged in seconds, not 10 minutes.
+This triggers an immediate wake event — with heartbeat delivery enabled, Skippy gets pinged in seconds, not 10 minutes.
 
 ---
 
