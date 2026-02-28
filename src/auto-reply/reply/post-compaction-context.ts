@@ -2,6 +2,85 @@ import fs from "node:fs";
 import path from "node:path";
 
 const MAX_CONTEXT_CHARS = 3000;
+const STARTUP_MARKDOWN_TOKEN_RE = /[A-Za-z0-9_./\\{}()[\]\-+?*|]+\.md\b/g;
+
+function normalizeWorkspacePath(filePath: string): string {
+  return path.resolve(filePath);
+}
+
+function extractMarkdownPathTokens(line: string): string[] {
+  const normalized = line.replace(/`([^`]+)`/g, "$1");
+  return normalized.match(STARTUP_MARKDOWN_TOKEN_RE) ?? [];
+}
+
+function normalizeMarkdownPathToken(token: string): string {
+  return token.trim().replace(/\\\//g, "/");
+}
+
+function isLiteralWorkspaceRelativePath(token: string): boolean {
+  if (!token || token.startsWith("/") || token.includes("..")) {
+    return false;
+  }
+  // Reject regex/wildcard-like references (e.g. memory/\d{4}-\d{2}-\d{2}.md).
+  if (/[*?[\]{}()|+\\]/.test(token)) {
+    return false;
+  }
+  return /^[A-Za-z0-9._/-]+$/.test(token);
+}
+
+async function workspaceFileExists(workspaceDir: string, relPath: string): Promise<boolean> {
+  const root = normalizeWorkspacePath(workspaceDir);
+  const candidate = normalizeWorkspacePath(path.join(root, relPath));
+  if (candidate !== root && !candidate.startsWith(`${root}${path.sep}`)) {
+    return false;
+  }
+  try {
+    const stat = await fs.promises.stat(candidate);
+    return stat.isFile();
+  } catch {
+    return false;
+  }
+}
+
+async function shouldKeepSessionStartupLine(line: string, workspaceDir: string): Promise<boolean> {
+  const tokens = extractMarkdownPathTokens(line).map(normalizeMarkdownPathToken);
+  if (tokens.length === 0) {
+    return true;
+  }
+  for (const token of tokens) {
+    if (!isLiteralWorkspaceRelativePath(token)) {
+      return false;
+    }
+    if (!(await workspaceFileExists(workspaceDir, token))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+async function sanitizeSessionStartupSections(
+  sections: string[],
+  workspaceDir: string,
+): Promise<string[]> {
+  const sanitized: string[] = [];
+  for (const section of sections) {
+    const lines = section.split("\n");
+    const kept: string[] = [];
+    for (const line of lines) {
+      if (await shouldKeepSessionStartupLine(line, workspaceDir)) {
+        kept.push(line);
+      }
+    }
+    const compacted = kept
+      .join("\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+    if (compacted) {
+      sanitized.push(compacted);
+    }
+  }
+  return sanitized;
+}
 
 /**
  * Read critical sections from workspace AGENTS.md for post-compaction injection.
@@ -17,9 +96,14 @@ export async function readPostCompactionContext(workspaceDir: string): Promise<s
 
     const content = await fs.promises.readFile(agentsPath, "utf-8");
 
-    // Extract "## Session Startup" and "## Red Lines" sections
-    // Each section ends at the next "## " heading or end of file
-    const sections = extractSections(content, ["Session Startup", "Red Lines"]);
+    // Extract startup-related sections and remove startup lines that reference
+    // non-literal or missing markdown files to avoid injecting stale paths.
+    const startupSections = extractSections(content, ["Session Startup"]);
+    const redLineSections = extractSections(content, ["Red Lines"]);
+    const sections = [
+      ...(await sanitizeSessionStartupSections(startupSections, workspaceDir)),
+      ...redLineSections,
+    ];
 
     if (sections.length === 0) {
       return null;

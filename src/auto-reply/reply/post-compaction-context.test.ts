@@ -26,6 +26,9 @@ describe("readPostCompactionContext", () => {
   });
 
   it("extracts Session Startup section", async () => {
+    fs.writeFileSync(path.join(tmpDir, "WORKFLOW_AUTO.md"), "# workflow\n");
+    fs.mkdirSync(path.join(tmpDir, "memory"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "memory", "today.md"), "# today\n");
     const content = `# Agent Rules
 
 ## Session Startup
@@ -45,6 +48,24 @@ Not relevant.
     expect(result).toContain("WORKFLOW_AUTO.md");
     expect(result).toContain("Post-compaction context refresh");
     expect(result).not.toContain("Other Section");
+  });
+
+  it("filters startup lines that reference missing or regex-style markdown paths", async () => {
+    fs.writeFileSync(path.join(tmpDir, "SOUL.md"), "# soul\n");
+    const content = `# Agent Rules
+
+## Session Startup
+
+1. Read \`WORKFLOW_AUTO.md\`
+2. Read \`memory/\\d{4}-\\d{2}-\\d{2}.md\`
+3. Read \`SOUL.md\`
+`;
+    fs.writeFileSync(path.join(tmpDir, "AGENTS.md"), content);
+    const result = await readPostCompactionContext(tmpDir);
+    expect(result).not.toBeNull();
+    expect(result).toContain("SOUL.md");
+    expect(result).not.toContain("WORKFLOW_AUTO.md");
+    expect(result).not.toContain("\\d{4}");
   });
 
   it("extracts Red Lines section", async () => {
@@ -98,6 +119,7 @@ Ignore this.
   });
 
   it("matches section names case-insensitively", async () => {
+    fs.writeFileSync(path.join(tmpDir, "WORKFLOW_AUTO.md"), "# workflow\n");
     const content = `# Rules
 
 ## session startup
