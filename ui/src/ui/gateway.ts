@@ -50,6 +50,17 @@ export function resolveGatewayErrorDetailCode(
   return readConnectErrorDetailCode(error?.details);
 }
 
+export function shouldRetryConnectWithoutDeviceAuth(params: {
+  detailCode: string | null;
+  hasSharedToken: boolean;
+  alreadyRetriedWithoutDeviceAuth: boolean;
+}): boolean {
+  if (!params.hasSharedToken || params.alreadyRetriedWithoutDeviceAuth) {
+    return false;
+  }
+  return params.detailCode === "device-signature-stale" || params.detailCode === "device-signature";
+}
+
 export type GatewayHelloOk = {
   type: "hello-ok";
   protocol: number;
@@ -101,6 +112,7 @@ export class GatewayBrowserClient {
   private connectTimer: number | null = null;
   private backoffMs = 800;
   private pendingConnectError: GatewayErrorInfo | undefined;
+  private retryWithoutDeviceAuth = false;
 
   constructor(private opts: GatewayBrowserClientOptions) {}
 
@@ -114,6 +126,7 @@ export class GatewayBrowserClient {
     this.ws?.close();
     this.ws = null;
     this.pendingConnectError = undefined;
+    this.retryWithoutDeviceAuth = false;
     this.flushPending(new Error("gateway client stopped"));
   }
 
@@ -179,7 +192,7 @@ export class GatewayBrowserClient {
     let canFallbackToShared = false;
     let authToken = this.opts.token;
 
-    if (isSecureContext) {
+    if (isSecureContext && !this.retryWithoutDeviceAuth) {
       deviceIdentity = await loadOrCreateDeviceIdentity();
       const storedToken = loadDeviceAuthToken({
         deviceId: deviceIdentity.deviceId,
@@ -206,7 +219,7 @@ export class GatewayBrowserClient {
         }
       | undefined;
 
-    if (isSecureContext && deviceIdentity) {
+    if (isSecureContext && deviceIdentity && !this.retryWithoutDeviceAuth) {
       const signedAtMs = Date.now();
       const nonce = this.connectNonce ?? "";
       const payload = buildDeviceAuthPayload({
@@ -261,6 +274,17 @@ export class GatewayBrowserClient {
         this.opts.onHello?.(hello);
       })
       .catch((err: unknown) => {
+        const detailCode =
+          err instanceof GatewayRequestError ? resolveGatewayErrorDetailCode(err) : null;
+        if (
+          shouldRetryConnectWithoutDeviceAuth({
+            detailCode,
+            hasSharedToken: Boolean(this.opts.token),
+            alreadyRetriedWithoutDeviceAuth: this.retryWithoutDeviceAuth,
+          })
+        ) {
+          this.retryWithoutDeviceAuth = true;
+        }
         if (err instanceof GatewayRequestError) {
           this.pendingConnectError = {
             code: err.gatewayCode,
