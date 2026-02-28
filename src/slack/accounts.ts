@@ -34,6 +34,22 @@ const { listAccountIds, resolveDefaultAccountId } = createAccountListHelpers("sl
 export const listSlackAccountIds = listAccountIds;
 export const resolveDefaultSlackAccountId = resolveDefaultAccountId;
 
+function resolveTokenAndSource(
+  configToken?: string,
+  envToken?: string,
+): {
+  token: string | undefined;
+  source: SlackTokenSource;
+} {
+  if (configToken) {
+    return { token: configToken, source: "config" };
+  }
+  if (envToken) {
+    return { token: envToken, source: "env" };
+  }
+  return { token: undefined, source: "none" };
+}
+
 function resolveAccountConfig(
   cfg: OpenClawConfig,
   accountId: string,
@@ -65,22 +81,19 @@ export function resolveSlackAccount(params: {
   const configBot = resolveSlackBotToken(merged.botToken);
   const configApp = resolveSlackAppToken(merged.appToken);
   const configUser = resolveSlackUserToken(merged.userToken);
-  const botToken = configBot ?? envBot;
-  const appToken = configApp ?? envApp;
+  const resolvedBot = resolveTokenAndSource(configBot, envBot);
+  const resolvedApp = resolveTokenAndSource(configApp, envApp);
   const userToken = configUser ?? envUser;
-  const botTokenSource: SlackTokenSource = configBot ? "config" : envBot ? "env" : "none";
-  const appTokenSource: SlackTokenSource = configApp ? "config" : envApp ? "env" : "none";
-
-  const mergedConfig = userToken && !merged.userToken ? { ...merged, userToken } : merged;
+  const mergedConfig = merged.userToken === userToken ? merged : { ...merged, userToken };
 
   return {
     accountId,
     enabled,
     name: merged.name?.trim() || undefined,
-    botToken,
-    appToken,
-    botTokenSource,
-    appTokenSource,
+    botToken: resolvedBot.token,
+    appToken: resolvedApp.token,
+    botTokenSource: resolvedBot.source,
+    appTokenSource: resolvedApp.source,
     config: mergedConfig,
     groupPolicy: merged.groupPolicy,
     textChunkLimit: merged.textChunkLimit,
