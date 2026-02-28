@@ -9,6 +9,7 @@ import { createReplyPrefixOptions } from "../../../channels/reply-prefix.js";
 import { createTypingCallbacks } from "../../../channels/typing.js";
 import { resolveStorePath, updateLastRoute } from "../../../config/sessions.js";
 import { danger, logVerbose, shouldLogVerbose } from "../../../globals.js";
+import { resolveAgentOutboundIdentity } from "../../../infra/outbound/identity.js";
 import { removeSlackReaction } from "../../actions.js";
 import { createSlackDraftStream } from "../../draft-stream.js";
 import {
@@ -69,6 +70,7 @@ export async function dispatchPreparedSlackMessage(prepared: PreparedSlackMessag
   const { ctx, account, message, route } = prepared;
   const cfg = ctx.cfg;
   const runtime = ctx.runtime;
+  const outboundIdentity = resolveAgentOutboundIdentity(cfg, route.agentId);
 
   if (prepared.isDirectMessage) {
     const sessionCfg = cfg.session;
@@ -186,6 +188,7 @@ export async function dispatchPreparedSlackMessage(prepared: PreparedSlackMessag
       target: prepared.replyTarget,
       token: ctx.botToken,
       accountId: account.accountId,
+      identity: outboundIdentity,
       runtime,
       textLimit: ctx.textLimit,
       replyThreadTs,
