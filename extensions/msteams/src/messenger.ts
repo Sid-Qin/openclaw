@@ -470,6 +470,13 @@ export async function sendMSTeamsMessages(params: {
     return await sendMessagesInContext(ctx);
   }
 
+  const conversationType = params.conversationRef.conversation?.conversationType?.toLowerCase();
+  const canUseCurrentTurnContextForTopLevel =
+    conversationType === "personal" && params.context !== undefined;
+  if (canUseCurrentTurnContextForTopLevel) {
+    return await sendMessagesInContext(params.context);
+  }
+
   const baseRef = buildConversationReference(params.conversationRef);
   const proactiveRef: MSTeamsConversationReference = {
     ...baseRef,

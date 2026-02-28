@@ -188,6 +188,83 @@ describe("msteams messenger", () => {
       expect(ref.conversation?.id).toBe("19:abc@thread.tacv2");
     });
 
+    it("uses current context for personal top-level sends to avoid dropping later blocks", async () => {
+      const sent: string[] = [];
+      const continueConversation = vi.fn(async () => {});
+      const adapter: MSTeamsAdapter = {
+        continueConversation,
+        process: async () => {},
+      };
+      const ctx = {
+        sendActivity: createRecordedSendActivity(sent),
+      };
+      const personalRef: StoredConversationReference = {
+        ...baseRef,
+        conversation: {
+          ...baseRef.conversation,
+          conversationType: "personal",
+        },
+      };
+
+      const firstIds = await sendMSTeamsMessages({
+        replyStyle: "top-level",
+        adapter,
+        appId: "app123",
+        conversationRef: personalRef,
+        context: ctx,
+        messages: [{ text: "first" }],
+      });
+      const secondIds = await sendMSTeamsMessages({
+        replyStyle: "top-level",
+        adapter,
+        appId: "app123",
+        conversationRef: personalRef,
+        context: ctx,
+        messages: [{ text: "second" }],
+      });
+
+      expect(sent).toEqual(["first", "second"]);
+      expect(firstIds).toEqual(["id:first"]);
+      expect(secondIds).toEqual(["id:second"]);
+      expect(continueConversation).not.toHaveBeenCalled();
+    });
+
+    it("keeps proactive continueConversation for non-personal top-level sends", async () => {
+      const sent: string[] = [];
+      const continueConversation = vi.fn(async (_appId: string, _ref: unknown, logic: unknown) => {
+        await (
+          logic as (ctx: { sendActivity: (activity: unknown) => Promise<unknown> }) => Promise<void>
+        )({ sendActivity: createRecordedSendActivity(sent) });
+      });
+      const adapter: MSTeamsAdapter = {
+        continueConversation,
+        process: async () => {},
+      };
+      const ctx = {
+        sendActivity: createRecordedSendActivity([]),
+      };
+      const groupRef: StoredConversationReference = {
+        ...baseRef,
+        conversation: {
+          ...baseRef.conversation,
+          conversationType: "groupChat",
+        },
+      };
+
+      const ids = await sendMSTeamsMessages({
+        replyStyle: "top-level",
+        adapter,
+        appId: "app123",
+        conversationRef: groupRef,
+        context: ctx,
+        messages: [{ text: "hello group" }],
+      });
+
+      expect(ids).toEqual(["id:hello group"]);
+      expect(sent).toEqual(["hello group"]);
+      expect(continueConversation).toHaveBeenCalledOnce();
+    });
+
     it("preserves parsed mentions when appending OneDrive fallback file links", async () => {
       const tmpDir = await mkdtemp(path.join(resolvePreferredOpenClawTmpDir(), "msteams-mention-"));
       const localFile = path.join(tmpDir, "note.txt");
