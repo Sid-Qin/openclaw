@@ -134,7 +134,7 @@ describe("startHeartbeatRunner", () => {
     expect(runSpy).not.toHaveBeenCalled();
   });
 
-  it("reschedules timer when runOnce returns requests-in-flight", async () => {
+  it("retries soon when runOnce returns requests-in-flight", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(0));
 
@@ -158,8 +158,11 @@ describe("startHeartbeatRunner", () => {
     await vi.advanceTimersByTimeAsync(30 * 60_000 + 1_000);
     expect(runSpy).toHaveBeenCalledTimes(1);
 
-    // Timer should be rescheduled; next heartbeat should still fire
-    await vi.advanceTimersByTimeAsync(30 * 60_000 + 1_000);
+    // Busy-lane skips should retry soon (~60s), not jump by full interval.
+    await vi.advanceTimersByTimeAsync(59_000);
+    expect(runSpy).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(2_000);
     expect(runSpy).toHaveBeenCalledTimes(2);
 
     runner.stop();
