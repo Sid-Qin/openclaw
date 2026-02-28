@@ -1,11 +1,35 @@
 import fs from "node:fs";
 import path from "node:path";
 
+const DAILY_MEMORY_FILE_PATTERN = /memory\/\d{4}-\d{2}-\d{2}\.md/;
+
 // Default required files — constants, extensible to config later
 const DEFAULT_REQUIRED_READS: Array<string | RegExp> = [
   "WORKFLOW_AUTO.md",
-  /memory\/\d{4}-\d{2}-\d{2}\.md/, // daily memory files
+  DAILY_MEMORY_FILE_PATTERN, // daily memory files
 ];
+
+function formatLocalDateIso(now: Date): string {
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function resolveDailyMemoryRelativePath(now: Date): string {
+  return `memory/${formatLocalDateIso(now)}.md`;
+}
+
+function resolveMissingPatternLabel(params: { required: string | RegExp; now: Date }): string {
+  const { required, now } = params;
+  if (typeof required === "string") {
+    return required;
+  }
+  if (required.source === DAILY_MEMORY_FILE_PATTERN.source) {
+    return resolveDailyMemoryRelativePath(now);
+  }
+  return required.source;
+}
 
 /**
  * Audit whether agent read required startup files after compaction.
@@ -15,7 +39,9 @@ export function auditPostCompactionReads(
   readFilePaths: string[],
   workspaceDir: string,
   requiredReads: Array<string | RegExp> = DEFAULT_REQUIRED_READS,
+  options?: { now?: Date },
 ): { passed: boolean; missingPatterns: string[] } {
+  const now = options?.now ?? new Date();
   const normalizedReads = readFilePaths.map((p) => path.resolve(workspaceDir, p));
   const missingPatterns: string[] = [];
 
@@ -28,14 +54,15 @@ export function auditPostCompactionReads(
       }
     } else {
       // RegExp — match against relative paths from workspace
+      const strictPattern = new RegExp(`^(?:${required.source})$`, required.flags);
       const found = readFilePaths.some((p) => {
         const rel = path.relative(workspaceDir, path.resolve(workspaceDir, p));
         // Normalize to forward slashes for cross-platform RegExp matching
         const normalizedRel = rel.split(path.sep).join("/");
-        return required.test(normalizedRel);
+        return strictPattern.test(normalizedRel);
       });
       if (!found) {
-        missingPatterns.push(required.source);
+        missingPatterns.push(resolveMissingPatternLabel({ required, now }));
       }
     }
   }
@@ -100,12 +127,30 @@ export function extractReadPaths(messages: Array<{ role?: string; content?: unkn
 }
 
 /** Format the audit warning message */
-export function formatAuditWarning(missingPatterns: string[]): string {
-  const fileList = missingPatterns.map((p) => `  - ${p}`).join("\n");
+export function formatAuditWarning(
+  missingPatterns: string[],
+  options?: { workspaceDir?: string },
+): string {
+  const workspaceDir = options?.workspaceDir;
+  const fileList = missingPatterns
+    .map((p) => {
+      if (!workspaceDir || path.isAbsolute(p)) {
+        return `  - ${p}`;
+      }
+      const expectedPath = path.resolve(workspaceDir, p);
+      return `  - ${p} (expected: ${expectedPath})`;
+    })
+    .join("\n");
+  const memoryPath = missingPatterns.find((p) => p.startsWith("memory/"));
+  const memoryHint =
+    workspaceDir && memoryPath
+      ? `\n\nExpected path: ${path.resolve(workspaceDir, memoryPath)}`
+      : "";
   return (
     "⚠️ Post-Compaction Audit: The following required startup files were not read after context reset:\n" +
     fileList +
     "\n\nPlease read them now using the Read tool before continuing. " +
-    "This ensures your operating protocols are restored after memory compaction."
+    "This ensures your operating protocols are restored after memory compaction." +
+    memoryHint
   );
 }

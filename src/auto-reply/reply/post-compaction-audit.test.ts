@@ -108,6 +108,7 @@ describe("extractReadPaths", () => {
 
 describe("auditPostCompactionReads", () => {
   const workspaceDir = "/Users/test/workspace";
+  const testNow = new Date("2026-02-16T12:00:00.000Z");
 
   it("passes when all required files are read", () => {
     const readPaths = ["WORKFLOW_AUTO.md", "memory/2026-02-16.md"];
@@ -118,20 +119,20 @@ describe("auditPostCompactionReads", () => {
   });
 
   it("fails when no files are read", () => {
-    const result = auditPostCompactionReads([], workspaceDir);
+    const result = auditPostCompactionReads([], workspaceDir, undefined, { now: testNow });
 
     expect(result.passed).toBe(false);
     expect(result.missingPatterns).toContain("WORKFLOW_AUTO.md");
-    expect(result.missingPatterns.some((p) => p.includes("memory"))).toBe(true);
+    expect(result.missingPatterns).toContain("memory/2026-02-16.md");
   });
 
   it("reports only missing files", () => {
     const readPaths = ["WORKFLOW_AUTO.md"];
-    const result = auditPostCompactionReads(readPaths, workspaceDir);
+    const result = auditPostCompactionReads(readPaths, workspaceDir, undefined, { now: testNow });
 
     expect(result.passed).toBe(false);
     expect(result.missingPatterns).not.toContain("WORKFLOW_AUTO.md");
-    expect(result.missingPatterns.some((p) => p.includes("memory"))).toBe(true);
+    expect(result.missingPatterns).toContain("memory/2026-02-16.md");
   });
 
   it("matches RegExp patterns against relative paths", () => {
@@ -162,6 +163,14 @@ describe("auditPostCompactionReads", () => {
     expect(result.missingPatterns).toEqual([]);
   });
 
+  it("does not accept memory files read outside workspace root", () => {
+    const readPaths = ["/Users/test/memory/2026-02-16.md", "WORKFLOW_AUTO.md"];
+    const result = auditPostCompactionReads(readPaths, workspaceDir, undefined, { now: testNow });
+
+    expect(result.passed).toBe(false);
+    expect(result.missingPatterns).toContain("memory/2026-02-16.md");
+  });
+
   it("accepts custom required reads list", () => {
     const readPaths = ["custom.md"];
     const customRequired = ["custom.md"];
@@ -174,12 +183,16 @@ describe("auditPostCompactionReads", () => {
 
 describe("formatAuditWarning", () => {
   it("formats warning message with missing patterns", () => {
-    const missingPatterns = ["WORKFLOW_AUTO.md", "memory\\/\\d{4}-\\d{2}-\\d{2}\\.md"];
-    const message = formatAuditWarning(missingPatterns);
+    const missingPatterns = ["WORKFLOW_AUTO.md", "memory/2026-02-16.md"];
+    const message = formatAuditWarning(missingPatterns, {
+      workspaceDir: "/Users/test/workspace",
+    });
 
     expect(message).toContain("⚠️ Post-Compaction Audit");
     expect(message).toContain("WORKFLOW_AUTO.md");
-    expect(message).toContain("memory");
+    expect(message).toContain("memory/2026-02-16.md");
+    expect(message).toContain("/Users/test/workspace/memory/2026-02-16.md");
+    expect(message).toContain("Expected path:");
     expect(message).toContain("Please read them now");
   });
 
