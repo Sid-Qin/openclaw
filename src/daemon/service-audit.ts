@@ -213,14 +213,15 @@ function auditGatewayToken(
     return;
   }
   const serviceToken = command?.environment?.OPENCLAW_GATEWAY_TOKEN?.trim();
-  if (serviceToken === expectedToken) {
+  // Missing service token is acceptable: gateway auth resolves from config first.
+  if (!serviceToken || serviceToken === expectedToken) {
     return;
   }
   issues.push({
     code: SERVICE_AUDIT_CODES.gatewayTokenMismatch,
     message:
       "Gateway service OPENCLAW_GATEWAY_TOKEN does not match gateway.auth.token in openclaw.json",
-    detail: serviceToken ? "service token is stale" : "service token is missing",
+    detail: "service token is stale",
     level: "recommended",
   });
 }
@@ -360,14 +361,20 @@ export function checkTokenDrift(params: {
   serviceToken: string | undefined;
   configToken: string | undefined;
 }): ServiceConfigIssue | null {
-  const { serviceToken, configToken } = params;
+  const serviceToken = params.serviceToken?.trim() || undefined;
+  const configToken = params.configToken?.trim() || undefined;
 
   // No drift if both are undefined/empty
   if (!serviceToken && !configToken) {
     return null;
   }
 
-  // Drift: config has token, service has different or no token
+  // Missing service token is acceptable: service can read auth from config.
+  if (!serviceToken) {
+    return null;
+  }
+
+  // Drift: config has token and service token exists but differs
   if (configToken && serviceToken !== configToken) {
     return {
       code: SERVICE_AUDIT_CODES.gatewayTokenDrift,

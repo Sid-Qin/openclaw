@@ -157,6 +157,29 @@ describe("gatherDaemonStatus", () => {
     expect(status.rpc?.ok).toBe(true);
   });
 
+  it("prefers daemon config token over stale service env token for probes", async () => {
+    serviceReadCommand.mockResolvedValueOnce({
+      programArguments: ["/bin/node", "cli", "gateway", "--port", "19001"],
+      environment: {
+        OPENCLAW_STATE_DIR: "/tmp/openclaw-daemon",
+        OPENCLAW_CONFIG_PATH: "/tmp/openclaw-daemon/openclaw.json",
+        OPENCLAW_GATEWAY_TOKEN: "stale-service-token",
+      },
+    });
+
+    await gatherDaemonStatus({
+      rpc: {},
+      probe: true,
+      deep: false,
+    });
+
+    expect(callGatewayStatusProbe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        token: "daemon-token",
+      }),
+    );
+  });
+
   it("does not force local TLS fingerprint when probe URL is explicitly overridden", async () => {
     const status = await gatherDaemonStatus({
       rpc: { url: "wss://override.example:18790" },

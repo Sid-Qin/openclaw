@@ -254,6 +254,10 @@ export function buildServiceEnvironment(params: {
   // works correctly when running as a LaunchAgent without extra user configuration.
   const nodeCaCerts =
     env.NODE_EXTRA_CA_CERTS ?? (platform === "darwin" ? "/etc/ssl/cert.pem" : undefined);
+  // On macOS LaunchAgents, avoid persisting OPENCLAW_GATEWAY_TOKEN in plist env.
+  // The gateway server resolves auth from config first, so embedding a token here
+  // can drift from openclaw.json and break CLI probes that read LaunchAgent env.
+  const embeddedGatewayToken = platform === "darwin" ? undefined : token;
   return {
     HOME: env.HOME,
     TMPDIR: tmpDir,
@@ -264,7 +268,7 @@ export function buildServiceEnvironment(params: {
     OPENCLAW_STATE_DIR: stateDir,
     OPENCLAW_CONFIG_PATH: configPath,
     OPENCLAW_GATEWAY_PORT: String(port),
-    OPENCLAW_GATEWAY_TOKEN: token,
+    OPENCLAW_GATEWAY_TOKEN: embeddedGatewayToken,
     OPENCLAW_LAUNCHD_LABEL: resolvedLaunchdLabel,
     OPENCLAW_SYSTEMD_UNIT: systemdUnit,
     OPENCLAW_SERVICE_MARKER: GATEWAY_SERVICE_MARKER,

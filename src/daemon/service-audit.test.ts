@@ -100,6 +100,23 @@ describe("auditGatewayServiceConfig", () => {
       audit.issues.some((issue) => issue.code === SERVICE_AUDIT_CODES.gatewayTokenMismatch),
     ).toBe(false);
   });
+
+  it("does not flag gateway token mismatch when service token is missing", async () => {
+    const audit = await auditGatewayServiceConfig({
+      env: { HOME: "/tmp" },
+      platform: "linux",
+      expectedGatewayToken: "new-token",
+      command: {
+        programArguments: ["/usr/bin/node", "gateway"],
+        environment: {
+          PATH: "/usr/local/bin:/usr/bin:/bin",
+        },
+      },
+    });
+    expect(
+      audit.issues.some((issue) => issue.code === SERVICE_AUDIT_CODES.gatewayTokenMismatch),
+    ).toBe(false);
+  });
 });
 
 describe("checkTokenDrift", () => {
@@ -125,10 +142,9 @@ describe("checkTokenDrift", () => {
     expect(result?.message).toContain("differs from service token");
   });
 
-  it("detects drift when config has token but service has no token", () => {
+  it("does not treat missing service token as drift", () => {
     const result = checkTokenDrift({ serviceToken: undefined, configToken: "new-token" });
-    expect(result).not.toBeNull();
-    expect(result?.code).toBe(SERVICE_AUDIT_CODES.gatewayTokenDrift);
+    expect(result).toBeNull();
   });
 
   it("returns null when service has token but config does not", () => {

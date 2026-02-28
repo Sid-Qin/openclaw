@@ -233,12 +233,12 @@ export async function gatherDaemonStatus(
         url: probeUrl,
         token:
           opts.rpc.token ||
-          mergedDaemonEnv.OPENCLAW_GATEWAY_TOKEN ||
-          daemonCfg.gateway?.auth?.token,
+          daemonCfg.gateway?.auth?.token ||
+          mergedDaemonEnv.OPENCLAW_GATEWAY_TOKEN,
         password:
           opts.rpc.password ||
-          mergedDaemonEnv.OPENCLAW_GATEWAY_PASSWORD ||
-          daemonCfg.gateway?.auth?.password,
+          daemonCfg.gateway?.auth?.password ||
+          mergedDaemonEnv.OPENCLAW_GATEWAY_PASSWORD,
         tlsFingerprint:
           shouldUseLocalTlsRuntime && tlsRuntime?.enabled
             ? tlsRuntime.fingerprintSha256

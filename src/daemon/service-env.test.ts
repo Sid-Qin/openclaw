@@ -260,27 +260,34 @@ describe("buildMinimalServicePath", () => {
 });
 
 describe("buildServiceEnvironment", () => {
-  it("sets minimal PATH and gateway vars", () => {
+  it("sets minimal PATH and gateway vars on linux services", () => {
     const env = buildServiceEnvironment({
       env: { HOME: "/home/user" },
       port: 18789,
       token: "secret",
+      platform: "linux",
     });
     expect(env.HOME).toBe("/home/user");
-    if (process.platform === "win32") {
-      expect(env.PATH).toBe("");
-    } else {
-      expect(env.PATH).toContain("/usr/bin");
-    }
+    expect(env.PATH).toContain("/usr/bin");
     expect(env.OPENCLAW_GATEWAY_PORT).toBe("18789");
     expect(env.OPENCLAW_GATEWAY_TOKEN).toBe("secret");
     expect(env.OPENCLAW_SERVICE_MARKER).toBe("openclaw");
     expect(env.OPENCLAW_SERVICE_KIND).toBe("gateway");
     expect(typeof env.OPENCLAW_SERVICE_VERSION).toBe("string");
     expect(env.OPENCLAW_SYSTEMD_UNIT).toBe("openclaw-gateway.service");
-    if (process.platform === "darwin") {
-      expect(env.OPENCLAW_LAUNCHD_LABEL).toBe("ai.openclaw.gateway");
-    }
+    expect(env.OPENCLAW_LAUNCHD_LABEL).toBeUndefined();
+  });
+
+  it("does not embed gateway token in darwin launchd environment", () => {
+    const env = buildServiceEnvironment({
+      env: { HOME: "/Users/test" },
+      port: 18789,
+      token: "secret",
+      platform: "darwin",
+    });
+    expect(env.OPENCLAW_GATEWAY_PORT).toBe("18789");
+    expect(env.OPENCLAW_GATEWAY_TOKEN).toBeUndefined();
+    expect(env.OPENCLAW_LAUNCHD_LABEL).toBe("ai.openclaw.gateway");
   });
 
   it("forwards TMPDIR from the host environment", () => {
