@@ -104,6 +104,26 @@ const CHAT_NOT_FOUND_RE = /400: Bad Request: chat not found/i;
 const sendLogger = createSubsystemLogger("telegram/send");
 const diagLogger = createSubsystemLogger("telegram/diagnostic");
 
+function extractSingleMarkdownImageSend(text: string): {
+  mediaUrl: string;
+  text: string;
+} | null {
+  if (!text.includes("![")) {
+    return null;
+  }
+  const imagePattern = /!\[[^\]]*]\((https?:\/\/[^\s)]+)\)/gi;
+  const matches = [...text.matchAll(imagePattern)];
+  if (matches.length !== 1) {
+    return null;
+  }
+  const mediaUrl = matches[0]?.[1]?.trim();
+  if (!mediaUrl) {
+    return null;
+  }
+  const remainingText = text.replace(imagePattern, " ").replace(/\s+/g, " ").trim();
+  return { mediaUrl, text: remainingText };
+}
+
 function createTelegramHttpLogger(cfg: ReturnType<typeof loadConfig>) {
   const enabled = isDiagnosticFlagEnabled("telegram.http", cfg);
   if (!enabled) {
@@ -470,8 +490,13 @@ export async function sendMessageTelegram(
     persistTarget: to,
     verbose: opts.verbose,
   });
-  const mediaUrl = opts.mediaUrl?.trim();
+  const mediaUrlFromOpts = opts.mediaUrl?.trim();
   const replyMarkup = buildInlineKeyboard(opts.buttons);
+  const textMode = opts.textMode ?? "markdown";
+  const extractedMarkdownImage =
+    !mediaUrlFromOpts && textMode === "markdown" ? extractSingleMarkdownImageSend(text) : null;
+  const mediaUrl = extractedMarkdownImage?.mediaUrl ?? mediaUrlFromOpts;
+  const outgoingText = extractedMarkdownImage?.text ?? text;
 
   const threadParams = buildTelegramThreadReplyParams({
     targetMessageThreadId: target.messageThreadId,
@@ -494,7 +519,6 @@ export async function sendMessageTelegram(
     input: to,
   });
 
-  const textMode = opts.textMode ?? "markdown";
   const tableMode = resolveMarkdownTableMode({
     cfg,
     channel: "telegram",
@@ -575,9 +599,9 @@ export async function sendMessageTelegram(
 
     if (isVideoNote) {
       caption = undefined;
-      followUpText = text.trim() ? text : undefined;
+      followUpText = outgoingText.trim() ? outgoingText : undefined;
     } else {
-      const split = splitTelegramCaption(text);
+      const split = splitTelegramCaption(outgoingText);
       caption = split.caption;
       followUpText = split.followUpText;
     }
@@ -727,9 +751,6 @@ export async function sendMessageTelegram(
     return { messageId: String(mediaMessageId), chatId: resolvedChatId };
   }
 
-  if (!text || !text.trim()) {
-    throw new Error("Message must be non-empty for Telegram sends");
-  }
   const textParams =
     hasThreadParams || replyMarkup
       ? {
@@ -737,7 +758,10 @@ export async function sendMessageTelegram(
           ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
         }
       : undefined;
-  const res = await sendTelegramText(text, textParams, opts.plainText);
+  if (!outgoingText || !outgoingText.trim()) {
+    throw new Error("Message must be non-empty for Telegram sends");
+  }
+  const res = await sendTelegramText(outgoingText, textParams, opts.plainText);
   const messageId = resolveTelegramMessageIdOrThrow(res, "text send");
   recordSentMessage(chatId, messageId);
   recordChannelActivity({

@@ -363,6 +363,55 @@ describe("sendMessageTelegram", () => {
     ).rejects.toThrow(/returned no message_id/i);
   });
 
+  it("sends standalone markdown image links as media when mediaUrl is not provided", async () => {
+    const chatId = "123";
+    mockLoadedMedia({ contentType: "image/png", fileName: "image.png" });
+    const sendPhoto = vi.fn().mockResolvedValue({
+      message_id: 77,
+      chat: { id: chatId },
+    });
+    const sendMessage = vi.fn();
+    const api = { sendPhoto, sendMessage } as unknown as {
+      sendPhoto: typeof sendPhoto;
+      sendMessage: typeof sendMessage;
+    };
+
+    const result = await sendMessageTelegram(chatId, "\n![Image](https://example.com/a.png)\n", {
+      token: "tok",
+      api,
+    });
+
+    expect(loadWebMedia).toHaveBeenCalledWith("https://example.com/a.png", {
+      maxBytes: undefined,
+      localRoots: undefined,
+    });
+    expect(sendPhoto).toHaveBeenCalledWith(chatId, expect.anything(), {});
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(result).toEqual({ messageId: "77", chatId });
+  });
+
+  it("uses remaining text as caption when extracting markdown image links", async () => {
+    const chatId = "123";
+    mockLoadedMedia({ contentType: "image/png", fileName: "image.png" });
+    const sendPhoto = vi.fn().mockResolvedValue({
+      message_id: 78,
+      chat: { id: chatId },
+    });
+    const api = { sendPhoto } as unknown as {
+      sendPhoto: typeof sendPhoto;
+    };
+
+    await sendMessageTelegram(chatId, "![Image](https://example.com/a.png)\ncaption **bold**", {
+      token: "tok",
+      api,
+    });
+
+    expect(sendPhoto).toHaveBeenCalledWith(chatId, expect.anything(), {
+      caption: "caption <b>bold</b>",
+      parse_mode: "HTML",
+    });
+  });
+
   it("uses native fetch for BAN compatibility when api is omitted", async () => {
     const originalFetch = globalThis.fetch;
     const originalBun = (globalThis as { Bun?: unknown }).Bun;
