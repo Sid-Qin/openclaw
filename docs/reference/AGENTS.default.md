@@ -48,7 +48,9 @@ cp docs/reference/AGENTS.default.md ~/.openclaw/workspace/AGENTS.md
 
 ## Session start (required)
 
-- Read `SOUL.md`, `USER.md`, `memory.md`, and today+yesterday in `memory/`.
+- Read `SOUL.md` and `USER.md`.
+- For prior work/decisions/preferences/todos, run `memory_search` on `MEMORY.md` + `memory/*.md`, then use `memory_get` for only the needed lines.
+- If memory tools are unavailable, read `memory.md` and today+yesterday in `memory/`.
 - Do it before responding.
 
 ## Soul (required)
@@ -66,7 +68,7 @@ cp docs/reference/AGENTS.default.md ~/.openclaw/workspace/AGENTS.md
 
 - Daily log: `memory/YYYY-MM-DD.md` (create `memory/` if needed).
 - Long-term memory: `memory.md` for durable facts, preferences, and decisions.
-- On session start, read today + yesterday + `memory.md` if present.
+- On session start, prefer `memory_search` + `memory_get`; only fall back to direct file reads when tools are unavailable.
 - Capture: decisions, preferences, constraints, open loops.
 - Avoid secrets unless explicitly requested.
 

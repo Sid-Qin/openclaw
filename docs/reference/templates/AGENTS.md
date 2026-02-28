@@ -19,8 +19,9 @@ Before doing anything else:
 
 1. Read `SOUL.md` — this is who you are
 2. Read `USER.md` — this is who you're helping
-3. Read `memory/YYYY-MM-DD.md` (today + yesterday) for recent context
-4. **If in MAIN SESSION** (direct chat with your human): Also read `MEMORY.md`
+3. For prior work/decisions/preferences/todos, use `memory_search` on `MEMORY.md` + `memory/*.md`
+4. Use `memory_get` to pull only the lines you need from search hits
+5. If memory tools are unavailable, read `memory/YYYY-MM-DD.md` (today + yesterday); in **MAIN SESSION**, also read `MEMORY.md`
 
 Don't ask permission. Just do it.
 
@@ -205,7 +206,7 @@ You are free to edit `HEARTBEAT.md` with a short checklist or reminders. Keep it
 
 Periodically (every few days), use a heartbeat to:
 
-1. Read through recent `memory/YYYY-MM-DD.md` files
+1. Use `memory_search` across `MEMORY.md` + recent `memory/YYYY-MM-DD.md` files
 2. Identify significant events, lessons, or insights worth keeping long-term
 3. Update `MEMORY.md` with distilled learnings
 4. Remove outdated info from MEMORY.md that's no longer relevant
