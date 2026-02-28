@@ -22,6 +22,7 @@ import { mergeGatewayTailscaleConfig } from "./startup-auth.js";
 export type GatewayRuntimeConfig = {
   bindHost: string;
   controlUiEnabled: boolean;
+  controlUiOriginPolicyWarning?: string;
   openAiChatCompletionsEnabled: boolean;
   openResponsesEnabled: boolean;
   openResponsesConfig?: import("../config/types.gateway.js").GatewayHttpResponsesConfig;
@@ -120,6 +121,7 @@ export async function resolveGatewayRuntimeConfig(params: {
     .filter(Boolean);
   const dangerouslyAllowHostHeaderOriginFallback =
     params.cfg.gateway?.controlUi?.dangerouslyAllowHostHeaderOriginFallback === true;
+  let controlUiOriginPolicyWarning: string | undefined;
 
   assertGatewayAuthConfigured(resolvedAuth);
   if (tailscaleMode === "funnel" && authMode !== "password") {
@@ -141,9 +143,11 @@ export async function resolveGatewayRuntimeConfig(params: {
     controlUiAllowedOrigins.length === 0 &&
     !dangerouslyAllowHostHeaderOriginFallback
   ) {
-    throw new Error(
-      "non-loopback Control UI requires gateway.controlUi.allowedOrigins (set explicit origins), or set gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback=true to use Host-header origin fallback mode",
-    );
+    controlUiOriginPolicyWarning =
+      "Control UI is enabled on a non-loopback bind but gateway.controlUi.allowedOrigins is empty. " +
+      "The gateway will keep running (remote browser origins remain blocked). " +
+      "Set gateway.controlUi.allowedOrigins (recommended), or set " +
+      "gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback=true to use Host-header origin fallback mode.";
   }
 
   if (authMode === "trusted-proxy") {
@@ -167,6 +171,7 @@ export async function resolveGatewayRuntimeConfig(params: {
   return {
     bindHost,
     controlUiEnabled,
+    controlUiOriginPolicyWarning,
     openAiChatCompletionsEnabled,
     openResponsesEnabled,
     openResponsesConfig: openResponsesConfig

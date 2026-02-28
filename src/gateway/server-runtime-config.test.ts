@@ -201,18 +201,20 @@ describe("resolveGatewayRuntimeConfig", () => {
       );
     });
 
-    it("rejects non-loopback control UI when allowed origins are missing", async () => {
-      await expect(
-        resolveGatewayRuntimeConfig({
-          cfg: {
-            gateway: {
-              bind: "lan",
-              auth: TOKEN_AUTH,
-            },
+    it("keeps running and warns when non-loopback control UI lacks origin policy", async () => {
+      const result = await resolveGatewayRuntimeConfig({
+        cfg: {
+          gateway: {
+            bind: "lan",
+            auth: TOKEN_AUTH,
           },
-          port: 18789,
-        }),
-      ).rejects.toThrow("non-loopback Control UI requires gateway.controlUi.allowedOrigins");
+        },
+        port: 18789,
+      });
+      expect(result.bindHost).toBe("0.0.0.0");
+      expect(result.controlUiOriginPolicyWarning).toContain(
+        "gateway.controlUi.allowedOrigins is empty",
+      );
     });
 
     it("allows non-loopback control UI without allowed origins when dangerous fallback is enabled", async () => {
@@ -229,6 +231,7 @@ describe("resolveGatewayRuntimeConfig", () => {
         port: 18789,
       });
       expect(result.bindHost).toBe("0.0.0.0");
+      expect(result.controlUiOriginPolicyWarning).toBeUndefined();
     });
   });
 
