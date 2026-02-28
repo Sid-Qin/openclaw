@@ -107,6 +107,56 @@ function normalizeFinalAssistantMessage(message: unknown): Record<string, unknow
   });
 }
 
+function hasToolContentBlocks(content: unknown): boolean {
+  if (!Array.isArray(content)) {
+    return false;
+  }
+  return content.some((entry) => {
+    const item = entry as Record<string, unknown>;
+    const type = typeof item.type === "string" ? item.type.toLowerCase() : "";
+    return (
+      type === "tool_use" ||
+      type === "tooluse" ||
+      type === "tool_call" ||
+      type === "toolcall" ||
+      type === "tool_result" ||
+      type === "toolresult"
+    );
+  });
+}
+
+function mergeStreamedTextIntoToolFinal(
+  finalMessage: Record<string, unknown>,
+  streamedTextRaw: string | null,
+): Record<string, unknown> {
+  const streamedText = streamedTextRaw?.trim() ?? "";
+  if (!streamedText) {
+    return finalMessage;
+  }
+  const finalText = (extractText(finalMessage) ?? "").trim();
+  const content = finalMessage.content;
+  if (!hasToolContentBlocks(content)) {
+    return finalMessage;
+  }
+  if (finalText && streamedText.length <= finalText.length) {
+    return finalMessage;
+  }
+  if (!Array.isArray(content)) {
+    return {
+      ...finalMessage,
+      content: [{ type: "text", text: streamedText }],
+    };
+  }
+  const nonTextBlocks = content.filter((entry) => {
+    const item = entry as Record<string, unknown>;
+    return item.type !== "text";
+  });
+  return {
+    ...finalMessage,
+    content: [{ type: "text", text: streamedText }, ...nonTextBlocks],
+  };
+}
+
 export async function sendChatMessage(
   state: ChatState,
   message: string,
@@ -250,7 +300,10 @@ export function handleChatEvent(state: ChatState, payload?: ChatEventPayload) {
   } else if (payload.state === "final") {
     const finalMessage = normalizeFinalAssistantMessage(payload.message);
     if (finalMessage) {
-      state.chatMessages = [...state.chatMessages, finalMessage];
+      state.chatMessages = [
+        ...state.chatMessages,
+        mergeStreamedTextIntoToolFinal(finalMessage, state.chatStream),
+      ];
     }
     state.chatStream = null;
     state.chatRunId = null;
