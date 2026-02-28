@@ -133,6 +133,24 @@ describe("extractAssistantText", () => {
     );
   });
 
+  it("does not rewrite billing prose when stopReason is not error", () => {
+    const msg = makeAssistantMessage({
+      role: "assistant",
+      stopReason: "stop",
+      errorMessage: "HTTP 402 Payment Required",
+      content: [
+        {
+          type: "text",
+          text: "Docs note: HTTP 402 Payment Required can appear in billing examples.",
+        },
+      ],
+      timestamp: Date.now(),
+    });
+
+    const result = extractAssistantText(msg);
+    expect(result).toBe("Docs note: HTTP 402 Payment Required can appear in billing examples.");
+  });
+
   it("strips Minimax tool invocations with extra attributes", () => {
     const msg = makeAssistantMessage({
       role: "assistant",

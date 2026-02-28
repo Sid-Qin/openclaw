@@ -66,6 +66,16 @@ describe("sanitizeUserFacingText", () => {
     expect(sanitizeUserFacingText(text, { errorContext: true })).toContain("billing error");
   });
 
+  it("does not rewrite long explanatory billing prose in errorContext", () => {
+    const text =
+      "In this guide, HTTP 402 Payment Required is documented as a billing status code. " +
+      "We explain how to present retry UX and credit top-up hints without treating this as a live API failure. " +
+      "Reference notes: " +
+      "x".repeat(700);
+    expect(text.length).toBeGreaterThan(512);
+    expect(sanitizeUserFacingText(text, { errorContext: true })).toBe(text);
+  });
+
   it("sanitizes raw API error payloads", () => {
     const raw = '{"type":"error","error":{"message":"Something exploded","type":"server_error"}}';
     expect(sanitizeUserFacingText(raw, { errorContext: true })).toBe(

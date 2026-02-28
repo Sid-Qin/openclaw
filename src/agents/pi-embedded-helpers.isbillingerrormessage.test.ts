@@ -122,6 +122,16 @@ describe("isBillingErrorMessage", () => {
     expect(longResponse.length).toBeGreaterThan(512);
     expect(isBillingErrorMessage(longResponse)).toBe(false);
   });
+  it("does not match long explanatory prose that mentions HTTP 402 semantics", () => {
+    const longProse =
+      "In API docs, HTTP 402 means Payment Required and is often used for billing checks. " +
+      "This section explains retry strategy, user messaging, and graceful degradation for " +
+      "insufficient credits scenarios in educational context only. " +
+      "Details: " +
+      "x".repeat(700);
+    expect(longProse.length).toBeGreaterThan(512);
+    expect(isBillingErrorMessage(longProse)).toBe(false);
+  });
   it("still matches explicit 402 markers in long payloads", () => {
     const longStructuredError =
       '{"error":{"code":402,"message":"payment required","details":"' + "x".repeat(700) + '"}}';

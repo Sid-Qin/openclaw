@@ -162,9 +162,7 @@ export function extractAssistantText(message: unknown): string | undefined {
       normalizeText: (text) => text.trim(),
     }) ?? "";
   const stopReason = (message as { stopReason?: unknown }).stopReason;
-  const errorMessage = (message as { errorMessage?: unknown }).errorMessage;
-  const errorContext =
-    stopReason === "error" || (typeof errorMessage === "string" && Boolean(errorMessage.trim()));
+  const errorContext = stopReason === "error";
 
   return joined ? sanitizeUserFacingText(joined, { errorContext }) : undefined;
 }

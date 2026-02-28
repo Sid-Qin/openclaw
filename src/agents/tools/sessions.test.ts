@@ -116,6 +116,23 @@ describe("extractAssistantText", () => {
     expect(extractAssistantText(message)).toBe("HTTP 500: Internal Server Error");
   });
 
+  it("does not force error rewrites when stopReason is non-error", () => {
+    const message = {
+      role: "assistant",
+      stopReason: "stop",
+      errorMessage: "HTTP 402 Payment Required",
+      content: [
+        {
+          type: "text",
+          text: "Docs note: HTTP 402 Payment Required can be returned for billing checks.",
+        },
+      ],
+    };
+    expect(extractAssistantText(message)).toBe(
+      "Docs note: HTTP 402 Payment Required can be returned for billing checks.",
+    );
+  });
+
   it("keeps normal status text that mentions billing", () => {
     const message = {
       role: "assistant",
