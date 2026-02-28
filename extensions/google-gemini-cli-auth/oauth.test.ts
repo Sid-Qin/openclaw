@@ -239,16 +239,6 @@ describe("loginGeminiCliOAuth", () => {
     "GOOGLE_CLOUD_PROJECT_ID",
   ] as const;
 
-  function getExpectedPlatform(): "WINDOWS" | "MACOS" | "LINUX" {
-    if (process.platform === "win32") {
-      return "WINDOWS";
-    }
-    if (process.platform === "linux") {
-      return "LINUX";
-    }
-    return "MACOS";
-  }
-
   function getRequestUrl(input: string | URL | Request): string {
     return typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
   }
@@ -358,16 +348,16 @@ describe("loginGeminiCliOAuth", () => {
     const clientMetadata = getHeaderValue(firstHeaders, "Client-Metadata");
     expect(clientMetadata).toBeDefined();
     expect(JSON.parse(clientMetadata as string)).toEqual({
-      ideType: "ANTIGRAVITY",
-      platform: getExpectedPlatform(),
+      ideType: "IDE_UNSPECIFIED",
+      platform: "PLATFORM_UNSPECIFIED",
       pluginType: "GEMINI",
     });
 
     const body = JSON.parse(String(loadRequests[0]?.init?.body));
     expect(body).toEqual({
       metadata: {
-        ideType: "ANTIGRAVITY",
-        platform: getExpectedPlatform(),
+        ideType: "IDE_UNSPECIFIED",
+        platform: "PLATFORM_UNSPECIFIED",
         pluginType: "GEMINI",
       },
     });
