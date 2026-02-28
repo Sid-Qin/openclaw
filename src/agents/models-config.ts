@@ -163,11 +163,15 @@ export async function ensureOpenClawModelsJson(
             })
           | undefined;
         if (existing) {
+          const explicitProvider = explicitProviders[key] as { baseUrl?: unknown } | undefined;
+          const hasExplicitBaseUrl =
+            typeof explicitProvider?.baseUrl === "string" &&
+            explicitProvider.baseUrl.trim().length > 0;
           const preserved: Record<string, unknown> = {};
           if (typeof existing.apiKey === "string" && existing.apiKey) {
             preserved.apiKey = existing.apiKey;
           }
-          if (typeof existing.baseUrl === "string" && existing.baseUrl) {
+          if (typeof existing.baseUrl === "string" && existing.baseUrl && !hasExplicitBaseUrl) {
             preserved.baseUrl = existing.baseUrl;
           }
           mergedProviders[key] = { ...newEntry, ...preserved };

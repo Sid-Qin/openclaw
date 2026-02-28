@@ -134,7 +134,7 @@ describe("models-config", () => {
     });
   });
 
-  it("preserves non-empty agent apiKey/baseUrl for matching providers in merge mode", async () => {
+  it("keeps agent apiKey but applies explicit config baseUrl for matching providers in merge mode", async () => {
     await withTempHome(async () => {
       const agentDir = resolveOpenClawAgentDir();
       await fs.mkdir(agentDir, { recursive: true });
@@ -185,7 +185,7 @@ describe("models-config", () => {
         providers: Record<string, { apiKey?: string; baseUrl?: string }>;
       }>();
       expect(parsed.providers.custom?.apiKey).toBe("AGENT_KEY");
-      expect(parsed.providers.custom?.baseUrl).toBe("https://agent.example/v1");
+      expect(parsed.providers.custom?.baseUrl).toBe("https://config.example/v1");
     });
   });
 
