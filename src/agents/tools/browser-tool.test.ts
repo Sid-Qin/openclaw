@@ -307,6 +307,73 @@ describe("browser tool url alias support", () => {
   });
 });
 
+describe("browser tool chrome navigate recovery", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+    configMocks.loadConfig.mockReturnValue({ browser: {} });
+    nodesUtilsMocks.listNodes.mockResolvedValue([]);
+  });
+
+  it("retries with the first attached tab when chrome targetId is stale", async () => {
+    browserActionsMocks.browserNavigate
+      .mockRejectedValueOnce(new Error("page.goto: Frame has been detached"))
+      .mockResolvedValueOnce({ ok: true, targetId: "fresh-tab" });
+    browserClientMocks.browserTabs.mockResolvedValueOnce([
+      { targetId: "fresh-tab", title: "Example", url: "https://example.com" },
+    ]);
+
+    const tool = createBrowserTool();
+    await tool.execute?.("call-1", {
+      action: "navigate",
+      targetUrl: "https://example.com",
+      targetId: "stale-tab",
+      profile: "chrome",
+    });
+
+    expect(browserClientMocks.browserTabs).toHaveBeenCalledWith(
+      undefined,
+      expect.objectContaining({ profile: "chrome" }),
+    );
+    expect(browserActionsMocks.browserNavigate).toHaveBeenNthCalledWith(
+      1,
+      undefined,
+      expect.objectContaining({
+        url: "https://example.com",
+        targetId: "stale-tab",
+        profile: "chrome",
+      }),
+    );
+    expect(browserActionsMocks.browserNavigate).toHaveBeenNthCalledWith(
+      2,
+      undefined,
+      expect.objectContaining({
+        url: "https://example.com",
+        targetId: "fresh-tab",
+        profile: "chrome",
+      }),
+    );
+  });
+
+  it("surfaces relay attach guidance when no chrome tabs are available", async () => {
+    browserActionsMocks.browserNavigate.mockRejectedValueOnce(
+      new Error("Target page, context or browser has been closed"),
+    );
+    browserClientMocks.browserTabs.mockResolvedValueOnce([]);
+
+    const tool = createBrowserTool();
+    await expect(
+      tool.execute?.("call-1", {
+        action: "navigate",
+        targetUrl: "https://example.com",
+        targetId: "stale-tab",
+        profile: "chrome",
+      }),
+    ).rejects.toThrow(
+      "No Chrome tabs are attached via the OpenClaw Browser Relay extension",
+    );
+  });
+});
+
 describe("browser tool snapshot labels", () => {
   afterEach(() => {
     vi.clearAllMocks();

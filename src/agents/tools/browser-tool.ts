@@ -91,6 +91,27 @@ function readTargetUrlParam(params: Record<string, unknown>) {
   );
 }
 
+function isChromeNavigationRetryableError(message: string): boolean {
+  return (
+    message.includes("tab not found") ||
+    message.includes("Frame has been detached") ||
+    message.includes("Target page, context or browser has been closed")
+  );
+}
+
+function firstChromeTabTargetId(tabs: unknown[]): string | undefined {
+  for (const tab of tabs) {
+    if (!tab || typeof tab !== "object") {
+      continue;
+    }
+    const targetId = (tab as { targetId?: unknown }).targetId;
+    if (typeof targetId === "string" && targetId.trim().length > 0) {
+      return targetId.trim();
+    }
+  }
+  return undefined;
+}
+
 type BrowserProxyFile = {
   path: string;
   base64: string;
@@ -643,24 +664,81 @@ export function createBrowserTool(opts?: {
           const targetUrl = readTargetUrlParam(params);
           const targetId = readStringParam(params, "targetId");
           if (proxyRequest) {
-            const result = await proxyRequest({
-              method: "POST",
-              path: "/navigate",
-              profile,
-              body: {
+            try {
+              const result = await proxyRequest({
+                method: "POST",
+                path: "/navigate",
+                profile,
+                body: {
+                  url: targetUrl,
+                  targetId,
+                },
+              });
+              return jsonResult(result);
+            } catch (err) {
+              const msg = String(err);
+              if (profile !== "chrome" || !isChromeNavigationRetryableError(msg)) {
+                throw err;
+              }
+
+              const tabs = ((
+                (await proxyRequest({
+                  method: "GET",
+                  path: "/tabs",
+                  profile,
+                })) as { tabs?: unknown[] }
+              ).tabs ?? []) as unknown[];
+              if (!tabs.length) {
+                throw new Error(
+                  "No Chrome tabs are attached via the OpenClaw Browser Relay extension. Click the toolbar icon on the tab you want to control (badge ON), then retry.",
+                  { cause: err },
+                );
+              }
+
+              const recoveredTargetId = firstChromeTabTargetId(tabs);
+              const retryResult = await proxyRequest({
+                method: "POST",
+                path: "/navigate",
+                profile,
+                body: {
+                  url: targetUrl,
+                  targetId: recoveredTargetId,
+                },
+              });
+              return jsonResult(retryResult);
+            }
+          }
+          try {
+            return jsonResult(
+              await browserNavigate(baseUrl, {
                 url: targetUrl,
                 targetId,
-              },
-            });
-            return jsonResult(result);
+                profile,
+              }),
+            );
+          } catch (err) {
+            const msg = String(err);
+            if (profile !== "chrome" || !isChromeNavigationRetryableError(msg)) {
+              throw err;
+            }
+
+            const tabs = await browserTabs(baseUrl, { profile }).catch(() => []);
+            if (!tabs.length) {
+              throw new Error(
+                "No Chrome tabs are attached via the OpenClaw Browser Relay extension. Click the toolbar icon on the tab you want to control (badge ON), then retry.",
+                { cause: err },
+              );
+            }
+
+            const recoveredTargetId = firstChromeTabTargetId(tabs as unknown[]);
+            return jsonResult(
+              await browserNavigate(baseUrl, {
+                url: targetUrl,
+                targetId: recoveredTargetId,
+                profile,
+              }),
+            );
           }
-          return jsonResult(
-            await browserNavigate(baseUrl, {
-              url: targetUrl,
-              targetId,
-              profile,
-            }),
-          );
         }
         case "console": {
           const level = typeof params.level === "string" ? params.level.trim() : undefined;
