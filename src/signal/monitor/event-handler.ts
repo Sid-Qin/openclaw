@@ -48,10 +48,50 @@ import { handleSignalDirectMessageAccess, resolveSignalAccessState } from "./acc
 import type {
   SignalEnvelope,
   SignalEventHandlerDeps,
+  SignalMention,
   SignalReactionMessage,
   SignalReceivePayload,
 } from "./event-handler.types.js";
 import { renderSignalMentions } from "./mentions.js";
+
+function hasMentionTargetMetadata(mentions: SignalMention[] | null | undefined): boolean {
+  return Boolean(
+    mentions?.some((mention) => {
+      const uuid = typeof mention?.uuid === "string" ? mention.uuid.trim() : "";
+      const number = typeof mention?.number === "string" ? mention.number.trim() : "";
+      return Boolean(uuid || number);
+    }),
+  );
+}
+
+function isMentionedBySignalMetadata(params: {
+  mentions: SignalMention[] | null | undefined;
+  account?: string;
+}): boolean {
+  const account = params.account?.trim();
+  if (!account) {
+    return false;
+  }
+  const normalizedAccountE164 = normalizeE164(account);
+  const normalizedAccountLower = account.toLowerCase();
+  return Boolean(
+    params.mentions?.some((mention) => {
+      const mentionNumberRaw = typeof mention?.number === "string" ? mention.number.trim() : "";
+      if (mentionNumberRaw) {
+        const mentionNumber = normalizeE164(mentionNumberRaw);
+        if (normalizedAccountE164 && mentionNumber === normalizedAccountE164) {
+          return true;
+        }
+        if (!normalizedAccountE164 && mentionNumberRaw.toLowerCase() === normalizedAccountLower) {
+          return true;
+        }
+      }
+      const mentionUuid = typeof mention?.uuid === "string" ? mention.uuid.trim() : "";
+      return mentionUuid && mentionUuid.toLowerCase() === normalizedAccountLower;
+    }),
+  );
+}
+
 export function createSignalEventHandler(deps: SignalEventHandlerDeps) {
   const inboundDebounceMs = resolveInboundDebounceMs({ cfg: deps.cfg, channel: "signal" });
 
@@ -560,6 +600,14 @@ export function createSignalEventHandler(deps: SignalEventHandlerDeps) {
     });
     const mentionRegexes = buildMentionRegexes(deps.cfg, route.agentId);
     const wasMentioned = isGroup && matchesMentionPatterns(messageText, mentionRegexes);
+    const mentionMetadata = dataMessage.mentions ?? undefined;
+    const hasMentionMetadata = hasMentionTargetMetadata(mentionMetadata);
+    const wasMentionedByMetadata =
+      isGroup &&
+      isMentionedBySignalMetadata({
+        mentions: mentionMetadata,
+        account: deps.account,
+      });
     const requireMention =
       isGroup &&
       resolveChannelGroupRequireMention({
@@ -568,14 +616,14 @@ export function createSignalEventHandler(deps: SignalEventHandlerDeps) {
         groupId,
         accountId: deps.accountId,
       });
-    const canDetectMention = mentionRegexes.length > 0;
+    const canDetectMention = mentionRegexes.length > 0 || Boolean(deps.account);
     const mentionGate = resolveMentionGatingWithBypass({
       isGroup,
       requireMention: Boolean(requireMention),
       canDetectMention,
       wasMentioned,
-      implicitMention: false,
-      hasAnyMention: false,
+      implicitMention: wasMentionedByMetadata,
+      hasAnyMention: hasMentionMetadata,
       allowTextCommands: true,
       hasControlCommand: hasControlCommandInMessage,
       commandAuthorized,

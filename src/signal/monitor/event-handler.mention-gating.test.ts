@@ -54,7 +54,8 @@ function makeGroupEvent(opts: GroupEventOpts) {
 
 function createMentionHandler(params: {
   requireMention: boolean;
-  mentionPattern?: string;
+  mentionPattern?: string | null;
+  account?: string;
   historyLimit?: number;
   groupHistories?: ReturnType<typeof createBaseSignalEventHandlerDeps>["groupHistories"];
 }) {
@@ -64,6 +65,7 @@ function createMentionHandler(params: {
         requireMention: params.requireMention,
         mentionPattern: params.mentionPattern,
       }),
+      ...(typeof params.account === "string" ? { account: params.account } : {}),
       ...(typeof params.historyLimit === "number" ? { historyLimit: params.historyLimit } : {}),
       ...(params.groupHistories ? { groupHistories: params.groupHistories } : {}),
     }),
@@ -76,11 +78,12 @@ function createMentionGatedHistoryHandler() {
   return { handler, groupHistories };
 }
 
-function createSignalConfig(params: { requireMention: boolean; mentionPattern?: string }) {
+function createSignalConfig(params: { requireMention: boolean; mentionPattern?: string | null }) {
+  const mentionPatterns = params.mentionPattern === null ? [] : [params.mentionPattern ?? "@bot"];
   return {
     messages: {
       inbound: { debounceMs: 0 },
-      groupChat: { mentionPatterns: [params.mentionPattern ?? "@bot"] },
+      groupChat: { mentionPatterns },
     },
     channels: {
       signal: {
@@ -203,6 +206,40 @@ describe("signal mention gating", () => {
 
     expect(capturedCtx).toBeTruthy();
     expect(String(getCapturedCtx()?.Body ?? "")).toContain("@123e4567");
+    expect(getCapturedCtx()?.WasMentioned).toBe(true);
+  });
+
+  it("enforces requireMention via Signal mention metadata when regex patterns are absent", async () => {
+    capturedCtx = undefined;
+    const handler = createMentionHandler({
+      requireMention: true,
+      mentionPattern: null,
+      account: "+15550009999",
+    });
+
+    await handler(makeGroupEvent({ message: "hello everyone" }));
+    expect(capturedCtx).toBeUndefined();
+  });
+
+  it("accepts metadata mention targeting the configured account without regex patterns", async () => {
+    capturedCtx = undefined;
+    const handler = createMentionHandler({
+      requireMention: true,
+      mentionPattern: null,
+      account: "+15550009999",
+    });
+
+    const placeholder = "\uFFFC";
+    const message = `${placeholder} ping`;
+    const start = message.indexOf(placeholder);
+    await handler(
+      makeGroupEvent({
+        message,
+        mentions: [{ number: "+15550009999", start, length: placeholder.length }],
+      }),
+    );
+
+    expect(capturedCtx).toBeTruthy();
     expect(getCapturedCtx()?.WasMentioned).toBe(true);
   });
 });
