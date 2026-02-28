@@ -130,6 +130,40 @@ function resolveStorePath(agentId: string, raw?: string): string {
   return resolveUserPath(withToken);
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function mergeMissingMemorySearchSettings(
+  primary: MemorySearchConfig | undefined,
+  fallback: MemorySearchConfig | undefined,
+): MemorySearchConfig | undefined {
+  if (!primary) {
+    return fallback ? structuredClone(fallback) : undefined;
+  }
+  if (!fallback) {
+    return primary;
+  }
+  const merged = structuredClone(primary) as Record<string, unknown>;
+  const fillMissing = (target: Record<string, unknown>, source: Record<string, unknown>) => {
+    for (const [key, value] of Object.entries(source)) {
+      if (value === undefined) {
+        continue;
+      }
+      const existing = target[key];
+      if (existing === undefined) {
+        target[key] = value;
+        continue;
+      }
+      if (isPlainObject(existing) && isPlainObject(value)) {
+        fillMissing(existing, value);
+      }
+    }
+  };
+  fillMissing(merged, fallback as Record<string, unknown>);
+  return merged as MemorySearchConfig;
+}
+
 function mergeConfig(
   defaults: MemorySearchConfig | undefined,
   overrides: MemorySearchConfig | undefined,
@@ -351,7 +385,14 @@ export function resolveMemorySearchConfig(
   cfg: OpenClawConfig,
   agentId: string,
 ): ResolvedMemorySearchConfig | null {
-  const defaults = cfg.agents?.defaults?.memorySearch;
+  // Legacy compatibility: top-level `memorySearch` should still be honored
+  // when callers pass raw config objects that bypass config-file migrations.
+  const legacyDefaults = (cfg as OpenClawConfig & { memorySearch?: MemorySearchConfig })
+    .memorySearch;
+  const defaults = mergeMissingMemorySearchSettings(
+    cfg.agents?.defaults?.memorySearch,
+    legacyDefaults,
+  );
   const overrides = resolveAgentConfig(cfg, agentId)?.memorySearch;
   const resolved = mergeConfig(defaults, overrides, agentId);
   if (!resolved.enabled) {

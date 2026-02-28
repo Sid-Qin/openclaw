@@ -253,4 +253,38 @@ describe("memory search config", () => {
     const resolved = resolveMemorySearchConfig(cfg, "main");
     expect(resolved?.sources).toContain("sessions");
   });
+
+  it("honors legacy top-level memorySearch defaults when agent defaults are absent", () => {
+    const cfg = {} as OpenClawConfig;
+    (cfg as OpenClawConfig & { memorySearch?: unknown }).memorySearch = {
+      provider: "local",
+      fallback: "none",
+      local: {
+        modelPath: "/tmp/local-model.gguf",
+      },
+    };
+    const resolved = resolveMemorySearchConfig(cfg, "main");
+    expect(resolved?.provider).toBe("local");
+    expect(resolved?.fallback).toBe("none");
+    expect(resolved?.local.modelPath).toBe("/tmp/local-model.gguf");
+  });
+
+  it("keeps agent defaults authoritative and only fills missing fields from legacy top-level memorySearch", () => {
+    const cfg = asConfig({
+      agents: {
+        defaults: {
+          memorySearch: {
+            provider: "openai",
+          },
+        },
+      },
+    });
+    (cfg as OpenClawConfig & { memorySearch?: unknown }).memorySearch = {
+      provider: "local",
+      fallback: "none",
+    };
+    const resolved = resolveMemorySearchConfig(cfg, "main");
+    expect(resolved?.provider).toBe("openai");
+    expect(resolved?.fallback).toBe("none");
+  });
 });
