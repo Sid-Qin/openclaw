@@ -53,6 +53,8 @@ export function createOpenClawTools(options?: {
   currentThreadTs?: string;
   /** Current inbound message id for action fallbacks (e.g. Telegram react). */
   currentMessageId?: string | number;
+  /** User message id that triggered this run; stable fallback for reactions. */
+  lastUserMessageId?: string | number;
   /** Reply-to mode for Slack auto-threading. */
   replyToMode?: "off" | "first" | "all";
   /** Mutable ref to track if a reply was sent (for "first" mode). */
@@ -102,6 +104,7 @@ export function createOpenClawTools(options?: {
         currentChannelProvider: options?.agentChannel,
         currentThreadTs: options?.currentThreadTs,
         currentMessageId: options?.currentMessageId,
+        lastUserMessageId: options?.lastUserMessageId ?? options?.currentMessageId,
         replyToMode: options?.replyToMode,
         hasRepliedRef: options?.hasRepliedRef,
         sandboxRoot: options?.sandboxRoot,

@@ -14,6 +14,7 @@ vi.mock("../../agents/agent-scope.js", () => ({
 const {
   buildEmbeddedRunBaseParams,
   buildEmbeddedRunContexts,
+  buildThreadingToolContext,
   resolveModelFallbackOptions,
   resolveProviderScopedAuthProfile,
 } = await import("./agent-runner-utils.js");
@@ -172,5 +173,21 @@ describe("agent-runner-utils", () => {
 
     expect(resolved.embeddedContext.messageProvider).toBe("telegram");
     expect(resolved.embeddedContext.messageTo).toBe("268300329");
+  });
+
+  it("keeps lastUserMessageId aligned with inbound message id", () => {
+    const threading = buildThreadingToolContext({
+      sessionCtx: {
+        Provider: "Telegram",
+        MessageSid: "msg-user-1",
+      },
+      config: undefined,
+      hasRepliedRef: undefined,
+    });
+
+    expect(threading).toMatchObject({
+      currentMessageId: "msg-user-1",
+      lastUserMessageId: "msg-user-1",
+    });
   });
 });

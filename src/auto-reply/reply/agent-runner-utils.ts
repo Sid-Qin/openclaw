@@ -23,15 +23,18 @@ export function buildThreadingToolContext(params: {
 }): ChannelThreadingToolContext {
   const { sessionCtx, config, hasRepliedRef } = params;
   const currentMessageId = sessionCtx.MessageSidFull ?? sessionCtx.MessageSid;
+  const lastUserMessageId = sessionCtx.MessageSidFull ?? sessionCtx.MessageSid;
   if (!config) {
     return {
       currentMessageId,
+      lastUserMessageId,
     };
   }
   const rawProvider = sessionCtx.Provider?.trim().toLowerCase();
   if (!rawProvider) {
     return {
       currentMessageId,
+      lastUserMessageId,
     };
   }
   const provider = normalizeChannelId(rawProvider) ?? normalizeAnyChannelId(rawProvider);
@@ -42,6 +45,7 @@ export function buildThreadingToolContext(params: {
       currentChannelId: sessionCtx.To?.trim() || undefined,
       currentChannelProvider: provider ?? (rawProvider as ChannelId),
       currentMessageId,
+      lastUserMessageId,
       hasRepliedRef,
     };
   }
@@ -55,6 +59,7 @@ export function buildThreadingToolContext(params: {
         To: sessionCtx.To,
         ChatType: sessionCtx.ChatType,
         CurrentMessageId: currentMessageId,
+        LastUserMessageId: lastUserMessageId,
         ReplyToId: sessionCtx.ReplyToId,
         ThreadLabel: sessionCtx.ThreadLabel,
         MessageThreadId: sessionCtx.MessageThreadId,
@@ -65,6 +70,7 @@ export function buildThreadingToolContext(params: {
     ...context,
     currentChannelProvider: provider!, // guaranteed non-null since dock exists
     currentMessageId: context.currentMessageId ?? currentMessageId,
+    lastUserMessageId: context.lastUserMessageId ?? lastUserMessageId,
   };
 }
 
