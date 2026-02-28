@@ -51,6 +51,7 @@ export const SUBAGENT_SPAWN_ACCEPTED_NOTE =
   "auto-announces on completion, do not poll/sleep. The response will be sent back as an user message.";
 export const SUBAGENT_SPAWN_SESSION_ACCEPTED_NOTE =
   "thread-bound session stays active after this task; continue in-thread for follow-ups.";
+const SUBAGENT_SPAWN_GATEWAY_TIMEOUT_MS = 30_000;
 
 export type SpawnSubagentResult = {
   status: "accepted" | "forbidden" | "error";
@@ -194,6 +195,7 @@ export async function spawnSubagentDirect(
   });
   const hookRunner = getGlobalHookRunner();
   const cfg = loadConfig();
+  const gatewayTimeoutMs = SUBAGENT_SPAWN_GATEWAY_TIMEOUT_MS;
 
   // When agent omits runTimeoutSeconds, use the config default.
   // Falls back to 0 (no timeout) if config key is also unset,
@@ -296,7 +298,7 @@ export async function spawnSubagentDirect(
     await callGateway({
       method: "sessions.patch",
       params: { key: childSessionKey, spawnDepth: childDepth },
-      timeoutMs: 10_000,
+      timeoutMs: gatewayTimeoutMs,
     });
   } catch (err) {
     const messageText =
@@ -313,7 +315,7 @@ export async function spawnSubagentDirect(
       await callGateway({
         method: "sessions.patch",
         params: { key: childSessionKey, model: resolvedModel },
-        timeoutMs: 10_000,
+        timeoutMs: gatewayTimeoutMs,
       });
       modelApplied = true;
     } catch (err) {
@@ -334,7 +336,7 @@ export async function spawnSubagentDirect(
           key: childSessionKey,
           thinkingLevel: thinkingOverride === "off" ? null : thinkingOverride,
         },
-        timeoutMs: 10_000,
+        timeoutMs: gatewayTimeoutMs,
       });
     } catch (err) {
       const messageText =
@@ -366,7 +368,7 @@ export async function spawnSubagentDirect(
         await callGateway({
           method: "sessions.delete",
           params: { key: childSessionKey, emitLifecycleHooks: false },
-          timeoutMs: 10_000,
+          timeoutMs: gatewayTimeoutMs,
         });
       } catch {
         // Best-effort cleanup only.
@@ -422,7 +424,7 @@ export async function spawnSubagentDirect(
         groupChannel: ctx.agentGroupChannel ?? undefined,
         groupSpace: ctx.agentGroupSpace ?? undefined,
       },
-      timeoutMs: 10_000,
+      timeoutMs: gatewayTimeoutMs,
     });
     if (typeof response?.runId === "string" && response.runId) {
       childRunId = response.runId;
@@ -465,7 +467,7 @@ export async function spawnSubagentDirect(
             deleteTranscript: true,
             emitLifecycleHooks: !endedHookEmitted,
           },
-          timeoutMs: 10_000,
+          timeoutMs: gatewayTimeoutMs,
         });
       } catch {
         // Best-effort only.
