@@ -2,6 +2,21 @@ import fs from "node:fs";
 import path from "node:path";
 
 const MAX_CONTEXT_CHARS = 3000;
+const DEPRECATED_POST_COMPACTION_HINTS = [
+  /workflow_auto\.md/i,
+  /memory\/\\d\{4\}-\\d\{2\}-\\d\{2\}\\.md/i,
+] as const;
+
+export function stripDeprecatedPostCompactionHints(content: string): string {
+  if (!content) {
+    return content;
+  }
+  return content
+    .split("\n")
+    .filter((line) => !DEPRECATED_POST_COMPACTION_HINTS.some((pattern) => pattern.test(line)))
+    .join("\n")
+    .trim();
+}
 
 /**
  * Read critical sections from workspace AGENTS.md for post-compaction injection.
@@ -25,7 +40,10 @@ export async function readPostCompactionContext(workspaceDir: string): Promise<s
       return null;
     }
 
-    const combined = sections.join("\n\n");
+    const combined = stripDeprecatedPostCompactionHints(sections.join("\n\n"));
+    if (!combined) {
+      return null;
+    }
     const safeContent =
       combined.length > MAX_CONTEXT_CHARS
         ? combined.slice(0, MAX_CONTEXT_CHARS) + "\n...[truncated]..."

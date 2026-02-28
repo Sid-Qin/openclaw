@@ -42,7 +42,8 @@ Not relevant.
     const result = await readPostCompactionContext(tmpDir);
     expect(result).not.toBeNull();
     expect(result).toContain("Session Startup");
-    expect(result).toContain("WORKFLOW_AUTO.md");
+    expect(result).not.toContain("WORKFLOW_AUTO.md");
+    expect(result).toContain("memory/today.md");
     expect(result).toContain("Post-compaction context refresh");
     expect(result).not.toContain("Other Section");
   });
@@ -109,7 +110,23 @@ Read WORKFLOW_AUTO.md
     fs.writeFileSync(path.join(tmpDir, "AGENTS.md"), content);
     const result = await readPostCompactionContext(tmpDir);
     expect(result).not.toBeNull();
-    expect(result).toContain("WORKFLOW_AUTO.md");
+    expect(result).not.toContain("WORKFLOW_AUTO.md");
+    expect(result).toContain("Session Startup");
+  });
+
+  it("strips deprecated regex placeholder startup hints", async () => {
+    const content = `# Rules
+
+## Session Startup
+
+- memory/\\d{4}-\\d{2}-\\d{2}\\.md
+- memory/today.md
+`;
+    fs.writeFileSync(path.join(tmpDir, "AGENTS.md"), content);
+    const result = await readPostCompactionContext(tmpDir);
+    expect(result).not.toBeNull();
+    expect(result).not.toContain("memory/\\d{4}-\\d{2}-\\d{2}\\.md");
+    expect(result).toContain("memory/today.md");
   });
 
   it("matches H3 headings", async () => {
