@@ -545,8 +545,16 @@ async function resolveExecRefs(params: {
     );
   }
   if (result.code !== 0) {
+    const stderrSnippet = result.stderr?.trim().slice(0, 512);
+    const hint =
+      result.code === 2
+        ? " Exit code 2 typically means the command received invalid arguments or does not read stdin. " +
+          "OpenClaw sends a JSON batch request via stdin; if the command does not support this, " +
+          "wrap it in a script that reads stdin and invokes the command per-ID (see docs/gateway/secrets.md)."
+        : "";
     throw new Error(
-      `Exec provider "${params.providerName}" exited with code ${String(result.code)}.`,
+      `Exec provider "${params.providerName}" exited with code ${String(result.code)}.${hint}` +
+        (stderrSnippet ? ` stderr: ${stderrSnippet}` : ""),
     );
   }
 

@@ -403,6 +403,77 @@ describe("secret ref resolver", () => {
     ).rejects.toThrow('response missing id "openai/api-key"');
   });
 
+  it("includes stderr and stdin hint when exec provider exits with code 2", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-secrets-resolve-exec-code2-"));
+    cleanupRoots.push(root);
+    const scriptPath = path.join(root, "resolver-exit2.mjs");
+    await writeSecureFile(
+      scriptPath,
+      ["#!/usr/bin/env node", "process.stderr.write('invalid usage');", "process.exit(2);"].join(
+        "\n",
+      ),
+      0o700,
+    );
+
+    await expect(
+      resolveSecretRefString(
+        { source: "exec", provider: "execmain", id: "openai/api-key" },
+        {
+          config: {
+            secrets: {
+              providers: {
+                execmain: {
+                  source: "exec",
+                  command: scriptPath,
+                  passEnv: ["PATH"],
+                },
+              },
+            },
+          },
+        },
+      ),
+    ).rejects.toThrow(/exited with code 2.*does not read stdin.*stderr: invalid usage/);
+  });
+
+  it("includes stderr for non-2 exit codes without the stdin hint", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-secrets-resolve-exec-code1-"));
+    cleanupRoots.push(root);
+    const scriptPath = path.join(root, "resolver-exit1.mjs");
+    await writeSecureFile(
+      scriptPath,
+      ["#!/usr/bin/env node", "process.stderr.write('generic error');", "process.exit(1);"].join(
+        "\n",
+      ),
+      0o700,
+    );
+
+    const promise = resolveSecretRefString(
+      { source: "exec", provider: "execmain", id: "openai/api-key" },
+      {
+        config: {
+          secrets: {
+            providers: {
+              execmain: {
+                source: "exec",
+                command: scriptPath,
+                passEnv: ["PATH"],
+              },
+            },
+          },
+        },
+      },
+    );
+    await expect(promise).rejects.toThrow(/exited with code 1/);
+    await expect(promise).rejects.toThrow(/stderr: generic error/);
+    await expect(promise).rejects.not.toThrow(/does not read stdin/);
+  });
+
   it("rejects exec refs with invalid JSON when jsonOnly is true", async () => {
     if (process.platform === "win32") {
       return;
