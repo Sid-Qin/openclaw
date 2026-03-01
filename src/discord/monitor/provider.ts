@@ -70,7 +70,7 @@ import {
 import { resolveDiscordPresenceUpdate } from "./presence.js";
 import { resolveDiscordAllowlistConfig } from "./provider.allowlist.js";
 import { runDiscordGatewayLifecycle } from "./provider.lifecycle.js";
-import { resolveDiscordRestFetch } from "./rest-fetch.js";
+import { registerDiscordRestProxyFetch, resolveDiscordRestFetch } from "./rest-fetch.js";
 import {
   createNoopThreadBindingManager,
   createThreadBindingManager,
@@ -266,6 +266,11 @@ export async function monitorDiscordProvider(opts: MonitorDiscordOpts = {}) {
   const discordAccountThreadBindings =
     cfg.channels?.discord?.accounts?.[account.accountId]?.threadBindings;
   const discordRestFetch = resolveDiscordRestFetch(rawDiscordCfg.proxy, runtime);
+  registerDiscordRestProxyFetch({
+    token,
+    proxyUrl: rawDiscordCfg.proxy,
+    runtime,
+  });
   const dmConfig = rawDiscordCfg.dm;
   let guildEntries = rawDiscordCfg.guilds;
   const defaultGroupPolicy = resolveDefaultGroupPolicy(cfg);

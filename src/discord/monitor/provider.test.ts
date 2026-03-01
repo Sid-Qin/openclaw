@@ -225,6 +225,7 @@ vi.mock("./provider.lifecycle.js", () => ({
 
 vi.mock("./rest-fetch.js", () => ({
   resolveDiscordRestFetch: () => async () => undefined,
+  registerDiscordRestProxyFetch: vi.fn(),
 }));
 
 vi.mock("./thread-bindings.js", () => ({
