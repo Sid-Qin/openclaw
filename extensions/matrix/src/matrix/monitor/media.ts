@@ -16,18 +16,57 @@ type EncryptedFile = {
   v: string;
 };
 
+function parseMxcUrl(mxcUrl: string): { serverName: string; mediaId: string } | null {
+  if (!mxcUrl.startsWith("mxc://")) return null;
+  const rest = mxcUrl.slice(6);
+  const slash = rest.indexOf("/");
+  if (slash === -1) return null;
+  return { serverName: rest.slice(0, slash), mediaId: rest.slice(slash + 1) };
+}
+
 async function fetchMatrixMediaBuffer(params: {
   client: MatrixClient;
   mxcUrl: string;
   maxBytes: number;
+  accessToken?: string;
+  homeserver?: string;
 }): Promise<{ buffer: Buffer; headerType?: string } | null> {
-  // @vector-im/matrix-bot-sdk provides mxcToHttp helper
-  const url = params.client.mxcToHttp(params.mxcUrl);
-  if (!url) {
-    return null;
+  const parsed = parseMxcUrl(params.mxcUrl);
+  if (!parsed) return null;
+
+  // Try authenticated media endpoint first (MSC3916 / Matrix v1.11+)
+  if (params.accessToken && params.homeserver) {
+    const base = params.homeserver.replace(/\/$/, "");
+    const authUrl = `${base}/_matrix/client/v1/media/download/${encodeURIComponent(parsed.serverName)}/${encodeURIComponent(parsed.mediaId)}`;
+    try {
+      const res = await fetch(authUrl, {
+        headers: { Authorization: `Bearer ${params.accessToken}` },
+      });
+      if (res.ok) {
+        const arrayBuffer = await res.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        if (buffer.byteLength > params.maxBytes) {
+          throw new Error("Matrix media exceeds configured size limit");
+        }
+        return { buffer, headerType: res.headers.get("Content-Type") ?? undefined };
+      }
+      // 404 M_UNRECOGNIZED → server doesn't support authenticated media, fall through
+      if (res.status === 404) {
+        const body = await res.json().catch(() => ({}));
+        if ((body as { errcode?: string }).errcode !== "M_UNRECOGNIZED") {
+          throw new Error(`Matrix media download failed: HTTP ${res.status}`);
+        }
+      } else if (res.status !== 401) {
+        throw new Error(`Matrix media download failed: HTTP ${res.status}`);
+      }
+      // 401 → also fall through to legacy endpoint
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith("Matrix media")) throw err;
+      // Network/fetch errors fall through to legacy
+    }
   }
 
-  // Use the client's download method which handles auth
+  // Legacy unauthenticated path (/_matrix/media/v3/download)
   try {
     const result = await params.client.downloadContent(params.mxcUrl);
     const raw = result.data ?? result;
@@ -74,6 +113,8 @@ export async function downloadMatrixMedia(params: {
   sizeBytes?: number;
   maxBytes: number;
   file?: EncryptedFile;
+  accessToken?: string;
+  homeserver?: string;
 }): Promise<{
   path: string;
   contentType?: string;
@@ -97,6 +138,8 @@ export async function downloadMatrixMedia(params: {
       client: params.client,
       mxcUrl: params.mxcUrl,
       maxBytes: params.maxBytes,
+      accessToken: params.accessToken,
+      homeserver: params.homeserver,
     });
   }
 

@@ -43,6 +43,8 @@ import { EventType, RelationType } from "./types.js";
 
 export type MatrixMonitorHandlerParams = {
   client: MatrixClient;
+  accessToken?: string;
+  homeserver?: string;
   core: PluginRuntime;
   cfg: CoreConfig;
   runtime: RuntimeEnv;
@@ -77,6 +79,8 @@ export type MatrixMonitorHandlerParams = {
 export function createMatrixRoomMessageHandler(params: MatrixMonitorHandlerParams) {
   const {
     client,
+    accessToken,
+    homeserver,
     core,
     cfg,
     runtime,
@@ -331,6 +335,8 @@ export function createMatrixRoomMessageHandler(params: MatrixMonitorHandlerParam
             sizeBytes: contentSize,
             maxBytes: mediaMaxBytes,
             file: contentFile,
+            accessToken,
+            homeserver,
           });
         } catch (err) {
           logVerboseMessage(`matrix: media download failed: ${String(err)}`);

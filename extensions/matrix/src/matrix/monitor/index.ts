@@ -277,6 +277,8 @@ export async function monitorMatrixProvider(opts: MonitorMatrixOpts = {}): Promi
   const { getRoomInfo, getMemberDisplayName } = createMatrixRoomInfoResolver(client);
   const handleRoomMessage = createMatrixRoomMessageHandler({
     client,
+    accessToken: auth.accessToken,
+    homeserver: auth.homeserver,
     core,
     cfg,
     runtime,
