@@ -79,6 +79,8 @@ export type MatrixConfig = {
   chunkMode?: "length" | "newline";
   /** Outbound response prefix override for this channel/account. */
   responsePrefix?: string;
+  /** Max number of non-mentioned room messages buffered as mention context. Default: 20. */
+  mentionContextBufferLimit?: number;
   /** Max outbound media size in MB. */
   mediaMaxMb?: number;
   /** Auto-join invites (always|allowlist|off). Default: always. */

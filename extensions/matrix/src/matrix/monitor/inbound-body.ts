@@ -20,9 +20,17 @@ export function resolveMatrixBodyForAgent(params: {
   isDirectMessage: boolean;
   bodyText: string;
   senderLabel: string;
+  bufferedRoomContextLines?: string[];
 }): string {
   if (params.isDirectMessage) {
     return params.bodyText;
+  }
+  const bufferedContext = (params.bufferedRoomContextLines ?? [])
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join("\n");
+  if (bufferedContext) {
+    return `${bufferedContext}\n${params.senderLabel}: ${params.bodyText}`;
   }
   return `${params.senderLabel}: ${params.bodyText}`;
 }

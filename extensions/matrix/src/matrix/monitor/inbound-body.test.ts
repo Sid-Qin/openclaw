@@ -70,4 +70,17 @@ describe("resolveMatrixBodyForAgent", () => {
       }),
     ).toBe("Bu (bu): show me my commits");
   });
+
+  it("prepends buffered room context lines for mention-gated rooms", () => {
+    expect(
+      resolveMatrixBodyForAgent({
+        isDirectMessage: false,
+        bodyText: "what should we do next?",
+        senderLabel: "Bu (bu)",
+        bufferedRoomContextLines: ["Alice (alice): we deployed v2", "Tom (tom): errors are rising"],
+      }),
+    ).toBe(
+      "Alice (alice): we deployed v2\nTom (tom): errors are rising\nBu (bu): what should we do next?",
+    );
+  });
 });

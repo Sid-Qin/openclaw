@@ -57,6 +57,7 @@ export type MatrixMonitorHandlerParams = {
   dmEnabled: boolean;
   dmPolicy: "open" | "pairing" | "allowlist" | "disabled";
   textLimit: number;
+  mentionContextBufferLimit?: number;
   mediaMaxBytes: number;
   startupMs: number;
   startupGraceMs: number;
@@ -91,6 +92,7 @@ export function createMatrixRoomMessageHandler(params: MatrixMonitorHandlerParam
     dmEnabled,
     dmPolicy,
     textLimit,
+    mentionContextBufferLimit = 20,
     mediaMaxBytes,
     startupMs,
     startupGraceMs,
@@ -105,6 +107,32 @@ export function createMatrixRoomMessageHandler(params: MatrixMonitorHandlerParam
     channel: "matrix",
     accountId: resolvedAccountId,
   });
+  const pendingMentionContextByRoom = new Map<string, string[]>();
+
+  const bufferMentionContext = (params: {
+    roomId: string;
+    senderLabel: string;
+    bodyText: string;
+  }) => {
+    const line = `${params.senderLabel}: ${params.bodyText}`.trim();
+    if (!line) {
+      return;
+    }
+    const existing = pendingMentionContextByRoom.get(params.roomId) ?? [];
+    const next = [...existing, line];
+    if (next.length > mentionContextBufferLimit) {
+      next.splice(0, next.length - mentionContextBufferLimit);
+    }
+    pendingMentionContextByRoom.set(params.roomId, next);
+  };
+
+  const consumeMentionContext = (roomId: string): string[] => {
+    const existing = pendingMentionContextByRoom.get(roomId) ?? [];
+    if (existing.length > 0) {
+      pendingMentionContextByRoom.delete(roomId);
+    }
+    return existing;
+  };
 
   return async (roomId: string, event: MatrixRawEvent) => {
     try {
@@ -410,9 +438,16 @@ export function createMatrixRoomMessageHandler(params: MatrixMonitorHandlerParam
         hasControlCommandInMessage;
       const canDetectMention = mentionRegexes.length > 0 || hasExplicitMention;
       if (isRoom && shouldRequireMention && !wasMentioned && !shouldBypassMention) {
+        bufferMentionContext({
+          roomId,
+          senderLabel,
+          bodyText,
+        });
         logger.info("skipping room message", { roomId, reason: "no-mention" });
         return;
       }
+      const bufferedRoomContextLines =
+        isRoom && shouldRequireMention && wasMentioned ? consumeMentionContext(roomId) : [];
 
       const messageId = event.event_id ?? "";
       const replyToEventId = content["m.relates_to"]?.["m.in_reply_to"]?.event_id;
@@ -510,6 +545,7 @@ export function createMatrixRoomMessageHandler(params: MatrixMonitorHandlerParam
           isDirectMessage,
           bodyText,
           senderLabel,
+          bufferedRoomContextLines,
         }),
         RawBody: bodyText,
         CommandBody: bodyText,

@@ -36,6 +36,7 @@ export type MonitorMatrixOpts = {
 };
 
 const DEFAULT_MEDIA_MAX_MB = 20;
+const DEFAULT_MENTION_CONTEXT_BUFFER_LIMIT = 20;
 
 export async function monitorMatrixProvider(opts: MonitorMatrixOpts = {}): Promise<void> {
   if (isBunRuntime()) {
@@ -265,6 +266,10 @@ export async function monitorMatrixProvider(opts: MonitorMatrixOpts = {}): Promi
   const dmPolicyRaw = dmConfig?.policy ?? "pairing";
   const dmPolicy = allowlistOnly && dmPolicyRaw !== "disabled" ? "allowlist" : dmPolicyRaw;
   const textLimit = core.channel.text.resolveTextChunkLimit(cfg, "matrix");
+  const mentionContextBufferLimit = Math.max(
+    1,
+    Math.floor(accountConfig.mentionContextBufferLimit ?? DEFAULT_MENTION_CONTEXT_BUFFER_LIMIT),
+  );
   const mediaMaxMb = opts.mediaMaxMb ?? accountConfig.mediaMaxMb ?? DEFAULT_MEDIA_MAX_MB;
   const mediaMaxBytes = Math.max(1, mediaMaxMb) * 1024 * 1024;
   const startupMs = Date.now();
@@ -291,6 +296,7 @@ export async function monitorMatrixProvider(opts: MonitorMatrixOpts = {}): Promi
     dmEnabled,
     dmPolicy,
     textLimit,
+    mentionContextBufferLimit,
     mediaMaxBytes,
     startupMs,
     startupGraceMs,
