@@ -117,6 +117,13 @@ describe("formatAssistantErrorText", () => {
     const msg = makeAssistantError("request ended without sending any chunks");
     expect(formatAssistantErrorText(msg)).toBe("LLM request timed out.");
   });
+
+  it("rewrites generic connection errors into actionable guidance", () => {
+    const msg = makeAssistantError("Connection error.");
+    const formatted = formatAssistantErrorText(msg);
+    expect(formatted).toContain("unable to reach the model provider");
+    expect(formatted).toContain("network/VPN/proxy");
+  });
 });
 
 describe("formatRawAssistantErrorForUi", () => {

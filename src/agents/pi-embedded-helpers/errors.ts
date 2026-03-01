@@ -534,6 +534,13 @@ export function formatAssistantErrorText(
     return "LLM request timed out.";
   }
 
+  if (/^connection error\.?$/i.test(raw)) {
+    return (
+      "Connection error: unable to reach the model provider. " +
+      "Check network/VPN/proxy settings and provider endpoint configuration, then retry."
+    );
+  }
+
   if (isBillingErrorMessage(raw)) {
     return formatBillingErrorMessage(opts?.provider, opts?.model ?? msg.model);
   }
