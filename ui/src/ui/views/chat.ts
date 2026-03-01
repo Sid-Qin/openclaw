@@ -162,6 +162,39 @@ function generateAttachmentId(): string {
   return `att-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+const BASE64_CHUNK = 0x2000; // 8 KB — safely below JS engine argument-count limits
+
+/**
+ * Convert a Uint8Array to a base64 string using chunked String.fromCharCode
+ * to avoid "Maximum call stack size exceeded" on large (>= ~4 MB) payloads.
+ */
+export function uint8ArrayToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += BASE64_CHUNK) {
+    const chunk = bytes.subarray(i, i + BASE64_CHUNK);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
+function fileToBase64DataUrl(file: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const bytes = new Uint8Array(reader.result as ArrayBuffer);
+        const mimeType = file.type || "application/octet-stream";
+        const base64 = uint8ArrayToBase64(bytes);
+        resolve(`data:${mimeType};base64,${base64}`);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 function handlePaste(e: ClipboardEvent, props: ChatProps) {
   const items = e.clipboardData?.items;
   if (!items || !props.onAttachmentsChange) {
@@ -188,9 +221,7 @@ function handlePaste(e: ClipboardEvent, props: ChatProps) {
       continue;
     }
 
-    const reader = new FileReader();
-    reader.addEventListener("load", () => {
-      const dataUrl = reader.result as string;
+    fileToBase64DataUrl(file).then((dataUrl) => {
       const newAttachment: ChatAttachment = {
         id: generateAttachmentId(),
         dataUrl,
@@ -199,7 +230,6 @@ function handlePaste(e: ClipboardEvent, props: ChatProps) {
       const current = props.attachments ?? [];
       props.onAttachmentsChange?.([...current, newAttachment]);
     });
-    reader.readAsDataURL(file);
   }
 }
 
