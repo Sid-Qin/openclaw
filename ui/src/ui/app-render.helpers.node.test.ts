@@ -24,6 +24,13 @@ describe("parseSessionKey", () => {
     });
   });
 
+  it("identifies main session for any agent main-key pattern", () => {
+    expect(parseSessionKey("agent:ops:main")).toEqual({
+      prefix: "",
+      fallbackName: "Main Session",
+    });
+  });
+
   it("identifies subagent sessions", () => {
     expect(parseSessionKey("agent:main:subagent:18abfefe-1fa6-43cb-8ba8-ebdc9b43e253")).toEqual({
       prefix: "Subagent:",
@@ -135,6 +142,21 @@ describe("resolveSessionDisplayName", () => {
     expect(resolveSessionDisplayName("agent:main:main", row({ key: "agent:main:main" }))).toBe(
       "Main Session",
     );
+  });
+
+  it("keeps main session display stable when row label is transient", () => {
+    expect(
+      resolveSessionDisplayName(
+        "agent:main:main",
+        row({ key: "agent:main:main", label: "Heartbeat", displayName: "Heartbeat" }),
+      ),
+    ).toBe("Main Session");
+    expect(
+      resolveSessionDisplayName(
+        "agent:ops:main",
+        row({ key: "agent:ops:main", label: "Heartbeat" }),
+      ),
+    ).toBe("Main Session");
   });
 
   it("returns parsed fallback when displayName matches key", () => {
