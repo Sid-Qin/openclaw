@@ -26,6 +26,22 @@ describe("handleChatEvent", () => {
     expect(handleChatEvent(state, undefined)).toBe(null);
   });
 
+  it("clears stale lastError when delta arrives for the active run", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      lastError: "rate limit",
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "delta",
+      message: { role: "assistant", content: [{ type: "text", text: "Recovered reply" }] },
+    };
+    expect(handleChatEvent(state, payload)).toBe("delta");
+    expect(state.lastError).toBeNull();
+  });
+
   it("returns null when sessionKey does not match", () => {
     const state = createState({ sessionKey: "main" });
     const payload: ChatEventPayload = {
@@ -117,6 +133,7 @@ describe("handleChatEvent", () => {
       sessionKey: "main",
       chatRunId: "run-1",
       chatStream: "Reply",
+      lastError: "rate limit",
       chatStreamStartedAt: 100,
     });
     const payload: ChatEventPayload = {
@@ -131,6 +148,7 @@ describe("handleChatEvent", () => {
     };
     expect(handleChatEvent(state, payload)).toBe("final");
     expect(state.chatMessages).toEqual([payload.message]);
+    expect(state.lastError).toBeNull();
     expect(state.chatRunId).toBe(null);
     expect(state.chatStream).toBe(null);
     expect(state.chatStreamStartedAt).toBe(null);
@@ -153,6 +171,7 @@ describe("handleChatEvent", () => {
       chatStream: "Partial reply",
       chatStreamStartedAt: 100,
       chatMessages: [existingMessage],
+      lastError: "rate limit",
     });
     const payload: ChatEventPayload = {
       runId: "run-1",
@@ -165,6 +184,7 @@ describe("handleChatEvent", () => {
     expect(state.chatRunId).toBe(null);
     expect(state.chatStream).toBe(null);
     expect(state.chatStreamStartedAt).toBe(null);
+    expect(state.lastError).toBeNull();
     expect(state.chatMessages).toEqual([existingMessage, partialMessage]);
   });
 

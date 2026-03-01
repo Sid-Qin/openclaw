@@ -406,6 +406,66 @@ describe("agent event handler", () => {
     expect(payload.sessionKey).toBe("session-from-event");
   });
 
+  it("continues routing chat updates after transient lifecycle error clears run lookup", () => {
+    let canResolveRun = true;
+    const { broadcast, nodeSendToSession, handler } = createHarness({
+      resolveSessionKeyForRun: () => (canResolveRun ? "session-fallback" : undefined),
+    });
+
+    handler({
+      runId: "run-fallback",
+      seq: 1,
+      stream: "lifecycle",
+      ts: Date.now(),
+      data: { phase: "error", error: "rate limit" },
+    });
+
+    canResolveRun = false;
+
+    handler({
+      runId: "run-fallback",
+      seq: 2,
+      stream: "assistant",
+      ts: Date.now(),
+      data: { text: "Recovered reply" },
+    });
+
+    handler({
+      runId: "run-fallback",
+      seq: 3,
+      stream: "lifecycle",
+      ts: Date.now(),
+      data: { phase: "end" },
+    });
+
+    const chatCalls = chatBroadcastCalls(broadcast);
+    expect(chatCalls).toHaveLength(3);
+
+    const errorPayload = chatCalls[0]?.[1] as { state?: string; sessionKey?: string };
+    expect(errorPayload.state).toBe("error");
+    expect(errorPayload.sessionKey).toBe("session-fallback");
+
+    const deltaPayload = chatCalls[1]?.[1] as {
+      state?: string;
+      sessionKey?: string;
+      message?: { content?: Array<{ text?: string }> };
+    };
+    expect(deltaPayload.state).toBe("delta");
+    expect(deltaPayload.sessionKey).toBe("session-fallback");
+    expect(deltaPayload.message?.content?.[0]?.text).toBe("Recovered reply");
+
+    const finalPayload = chatCalls[2]?.[1] as {
+      state?: string;
+      sessionKey?: string;
+      message?: { content?: Array<{ text?: string }> };
+    };
+    expect(finalPayload.state).toBe("final");
+    expect(finalPayload.sessionKey).toBe("session-fallback");
+    expect(finalPayload.message?.content?.[0]?.text).toBe("Recovered reply");
+
+    expect(sessionChatCalls(nodeSendToSession)).toHaveLength(3);
+  });
+
   it("remaps chat-linked tool runId for non-full verbose payloads", () => {
     const { broadcastToConnIds, chatRunState, toolEventRecipients, handler } = createHarness({
       resolveSessionKeyForRun: () => "session-tool-remap",

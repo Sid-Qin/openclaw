@@ -277,6 +277,45 @@ export function createAgentEventHandler({
   clearAgentRunContext,
   toolEventRecipients,
 }: AgentEventHandlerOptions) {
+  // Preserve the last known session key per run so follow-up lifecycle events
+  // can still be routed after transient fallback errors clear run context.
+  const sessionKeyByRunId = new Map<string, { sessionKey: string; updatedAt: number }>();
+  const SESSION_KEY_CACHE_TTL_MS = 10 * 60 * 1000;
+
+  const pruneSessionKeyCache = () => {
+    if (sessionKeyByRunId.size === 0) {
+      return;
+    }
+    const cutoff = Date.now() - SESSION_KEY_CACHE_TTL_MS;
+    for (const [runId, entry] of sessionKeyByRunId) {
+      if (entry.updatedAt < cutoff) {
+        sessionKeyByRunId.delete(runId);
+      }
+    }
+  };
+
+  const readCachedSessionKey = (runId: string): string | undefined => {
+    const entry = sessionKeyByRunId.get(runId);
+    if (!entry) {
+      return undefined;
+    }
+    if (Date.now() - entry.updatedAt > SESSION_KEY_CACHE_TTL_MS) {
+      sessionKeyByRunId.delete(runId);
+      return undefined;
+    }
+    return entry.sessionKey;
+  };
+
+  const writeCachedSessionKey = (runId: string, sessionKey: string) => {
+    if (!runId || !sessionKey) {
+      return;
+    }
+    sessionKeyByRunId.set(runId, {
+      sessionKey,
+      updatedAt: Date.now(),
+    });
+  };
+
   const emitChatDelta = (
     sessionKey: string,
     clientRunId: string,
@@ -390,12 +429,21 @@ export function createAgentEventHandler({
   };
 
   return (evt: AgentEventPayload) => {
+    pruneSessionKeyCache();
     const chatLink = chatRunState.registry.peek(evt.runId);
+    const clientRunId = chatLink?.clientRunId ?? evt.runId;
     const eventSessionKey =
       typeof evt.sessionKey === "string" && evt.sessionKey.trim() ? evt.sessionKey : undefined;
+    const cachedSessionKey = readCachedSessionKey(evt.runId) ?? readCachedSessionKey(clientRunId);
     const sessionKey =
-      chatLink?.sessionKey ?? eventSessionKey ?? resolveSessionKeyForRun(evt.runId);
-    const clientRunId = chatLink?.clientRunId ?? evt.runId;
+      chatLink?.sessionKey ??
+      eventSessionKey ??
+      cachedSessionKey ??
+      resolveSessionKeyForRun(evt.runId);
+    if (sessionKey) {
+      writeCachedSessionKey(evt.runId, sessionKey);
+      writeCachedSessionKey(clientRunId, sessionKey);
+    }
     const eventRunId = chatLink?.clientRunId ?? evt.runId;
     const eventForClients = chatLink ? { ...evt, runId: eventRunId } : evt;
     const isAborted =
@@ -492,6 +540,10 @@ export function createAgentEventHandler({
     }
 
     if (lifecyclePhase === "end" || lifecyclePhase === "error") {
+      if (lifecyclePhase === "end") {
+        sessionKeyByRunId.delete(evt.runId);
+        sessionKeyByRunId.delete(clientRunId);
+      }
       toolEventRecipients.markFinal(evt.runId);
       clearAgentRunContext(evt.runId);
       agentRunSeq.delete(evt.runId);

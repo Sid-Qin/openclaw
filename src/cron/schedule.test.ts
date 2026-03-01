@@ -2,6 +2,18 @@ import { describe, expect, it } from "vitest";
 import { computeNextRunAtMs } from "./schedule.js";
 
 describe("cron schedule", () => {
+  it("computes next daily run in Asia/Shanghai after today's slot has passed (#30351)", () => {
+    // 2026-03-01 10:00:00 in Asia/Shanghai
+    const nowMs = Date.parse("2026-03-01T02:00:00.000Z");
+    const next = computeNextRunAtMs(
+      { kind: "cron", expr: "0 8 * * *", tz: "Asia/Shanghai" },
+      nowMs,
+    );
+    // Next 08:00 Asia/Shanghai is 2026-03-02T00:00:00.000Z.
+    expect(next).toBe(1_772_409_600_000);
+    expect(next).toBe(Date.parse("2026-03-02T00:00:00.000Z"));
+  });
+
   it("computes next run for cron expression with timezone", () => {
     // Saturday, Dec 13 2025 00:00:00Z
     const nowMs = Date.parse("2025-12-13T00:00:00.000Z");
