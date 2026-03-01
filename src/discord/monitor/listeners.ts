@@ -126,7 +126,11 @@ export class DiscordMessageListener extends MessageCreateListener {
   }
 
   async handle(data: DiscordMessageEvent, client: Client) {
-    await runDiscordListenerWithSlowLog({
+    // Fire-and-forget: decouple event dispatch from agent run processing so
+    // one long-running session does not block Carbon's EventQueue listener
+    // timeout (30s) for events destined to other sessions.  Errors and slow-
+    // listener warnings are still handled inside runDiscordListenerWithSlowLog.
+    void runDiscordListenerWithSlowLog({
       logger: this.logger,
       listener: this.constructor.name,
       event: this.type,
