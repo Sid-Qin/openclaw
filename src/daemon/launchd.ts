@@ -146,11 +146,27 @@ export function parseLaunchctlPrint(output: string): LaunchctlPrintInfo {
   return info;
 }
 
+function launchctlListContainsLabel(output: string, label: string): boolean {
+  return output.split(/\r?\n/).some((line) => line.trim().split(/\s+/).at(-1) === label);
+}
+
 export async function isLaunchAgentLoaded(args: GatewayServiceEnvArgs): Promise<boolean> {
   const domain = resolveGuiDomain();
   const label = resolveLaunchAgentLabel({ env: args.env });
   const res = await execLaunchctl(["print", `${domain}/${label}`]);
-  return res.code === 0;
+  if (res.code === 0) {
+    return true;
+  }
+  if (!isLaunchctlNotLoaded(res)) {
+    return false;
+  }
+  // launchctl print can intermittently return "service not found" during
+  // launchd transitions while the label is still present in launchctl list.
+  const listed = await execLaunchctl(["list"]);
+  if (listed.code !== 0) {
+    return false;
+  }
+  return launchctlListContainsLabel(listed.stdout, label);
 }
 
 export async function isLaunchAgentListed(args: GatewayServiceEnvArgs): Promise<boolean> {
@@ -159,7 +175,7 @@ export async function isLaunchAgentListed(args: GatewayServiceEnvArgs): Promise<
   if (res.code !== 0) {
     return false;
   }
-  return res.stdout.split(/\r?\n/).some((line) => line.trim().split(/\s+/).at(-1) === label);
+  return launchctlListContainsLabel(res.stdout, label);
 }
 
 export async function launchAgentPlistExists(env: GatewayServiceEnv): Promise<boolean> {
@@ -179,6 +195,18 @@ export async function readLaunchAgentRuntime(
   const label = resolveLaunchAgentLabel({ env });
   const res = await execLaunchctl(["print", `${domain}/${label}`]);
   if (res.code !== 0) {
+    const plistExists = await launchAgentPlistExists(env);
+    // During restart windows launchctl print can be stale while launchctl list
+    // still reports the label. Treat that as a loaded-but-not-running state.
+    const listed = await isLaunchAgentListed({ env });
+    if (listed) {
+      return {
+        status: "stopped",
+        detail: (res.stderr || res.stdout).trim() || undefined,
+        missingUnit: false,
+        cachedLabel: !plistExists,
+      };
+    }
     return {
       status: "unknown",
       detail: (res.stderr || res.stdout).trim() || undefined,
