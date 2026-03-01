@@ -241,6 +241,55 @@ describe("tui-event-handlers: handleAgentEvent", () => {
     expect(tui.requestRender).toHaveBeenCalled();
   });
 
+  it("preserves pre-tool text when final payload drops boundary prefix blocks", () => {
+    const { state, chatLog, handleChatEvent, handleAgentEvent } = createHandlersHarness({
+      state: { activeChatRunId: null },
+    });
+
+    handleChatEvent({
+      runId: "run-boundary-tool",
+      sessionKey: state.currentSessionKey,
+      state: "delta",
+      message: {
+        role: "assistant",
+        content: [
+          { type: "text", text: "Before tool call" },
+          { type: "text", text: "After tool call" },
+        ],
+      },
+    });
+    expect(chatLog.updateAssistant).toHaveBeenLastCalledWith(
+      "Before tool call\nAfter tool call",
+      "run-boundary-tool",
+    );
+
+    handleAgentEvent({
+      runId: "run-boundary-tool",
+      stream: "tool",
+      data: {
+        phase: "start",
+        toolCallId: "tc-boundary-tool",
+        name: "read_file",
+      },
+    });
+
+    chatLog.finalizeAssistant.mockClear();
+    handleChatEvent({
+      runId: "run-boundary-tool",
+      sessionKey: state.currentSessionKey,
+      state: "final",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "After tool call" }],
+      },
+    });
+
+    expect(chatLog.finalizeAssistant).toHaveBeenCalledWith(
+      "Before tool call\nAfter tool call",
+      "run-boundary-tool",
+    );
+  });
+
   it("ignores lifecycle updates for non-active runs in the same session", () => {
     const { state, tui, setActivityStatus, handleChatEvent, handleAgentEvent } =
       createHandlersHarness({

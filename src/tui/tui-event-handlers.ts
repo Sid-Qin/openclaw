@@ -246,6 +246,7 @@ export function createEventHandlers(context: EventHandlerContext) {
       return;
     }
     if (evt.stream === "tool") {
+      streamAssembler.noteToolBoundary(evt.runId);
       const verbose = state.sessionInfo.verboseLevel ?? "off";
       const allowToolEvents = verbose !== "off";
       const allowToolOutput = verbose === "full";

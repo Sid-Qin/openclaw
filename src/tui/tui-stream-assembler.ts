@@ -10,6 +10,7 @@ type RunStreamState = {
   contentText: string;
   contentBlocks: string[];
   sawNonTextContentBlocks: boolean;
+  sawToolBoundary: boolean;
   displayText: string;
 };
 
@@ -81,17 +82,19 @@ function shouldPreserveBoundaryDroppedText(params: {
   boundaryDropMode: BoundaryDropMode;
   streamedSawNonTextContentBlocks: boolean;
   incomingSawNonTextContentBlocks: boolean;
+  streamedSawToolBoundary: boolean;
   streamedTextBlocks: string[];
   nextContentBlocks: string[];
 }) {
   if (params.boundaryDropMode === "off") {
     return false;
   }
-  const sawEligibleNonTextContent =
-    params.boundaryDropMode === "streamed-or-incoming"
+  const sawEligibleBoundary = params.streamedSawToolBoundary
+    ? true
+    : params.boundaryDropMode === "streamed-or-incoming"
       ? params.streamedSawNonTextContentBlocks || params.incomingSawNonTextContentBlocks
       : params.streamedSawNonTextContentBlocks;
-  if (!sawEligibleNonTextContent) {
+  if (!sawEligibleBoundary) {
     return false;
   }
   return isDroppedBoundaryTextBlockSubset({
@@ -111,6 +114,7 @@ export class TuiStreamAssembler {
         contentText: "",
         contentBlocks: [],
         sawNonTextContentBlocks: false,
+        sawToolBoundary: false,
         displayText: "",
       };
       this.runs.set(runId, state);
@@ -138,6 +142,7 @@ export class TuiStreamAssembler {
         boundaryDropMode,
         streamedSawNonTextContentBlocks: state.sawNonTextContentBlocks,
         incomingSawNonTextContentBlocks: sawNonTextContentBlocks,
+        streamedSawToolBoundary: state.sawToolBoundary,
         streamedTextBlocks: state.contentBlocks,
         nextContentBlocks,
       });
@@ -174,17 +179,22 @@ export class TuiStreamAssembler {
     return state.displayText;
   }
 
+  noteToolBoundary(runId: string) {
+    const state = this.getOrCreateRun(runId);
+    state.sawToolBoundary = true;
+  }
+
   finalize(runId: string, message: unknown, showThinking: boolean): string {
     const state = this.getOrCreateRun(runId);
     const streamedDisplayText = state.displayText;
     const streamedTextBlocks = [...state.contentBlocks];
-    const streamedSawNonTextContentBlocks = state.sawNonTextContentBlocks;
+    const streamedSawBoundary = state.sawNonTextContentBlocks || state.sawToolBoundary;
     this.updateRunState(state, message, showThinking, {
       boundaryDropMode: "streamed-only",
     });
     const finalComposed = state.displayText;
     const shouldKeepStreamedText =
-      streamedSawNonTextContentBlocks &&
+      streamedSawBoundary &&
       isDroppedBoundaryTextBlockSubset({
         streamedTextBlocks,
         finalTextBlocks: state.contentBlocks,

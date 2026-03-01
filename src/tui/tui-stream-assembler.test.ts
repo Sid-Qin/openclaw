@@ -107,6 +107,32 @@ describe("TuiStreamAssembler", () => {
     expect(second).toBeNull();
   });
 
+  it("keeps streamed delta text when tool boundary is marked out-of-band", () => {
+    const assembler = new TuiStreamAssembler();
+    const first = assembler.ingestDelta("run-delta-tool-event", TEXT_ONLY_TWO_BLOCKS, false);
+    expect(first).toBe("Draft line 1\nDraft line 2");
+    assembler.noteToolBoundary("run-delta-tool-event");
+
+    const second = assembler.ingestDelta(
+      "run-delta-tool-event",
+      messageWithContent([text("Draft line 2")]),
+      false,
+    );
+    expect(second).toBeNull();
+  });
+
+  it("preserves streamed text when out-of-band tool boundary drops prefix on final", () => {
+    const assembler = new TuiStreamAssembler();
+    assembler.ingestDelta("run-final-tool-event", TEXT_ONLY_TWO_BLOCKS, false);
+    assembler.noteToolBoundary("run-final-tool-event");
+    const finalText = assembler.finalize(
+      "run-final-tool-event",
+      messageWithContent([text("Draft line 2")]),
+      false,
+    );
+    expect(finalText).toBe("Draft line 1\nDraft line 2");
+  });
+
   for (const testCase of FINALIZE_BOUNDARY_CASES) {
     it(testCase.name, () => {
       const assembler = new TuiStreamAssembler();
