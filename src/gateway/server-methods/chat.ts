@@ -316,16 +316,36 @@ function ensureTranscriptFile(params: { transcriptPath: string; sessionId: strin
   }
 }
 
+const IDEMPOTENCY_TAIL_BYTES = 256 * 1024;
+
 function transcriptHasIdempotencyKey(transcriptPath: string, idempotencyKey: string): boolean {
   try {
-    const lines = fs.readFileSync(transcriptPath, "utf-8").split(/\r?\n/);
+    const stat = fs.statSync(transcriptPath);
+    let content: string;
+    if (stat.size <= IDEMPOTENCY_TAIL_BYTES) {
+      content = fs.readFileSync(transcriptPath, "utf-8");
+    } else {
+      const fd = fs.openSync(transcriptPath, "r");
+      try {
+        const buf = Buffer.alloc(IDEMPOTENCY_TAIL_BYTES);
+        fs.readSync(fd, buf, 0, IDEMPOTENCY_TAIL_BYTES, stat.size - IDEMPOTENCY_TAIL_BYTES);
+        content = buf.toString("utf-8");
+      } finally {
+        fs.closeSync(fd);
+      }
+    }
+    const lines = content.split(/\r?\n/);
     for (const line of lines) {
       if (!line.trim()) {
         continue;
       }
-      const parsed = JSON.parse(line) as { message?: { idempotencyKey?: unknown } };
-      if (parsed?.message?.idempotencyKey === idempotencyKey) {
-        return true;
+      try {
+        const parsed = JSON.parse(line) as { message?: { idempotencyKey?: unknown } };
+        if (parsed?.message?.idempotencyKey === idempotencyKey) {
+          return true;
+        }
+      } catch {
+        // partial line from mid-file read; skip
       }
     }
     return false;
