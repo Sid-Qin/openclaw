@@ -394,6 +394,23 @@ export const dispatchTelegramMessage = async ({
     linkPreview: telegramCfg.linkPreview,
     replyQuoteText,
   };
+  const buildDeliveredPayloadKey = (payload: ReplyPayload): string | null => {
+    const text = typeof payload.text === "string" ? payload.text.trim() : "";
+    const mediaList = payload.mediaUrls?.length
+      ? payload.mediaUrls
+      : payload.mediaUrl
+        ? [payload.mediaUrl]
+        : [];
+    if (!text && mediaList.length === 0) {
+      return null;
+    }
+    return JSON.stringify({
+      text,
+      mediaList,
+      replyToId: payload.replyToId ?? null,
+    });
+  };
+  const deliveredPayloadKeys = new Set<string>();
   const applyTextToPayload = (payload: ReplyPayload, text: string): ReplyPayload => {
     if (payload.text === text) {
       return payload;
@@ -401,12 +418,21 @@ export const dispatchTelegramMessage = async ({
     return { ...payload, text };
   };
   const sendPayload = async (payload: ReplyPayload) => {
+    const payloadKey = buildDeliveredPayloadKey(payload);
+    if (payloadKey && deliveredPayloadKeys.has(payloadKey)) {
+      logVerbose("telegram: skipping duplicate payload delivery within the same dispatch turn");
+      deliveryState.markDelivered();
+      return true;
+    }
     const result = await deliverReplies({
       ...deliveryBaseOptions,
       replies: [payload],
       onVoiceRecording: sendRecordVoice,
     });
     if (result.delivered) {
+      if (payloadKey) {
+        deliveredPayloadKeys.add(payloadKey);
+      }
       deliveryState.markDelivered();
     }
     return result.delivered;

@@ -525,6 +525,41 @@ describe("dispatchTelegramMessage draft streaming", () => {
     expect(draftStream.stop).toHaveBeenCalled();
   });
 
+  it("dedupes equivalent media finals within one dispatch turn", async () => {
+    dispatchReplyWithBufferedBlockDispatcher.mockImplementation(async ({ dispatcherOptions }) => {
+      await dispatcherOptions.deliver(
+        {
+          text: "Voice summary",
+          mediaUrl: "file:///tmp/voice.opus",
+          audioAsVoice: false,
+        },
+        { kind: "final" },
+      );
+      await dispatcherOptions.deliver(
+        {
+          text: "Voice summary",
+          mediaUrl: "file:///tmp/voice.opus",
+          audioAsVoice: true,
+        },
+        { kind: "final" },
+      );
+      return { queuedFinal: true };
+    });
+    deliverReplies.mockResolvedValue({ delivered: true });
+
+    await dispatchWithContext({ context: createContext(), streamMode: "off" });
+
+    expect(createTelegramDraftStream).not.toHaveBeenCalled();
+    expect(deliverReplies).toHaveBeenCalledTimes(1);
+    expect(deliverReplies).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replies: [
+          expect.objectContaining({ text: "Voice summary", mediaUrl: "file:///tmp/voice.opus" }),
+        ],
+      }),
+    );
+  });
+
   it("keeps streamed preview visible when final text regresses after a tool warning", async () => {
     const draftStream = createDraftStream(999);
     createTelegramDraftStream.mockReturnValue(draftStream);
