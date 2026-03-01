@@ -63,6 +63,33 @@ describe("applyModelOverrideToSessionEntry", () => {
     expect((entry.updatedAt ?? 0) > before).toBe(true);
   });
 
+  it("persists default model on entry so /models menu shows checkmark (#30476)", () => {
+    const before = Date.now() - 5_000;
+    const entry: SessionEntry = {
+      sessionId: "sess-default",
+      updatedAt: before,
+      modelProvider: "openai",
+      model: "gpt-5.2",
+      providerOverride: "openai",
+      modelOverride: "gpt-5.2",
+    };
+
+    const result = applyModelOverrideToSessionEntry({
+      entry,
+      selection: {
+        provider: "google",
+        model: "gemini-3-flash-preview",
+        isDefault: true,
+      },
+    });
+
+    expect(result.updated).toBe(true);
+    expect(entry.providerOverride).toBeUndefined();
+    expect(entry.modelOverride).toBeUndefined();
+    expect(entry.modelProvider).toBe("google");
+    expect(entry.model).toBe("gemini-3-flash-preview");
+  });
+
   it("retains aligned runtime model fields when selection and runtime already match", () => {
     const before = Date.now() - 5_000;
     const entry: SessionEntry = {

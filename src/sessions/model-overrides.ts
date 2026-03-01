@@ -42,15 +42,21 @@ export function applyModelOverrideToSessionEntry(params: {
   }
 
   // Model overrides supersede previously recorded runtime model identity.
-  // If runtime fields are stale (or the override changed), clear them so status
-  // surfaces reflect the selected model immediately.
+  // When switching to the default model, persist the default's identity so
+  // /models menu and status surfaces can still show a checkmark (#30476).
+  // For non-default overrides, clear stale runtime fields so status reflects
+  // the selected model immediately.
   const runtimeModel = typeof entry.model === "string" ? entry.model.trim() : "";
   const runtimeProvider = typeof entry.modelProvider === "string" ? entry.modelProvider.trim() : "";
   const runtimePresent = runtimeModel.length > 0 || runtimeProvider.length > 0;
   const runtimeAligned =
     runtimeModel === selection.model &&
     (runtimeProvider.length === 0 || runtimeProvider === selection.provider);
-  if (runtimePresent && (selectionUpdated || !runtimeAligned)) {
+  if (selection.isDefault && selectionUpdated) {
+    entry.model = selection.model;
+    entry.modelProvider = selection.provider;
+    updated = true;
+  } else if (runtimePresent && (selectionUpdated || !runtimeAligned)) {
     if (entry.model !== undefined) {
       delete entry.model;
       updated = true;
