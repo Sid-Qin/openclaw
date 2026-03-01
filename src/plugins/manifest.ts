@@ -25,6 +25,14 @@ export type PluginManifestLoadResult =
   | { ok: true; manifest: PluginManifest; manifestPath: string }
   | { ok: false; error: string; manifestPath: string };
 
+export type LoadPluginManifestOptions = {
+  /**
+   * Bundled plugins can be hardlinked under pnpm/node_modules stores.
+   * Keep hardlink rejection enabled by default and only relax it explicitly.
+   */
+  allowHardlinks?: boolean;
+};
+
 function normalizeStringList(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -42,12 +50,16 @@ export function resolvePluginManifestPath(rootDir: string): string {
   return path.join(rootDir, PLUGIN_MANIFEST_FILENAME);
 }
 
-export function loadPluginManifest(rootDir: string): PluginManifestLoadResult {
+export function loadPluginManifest(
+  rootDir: string,
+  options?: LoadPluginManifestOptions,
+): PluginManifestLoadResult {
   const manifestPath = resolvePluginManifestPath(rootDir);
   const opened = openBoundaryFileSync({
     absolutePath: manifestPath,
     rootPath: rootDir,
     boundaryLabel: "plugin root",
+    rejectHardlinks: options?.allowHardlinks === true ? false : true,
   });
   if (!opened.ok) {
     if (opened.reason === "path") {
