@@ -63,6 +63,11 @@ describe("ws connect policy", () => {
       controlUiConfig: { allowInsecureAuth: true, dangerouslyDisableDeviceAuth: false },
       deviceRaw: null,
     });
+    const controlUiBypass = resolveControlUiAuthPolicy({
+      isControlUi: true,
+      controlUiConfig: { dangerouslyDisableDeviceAuth: true },
+      deviceRaw: null,
+    });
     // Remote Control UI with allowInsecureAuth -> still rejected.
     expect(
       evaluateMissingDeviceIdentity({
@@ -90,6 +95,22 @@ describe("ws connect policy", () => {
         authOk: true,
         hasSharedAuth: true,
         isLocalClient: true,
+      }).kind,
+    ).toBe("allow");
+
+    // Dangerous bypass should skip device checks after auth passes,
+    // even if sharedAuthOk is false.
+    expect(
+      evaluateMissingDeviceIdentity({
+        hasDeviceIdentity: false,
+        role: "operator",
+        isControlUi: true,
+        controlUiAuthPolicy: controlUiBypass,
+        trustedProxyAuthOk: false,
+        sharedAuthOk: false,
+        authOk: true,
+        hasSharedAuth: false,
+        isLocalClient: false,
       }).kind,
     ).toBe("allow");
 
