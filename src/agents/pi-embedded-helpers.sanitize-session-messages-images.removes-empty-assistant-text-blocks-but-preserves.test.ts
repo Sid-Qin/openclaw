@@ -191,6 +191,30 @@ describe("sanitizeSessionMessagesImages", () => {
       expect(entry.text).toBe("ok");
     });
   });
+  it("preserves assistant thinking/redacted_thinking blocks without mutating adjacent text blocks", async () => {
+    const input = [
+      {
+        role: "assistant",
+        content: [
+          { type: "thinking", thinking: "chain", thinkingSignature: "sig_123" },
+          { type: "redacted_thinking", data: "opaque" },
+          { type: "text", text: "" },
+          { type: "text", text: "visible" },
+        ],
+      },
+    ] as unknown as AgentMessage[];
+
+    const out = await sanitizeSessionMessagesImages(input, "test");
+
+    expect(out).toHaveLength(1);
+    const content = (out[0] as { content?: Array<Record<string, unknown>> }).content ?? [];
+    expect(content).toHaveLength(4);
+    expect(content[0]?.type).toBe("thinking");
+    expect(content[0]?.thinkingSignature).toBe("sig_123");
+    expect(content[1]?.type).toBe("redacted_thinking");
+    expect(content[2]?.text).toBe("");
+    expect(content[3]?.text).toBe("visible");
+  });
   it("drops assistant messages that only contain empty text", async () => {
     const input = [
       { role: "user", content: "hello" },

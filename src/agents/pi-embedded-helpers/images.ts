@@ -29,6 +29,16 @@ export function isEmptyAssistantMessageContent(
   });
 }
 
+function hasProtectedAnthropicThinkingBlocks(content: unknown[]): boolean {
+  return content.some((block) => {
+    if (!block || typeof block !== "object") {
+      return false;
+    }
+    const type = (block as { type?: unknown }).type;
+    return type === "thinking" || type === "redacted_thinking";
+  });
+}
+
 export async function sanitizeSessionMessagesImages(
   messages: AgentMessage[],
   label: string,
@@ -112,6 +122,7 @@ export async function sanitizeSessionMessagesImages(
       }
       const content = assistantMsg.content;
       if (Array.isArray(content)) {
+        const containsProtectedThinkingBlocks = hasProtectedAnthropicThinkingBlocks(content);
         if (!allowNonImageSanitization) {
           const nextContent = (await sanitizeContentBlocksImages(
             content as unknown as ContentBlock[],
@@ -125,16 +136,18 @@ export async function sanitizeSessionMessagesImages(
           ? content // Keep signatures for Antigravity Claude
           : stripThoughtSignatures(content, options?.sanitizeThoughtSignatures); // Strip for Gemini
 
-        const filteredContent = strippedContent.filter((block) => {
-          if (!block || typeof block !== "object") {
-            return true;
-          }
-          const rec = block as { type?: unknown; text?: unknown };
-          if (rec.type !== "text" || typeof rec.text !== "string") {
-            return true;
-          }
-          return rec.text.trim().length > 0;
-        });
+        const filteredContent = containsProtectedThinkingBlocks
+          ? strippedContent
+          : strippedContent.filter((block) => {
+              if (!block || typeof block !== "object") {
+                return true;
+              }
+              const rec = block as { type?: unknown; text?: unknown };
+              if (rec.type !== "text" || typeof rec.text !== "string") {
+                return true;
+              }
+              return rec.text.trim().length > 0;
+            });
         const finalContent = (await sanitizeContentBlocksImages(
           filteredContent as unknown as ContentBlock[],
           label,
