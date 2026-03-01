@@ -17,6 +17,13 @@ function hasLegacyThreadBindingTtlInAccounts(value: unknown): boolean {
   );
 }
 
+function hasLegacyTopLevelModelMap(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return Object.keys(value).some((key) => key.includes("/"));
+}
+
 export const LEGACY_CONFIG_RULES: LegacyConfigRule[] = [
   {
     path: ["whatsapp"],
@@ -119,6 +126,24 @@ export const LEGACY_CONFIG_RULES: LegacyConfigRule[] = [
     path: ["agent"],
     message:
       "agent.* was moved; use agents.defaults (and tools.* for tool/elevated/exec settings) instead (auto-migrated on load).",
+  },
+  {
+    path: ["defaultModel"],
+    message: "defaultModel was moved to agents.defaults.model.primary (auto-migrated on load).",
+  },
+  {
+    path: ["providers"],
+    message: "providers was moved to models.providers (auto-migrated on load).",
+  },
+  {
+    path: ["models"],
+    message:
+      "legacy models.<provider/model> map was moved to agents.defaults.models (auto-migrated on load).",
+    match: (value) => hasLegacyTopLevelModelMap(value),
+  },
+  {
+    path: ["controlUi"],
+    message: "controlUi was moved to gateway.controlUi (auto-migrated on load).",
   },
   {
     path: ["memorySearch"],

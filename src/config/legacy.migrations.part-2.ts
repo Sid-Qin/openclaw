@@ -35,7 +35,291 @@ function applyLegacyAudioTranscriptionModel(params: {
   params.changes.push(params.alreadySetMessage);
 }
 
+function readTrimmedString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed || undefined;
+}
+
+function readLegacyModelIds(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const ids = new Set<string>();
+  for (const item of value) {
+    const direct = readTrimmedString(item);
+    if (direct) {
+      ids.add(direct);
+      continue;
+    }
+    const record = getRecord(item);
+    const id = readTrimmedString(record?.id) ?? readTrimmedString(record?.model);
+    if (id) {
+      ids.add(id);
+    }
+  }
+  return [...ids];
+}
+
+function normalizeLegacyAuthMode(value: unknown): string | undefined {
+  const normalized = readTrimmedString(value)?.toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+  if (normalized === "api_key") {
+    return "api-key";
+  }
+  if (
+    normalized === "api-key" ||
+    normalized === "aws-sdk" ||
+    normalized === "oauth" ||
+    normalized === "token"
+  ) {
+    return normalized;
+  }
+  return undefined;
+}
+
+function readStringMap(value: unknown): Record<string, string> | undefined {
+  const record = getRecord(value);
+  if (!record) {
+    return undefined;
+  }
+  const entries = Object.entries(record).filter(([, item]) => typeof item === "string");
+  if (entries.length === 0) {
+    return undefined;
+  }
+  return Object.fromEntries(entries) as Record<string, string>;
+}
+
+function ensureAgentsDefaults(raw: Record<string, unknown>): Record<string, unknown> {
+  const agents = ensureRecord(raw, "agents");
+  return ensureRecord(agents, "defaults");
+}
+
+function ensureModelsRoot(raw: Record<string, unknown>): Record<string, unknown> {
+  return ensureRecord(raw, "models");
+}
+
+function ensureModelsProviders(raw: Record<string, unknown>): Record<string, unknown> {
+  const models = ensureModelsRoot(raw);
+  return ensureRecord(models, "providers");
+}
+
+function ensureModelAllowlist(raw: Record<string, unknown>): Record<string, unknown> {
+  const defaults = ensureAgentsDefaults(raw);
+  return ensureRecord(defaults, "models");
+}
+
+function ensureAllowlistModelEntry(
+  allowlist: Record<string, unknown>,
+  key: string,
+): Record<string, unknown> {
+  const existing = getRecord(allowlist[key]);
+  if (existing) {
+    return existing;
+  }
+  const created: Record<string, unknown> = {};
+  allowlist[key] = created;
+  return created;
+}
+
+function appendProviderModels(providerEntry: Record<string, unknown>, modelIds: string[]) {
+  const models = Array.isArray(providerEntry.models) ? [...providerEntry.models] : [];
+  const seen = new Set<string>();
+  for (const item of models) {
+    const record = getRecord(item);
+    const id = readTrimmedString(record?.id);
+    if (id) {
+      seen.add(id);
+    }
+  }
+  for (const modelId of modelIds) {
+    if (seen.has(modelId)) {
+      continue;
+    }
+    models.push({ id: modelId, name: modelId });
+    seen.add(modelId);
+  }
+  providerEntry.models = models;
+}
+
 export const LEGACY_CONFIG_MIGRATIONS_PART_2: LegacyConfigMigration[] = [
+  {
+    id: "legacy.model-config-v1",
+    describe:
+      "Migrate legacy top-level defaultModel/providers/models map into agents.defaults/models.providers",
+    apply: (raw, changes) => {
+      const legacyDefaultModel = readTrimmedString(raw.defaultModel);
+      if (raw.defaultModel !== undefined) {
+        const defaults = ensureAgentsDefaults(raw);
+        const current = defaults.model;
+        const currentRecord = getRecord(current);
+        if (legacyDefaultModel) {
+          if (typeof current === "string") {
+            if (!readTrimmedString(current)) {
+              defaults.model = legacyDefaultModel;
+            }
+          } else if (currentRecord) {
+            if (!readTrimmedString(currentRecord.primary)) {
+              currentRecord.primary = legacyDefaultModel;
+              defaults.model = currentRecord;
+            }
+          } else if (current === undefined) {
+            defaults.model = { primary: legacyDefaultModel, fallbacks: [] };
+          }
+          changes.push("Moved defaultModel → agents.defaults.model.primary.");
+        } else {
+          changes.push("Removed defaultModel (invalid value).");
+        }
+        delete raw.defaultModel;
+      }
+
+      const legacyProviders = getRecord(raw.providers);
+      if (legacyProviders) {
+        const providers = ensureModelsProviders(raw);
+        const allowlist = ensureModelAllowlist(raw);
+        for (const [providerIdRaw, providerValue] of Object.entries(legacyProviders)) {
+          const providerId = readTrimmedString(providerIdRaw);
+          const providerLegacy = getRecord(providerValue);
+          if (!providerId || !providerLegacy) {
+            continue;
+          }
+          const modelIds = readLegacyModelIds(providerLegacy.models);
+          const existingProvider = getRecord(providers[providerId]) ?? {};
+          const baseUrl =
+            readTrimmedString(existingProvider.baseUrl) ??
+            readTrimmedString(providerLegacy.baseUrl) ??
+            readTrimmedString(providerLegacy.url);
+          if (baseUrl) {
+            existingProvider.baseUrl = baseUrl;
+            const auth = normalizeLegacyAuthMode(existingProvider.auth ?? providerLegacy.auth);
+            if (auth) {
+              existingProvider.auth = auth;
+            }
+            const api = readTrimmedString(existingProvider.api ?? providerLegacy.api);
+            if (api) {
+              existingProvider.api = api;
+            }
+            if (existingProvider.apiKey === undefined && providerLegacy.apiKey !== undefined) {
+              existingProvider.apiKey = providerLegacy.apiKey;
+            }
+            if (
+              existingProvider.authHeader === undefined &&
+              typeof providerLegacy.authHeader === "boolean"
+            ) {
+              existingProvider.authHeader = providerLegacy.authHeader;
+            }
+            if (
+              existingProvider.injectNumCtxForOpenAICompat === undefined &&
+              typeof providerLegacy.injectNumCtxForOpenAICompat === "boolean"
+            ) {
+              existingProvider.injectNumCtxForOpenAICompat =
+                providerLegacy.injectNumCtxForOpenAICompat;
+            }
+            const headers =
+              readStringMap(existingProvider.headers) ?? readStringMap(providerLegacy.headers);
+            if (headers) {
+              existingProvider.headers = headers;
+            }
+            appendProviderModels(existingProvider, modelIds);
+            providers[providerId] = existingProvider;
+          }
+          for (const modelId of modelIds) {
+            ensureAllowlistModelEntry(allowlist, `${providerId}/${modelId}`);
+          }
+        }
+        delete raw.providers;
+        changes.push("Moved providers → models.providers.");
+      }
+
+      const modelsRoot = getRecord(raw.models);
+      if (modelsRoot) {
+        const legacyModelKeys = Object.keys(modelsRoot).filter((key) => key.includes("/"));
+        if (legacyModelKeys.length > 0) {
+          const allowlist = ensureModelAllowlist(raw);
+          const providers = ensureModelsProviders(raw);
+          for (const modelKeyRaw of legacyModelKeys) {
+            const modelKey = modelKeyRaw.trim();
+            if (!modelKey) {
+              delete modelsRoot[modelKeyRaw];
+              continue;
+            }
+            const slash = modelKey.indexOf("/");
+            if (slash <= 0 || slash >= modelKey.length - 1) {
+              delete modelsRoot[modelKeyRaw];
+              continue;
+            }
+            const providerFromKey = modelKey.slice(0, slash).trim();
+            const modelFromKey = modelKey.slice(slash + 1).trim();
+            if (!providerFromKey || !modelFromKey) {
+              delete modelsRoot[modelKeyRaw];
+              continue;
+            }
+
+            const legacyEntry = getRecord(modelsRoot[modelKeyRaw]);
+            const providerId = readTrimmedString(legacyEntry?.provider) ?? providerFromKey;
+            const modelId = readTrimmedString(legacyEntry?.model) ?? modelFromKey;
+            const allowEntry = ensureAllowlistModelEntry(allowlist, `${providerId}/${modelId}`);
+            const alias = readTrimmedString(legacyEntry?.alias);
+            if (alias && !readTrimmedString(allowEntry.alias)) {
+              allowEntry.alias = alias;
+            }
+            if (allowEntry.streaming === undefined && typeof legacyEntry?.streaming === "boolean") {
+              allowEntry.streaming = legacyEntry.streaming;
+            }
+            const params = getRecord(legacyEntry?.params);
+            if (params && !getRecord(allowEntry.params)) {
+              allowEntry.params = params;
+            }
+
+            const baseUrl =
+              readTrimmedString(legacyEntry?.baseUrl) ?? readTrimmedString(legacyEntry?.url);
+            if (baseUrl) {
+              const providerEntry = getRecord(providers[providerId]) ?? {};
+              if (!readTrimmedString(providerEntry.baseUrl)) {
+                providerEntry.baseUrl = baseUrl;
+              }
+              appendProviderModels(providerEntry, [modelId]);
+              providers[providerId] = providerEntry;
+            }
+
+            delete modelsRoot[modelKeyRaw];
+          }
+          changes.push("Moved legacy models.<provider/model> entries → agents.defaults.models.");
+        }
+
+        if (Object.keys(modelsRoot).length === 0) {
+          delete raw.models;
+        } else {
+          raw.models = modelsRoot;
+        }
+      }
+    },
+  },
+  {
+    id: "controlUi->gateway.controlUi",
+    describe: "Move top-level controlUi to gateway.controlUi",
+    apply: (raw, changes) => {
+      const legacyControlUi = getRecord(raw.controlUi);
+      if (!legacyControlUi) {
+        return;
+      }
+      const gateway = ensureRecord(raw, "gateway");
+      const controlUi = ensureRecord(gateway, "controlUi");
+      const hadEntries = Object.keys(controlUi).length > 0;
+      mergeMissing(controlUi, legacyControlUi);
+      gateway.controlUi = controlUi;
+      delete raw.controlUi;
+      changes.push(
+        hadEntries
+          ? "Merged controlUi → gateway.controlUi."
+          : "Moved controlUi → gateway.controlUi.",
+      );
+    },
+  },
   {
     id: "agent.model-config-v2",
     describe:

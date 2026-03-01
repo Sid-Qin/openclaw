@@ -104,3 +104,63 @@ describe("legacy migrate mention routing", () => {
     ).toBeUndefined();
   });
 });
+
+describe("legacy migrate model/provider layout", () => {
+  it("migrates defaultModel, providers, and legacy top-level model map", () => {
+    const res = migrateLegacyConfig({
+      defaultModel: "xai/grok-4-fast",
+      providers: {
+        ollama: {
+          url: "http://10.0.0.50:11434",
+          models: ["qwen:7b", "qwen3:8b"],
+        },
+      },
+      models: {
+        "ollama/qwen:7b": {
+          provider: "ollama",
+          model: "qwen:7b",
+          url: "http://10.0.0.50:11434",
+        },
+      },
+    });
+
+    expect(res.config).not.toBeNull();
+    expect(res.changes).toContain("Moved defaultModel → agents.defaults.model.primary.");
+    expect(res.changes).toContain("Moved providers → models.providers.");
+    expect(res.changes).toContain(
+      "Moved legacy models.<provider/model> entries → agents.defaults.models.",
+    );
+
+    expect(res.config?.agents?.defaults?.model).toEqual({
+      primary: "xai/grok-4-fast",
+      fallbacks: [],
+    });
+    expect(res.config?.agents?.defaults?.models).toMatchObject({
+      "ollama/qwen:7b": {},
+      "ollama/qwen3:8b": {},
+    });
+    expect(res.config?.models?.providers?.ollama?.baseUrl).toBe("http://10.0.0.50:11434");
+    expect(res.config?.models?.providers?.ollama?.models.map((item) => item.id)).toEqual([
+      "qwen:7b",
+      "qwen3:8b",
+    ]);
+  });
+});
+
+describe("legacy migrate controlUi", () => {
+  it("moves top-level controlUi into gateway.controlUi", () => {
+    const res = migrateLegacyConfig({
+      controlUi: {
+        enabled: true,
+        allowInsecureAuth: true,
+      },
+    });
+
+    expect(res.config).not.toBeNull();
+    expect(res.changes).toContain("Moved controlUi → gateway.controlUi.");
+    expect(res.config?.gateway?.controlUi).toMatchObject({
+      enabled: true,
+      allowInsecureAuth: true,
+    });
+  });
+});
