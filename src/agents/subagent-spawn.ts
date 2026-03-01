@@ -350,39 +350,6 @@ export async function spawnSubagentDirect(
       };
     }
   }
-  if (requestThreadBinding) {
-    const bindResult = await ensureThreadBindingForSubagentSpawn({
-      hookRunner,
-      childSessionKey,
-      agentId: targetAgentId,
-      label: label || undefined,
-      mode: spawnMode,
-      requesterSessionKey: requesterInternalKey,
-      requester: {
-        channel: requesterOrigin?.channel,
-        accountId: requesterOrigin?.accountId,
-        to: requesterOrigin?.to,
-        threadId: requesterOrigin?.threadId,
-      },
-    });
-    if (bindResult.status === "error") {
-      try {
-        await callGateway({
-          method: "sessions.delete",
-          params: { key: childSessionKey, emitLifecycleHooks: false },
-          timeoutMs: 10_000,
-        });
-      } catch {
-        // Best-effort cleanup only.
-      }
-      return {
-        status: "error",
-        error: bindResult.error,
-        childSessionKey,
-      };
-    }
-    threadBindingReady = true;
-  }
   const childSystemPrompt = buildSubagentSystemPrompt({
     requesterSessionKey,
     requesterOrigin,
@@ -433,7 +400,34 @@ export async function spawnSubagentDirect(
       childRunId = response.runId;
     }
   } catch (err) {
-    if (threadBindingReady) {
+    const messageText = summarizeError(err);
+    return {
+      status: "error",
+      error: messageText,
+      childSessionKey,
+      runId: childRunId,
+    };
+  }
+
+  // Bind the thread AFTER the agent run is submitted so that the run is
+  // registered in ACTIVE_EMBEDDED_RUNS before any Discord thread events
+  // (e.g. intro message) can trigger the reply flow for the child session.
+  if (requestThreadBinding) {
+    const bindResult = await ensureThreadBindingForSubagentSpawn({
+      hookRunner,
+      childSessionKey,
+      agentId: targetAgentId,
+      label: label || undefined,
+      mode: spawnMode,
+      requesterSessionKey: requesterInternalKey,
+      requester: {
+        channel: requesterOrigin?.channel,
+        accountId: requesterOrigin?.accountId,
+        to: requesterOrigin?.to,
+        threadId: requesterOrigin?.threadId,
+      },
+    });
+    if (bindResult.status === "error") {
       const hasEndedHook = hookRunner?.hasHooks("subagent_ended") === true;
       let endedHookEmitted = false;
       if (hasEndedHook) {
@@ -447,7 +441,7 @@ export async function spawnSubagentDirect(
               accountId: requesterOrigin?.accountId,
               runId: childRunId,
               outcome: "error",
-              error: "Session failed to start",
+              error: "Thread binding failed",
             },
             {
               runId: childRunId,
@@ -457,11 +451,9 @@ export async function spawnSubagentDirect(
           );
           endedHookEmitted = true;
         } catch {
-          // Spawn should still return an actionable error even if cleanup hooks fail.
+          // Best-effort only.
         }
       }
-      // Always delete the provisional child session after a failed spawn attempt.
-      // If we already emitted subagent_ended above, suppress a duplicate lifecycle hook.
       try {
         await callGateway({
           method: "sessions.delete",
@@ -475,14 +467,13 @@ export async function spawnSubagentDirect(
       } catch {
         // Best-effort only.
       }
+      return {
+        status: "error",
+        error: bindResult.error,
+        childSessionKey,
+      };
     }
-    const messageText = summarizeError(err);
-    return {
-      status: "error",
-      error: messageText,
-      childSessionKey,
-      runId: childRunId,
-    };
+    threadBindingReady = true;
   }
 
   registerSubagentRun({
