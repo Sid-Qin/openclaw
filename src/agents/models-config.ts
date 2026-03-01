@@ -15,6 +15,10 @@ type ModelsConfig = NonNullable<OpenClawConfig["models"]>;
 
 const DEFAULT_MODE: NonNullable<ModelsConfig["mode"]> = "merge";
 
+function hasNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 function resolvePreferredTokenLimit(explicitValue: number, implicitValue: number): number {
   // Keep catalog refresh behavior for stale low values while preserving
   // intentional larger user overrides (for example Ollama >128k contexts).
@@ -163,14 +167,19 @@ export async function ensureOpenClawModelsJson(
             })
           | undefined;
         if (existing) {
-          const preserved: Record<string, unknown> = {};
-          if (typeof existing.apiKey === "string" && existing.apiKey) {
-            preserved.apiKey = existing.apiKey;
+          const mergedEntry = {
+            ...newEntry,
+          } as NonNullable<ModelsConfig["providers"]>[string] & {
+            apiKey?: string;
+            baseUrl?: string;
+          };
+          if (!hasNonEmptyString(mergedEntry.apiKey) && hasNonEmptyString(existing.apiKey)) {
+            mergedEntry.apiKey = existing.apiKey;
           }
-          if (typeof existing.baseUrl === "string" && existing.baseUrl) {
-            preserved.baseUrl = existing.baseUrl;
+          if (!hasNonEmptyString(mergedEntry.baseUrl) && hasNonEmptyString(existing.baseUrl)) {
+            mergedEntry.baseUrl = existing.baseUrl;
           }
-          mergedProviders[key] = { ...newEntry, ...preserved };
+          mergedProviders[key] = mergedEntry;
         } else {
           mergedProviders[key] = newEntry;
         }
