@@ -410,6 +410,47 @@ function normalizeTextLikeParam(record: Record<string, unknown>, key: string) {
   }
 }
 
+const MARKDOWN_LINK_IN_PATH_RE = /\[([^\]]+)\]\(([^)]+)\)/g;
+const WRAPPED_PATH_RE = /^([`"'<>])(.*)\1$/;
+
+function normalizePathLikeParam(record: Record<string, unknown>, key: string) {
+  normalizeTextLikeParam(record, key);
+  const value = record[key];
+  if (typeof value !== "string") {
+    return;
+  }
+  let normalized = value.trim();
+  if (!normalized) {
+    record[key] = normalized;
+    return;
+  }
+
+  const wrapped = normalized.match(WRAPPED_PATH_RE);
+  if (wrapped) {
+    normalized = wrapped[2]?.trim() ?? normalized;
+  }
+
+  // Some providers emit markdown-linked file names for path args.
+  normalized = normalized.replace(MARKDOWN_LINK_IN_PATH_RE, "$1");
+
+  if (/^file:\/\//i.test(normalized)) {
+    try {
+      normalized = fileURLToPath(normalized);
+    } catch {
+      // Keep original when file URL parsing fails.
+    }
+  }
+
+  if (normalized.startsWith("~/")) {
+    const home = process.env.HOME?.trim();
+    if (home) {
+      normalized = path.join(home, normalized.slice(2));
+    }
+  }
+
+  record[key] = normalized;
+}
+
 // Normalize tool parameters from Claude Code conventions to pi-coding-agent conventions.
 // Claude Code uses file_path/old_string/new_string while pi-coding-agent uses path/oldText/newText.
 // This prevents models trained on Claude Code from getting stuck in tool-call loops.
@@ -436,6 +477,7 @@ export function normalizeToolParams(params: unknown): Record<string, unknown> | 
   }
   // Some providers/models emit text payloads as structured blocks instead of raw strings.
   // Normalize these for write/edit so content matching and writes stay deterministic.
+  normalizePathLikeParam(normalized, "path");
   normalizeTextLikeParam(normalized, "content");
   normalizeTextLikeParam(normalized, "oldText");
   normalizeTextLikeParam(normalized, "newText");
