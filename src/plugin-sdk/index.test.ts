@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import * as sdk from "./index.js";
 
 describe("plugin-sdk exports", () => {
+  it("exports waitForAbortSignal helper", async () => {
+    expect(typeof sdk.waitForAbortSignal).toBe("function");
+    await expect(sdk.waitForAbortSignal(undefined)).resolves.toBeUndefined();
+  });
+
   it("does not expose runtime modules", () => {
     const forbidden = [
       "chunkMarkdownText",
