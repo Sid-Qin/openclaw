@@ -7,6 +7,7 @@ import {
   resolveControlUiDistIndexPathForRoot,
 } from "./control-ui-assets.js";
 import { detectPackageManager as detectPackageManagerImpl } from "./detect-package-manager.js";
+import { isTruthyEnvValue } from "./env.js";
 import { readPackageName, readPackageVersion } from "./package-json.js";
 import { trimLogTail } from "./restart-sentinel.js";
 import {
@@ -773,9 +774,16 @@ export async function runGatewayUpdate(opts: UpdateRunnerOptions = {}): Promise<
       };
     }
 
-    // Use --fix so that doctor auto-strips unknown config keys introduced by
-    // schema changes between versions, preventing a startup validation crash.
-    const doctorArgv = [process.execPath, doctorEntry, "doctor", "--non-interactive", "--fix"];
+    const autoUpdateRun = isTruthyEnvValue(process.env.OPENCLAW_AUTO_UPDATE);
+    // During auto-update, avoid destructive compatibility rewrites that can
+    // unexpectedly alter a working config while the gateway is running.
+    const doctorArgv = [
+      process.execPath,
+      doctorEntry,
+      "doctor",
+      "--non-interactive",
+      ...(autoUpdateRun ? [] : ["--fix"]),
+    ];
     const doctorStep = await runStep(
       step("openclaw doctor", doctorArgv, gitRoot, { OPENCLAW_UPDATE_IN_PROGRESS: "1" }),
     );

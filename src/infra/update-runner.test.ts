@@ -272,6 +272,29 @@ describe("runGatewayUpdate", () => {
     expect(calls).not.toContain(`git -C ${tempDir} checkout --detach ${betaTag}`);
   });
 
+  it("runs doctor without --fix during auto-update", async () => {
+    await setupGitCheckout({ packageManager: "pnpm@8.0.0" });
+    await setupUiIndex();
+    const stableTag = "v1.0.1-1";
+    const doctorWithoutFix = `${process.execPath} ${path.join(tempDir, "openclaw.mjs")} doctor --non-interactive`;
+    const doctorWithFix = `${doctorWithoutFix} --fix`;
+    const { runner, calls } = createRunner({
+      ...buildStableTagResponses(stableTag),
+      "pnpm install": { stdout: "" },
+      "pnpm build": { stdout: "" },
+      "pnpm ui:build": { stdout: "" },
+      [doctorWithoutFix]: { stdout: "" },
+    });
+
+    const result = await withEnvAsync({ OPENCLAW_AUTO_UPDATE: "1" }, async () =>
+      runWithRunner(runner, { channel: "stable" }),
+    );
+
+    expect(result.status).toBe("ok");
+    expect(calls).toContain(doctorWithoutFix);
+    expect(calls).not.toContain(doctorWithFix);
+  });
+
   it("skips update when no git root", async () => {
     await fs.writeFile(
       path.join(tempDir, "package.json"),
