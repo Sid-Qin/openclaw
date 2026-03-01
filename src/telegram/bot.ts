@@ -143,14 +143,29 @@ export function createTelegramBot(opts: TelegramBotOptions) {
 
   const bot = new Bot(opts.token, client ? { client } : undefined);
   bot.api.config.use(apiThrottler());
+
+  const initialUpdateId =
+    typeof opts.updateOffset?.lastUpdateId === "number" ? opts.updateOffset.lastUpdateId : null;
+
+  if (initialUpdateId !== null) {
+    const minOffset = initialUpdateId + 1;
+    bot.api.config.use((prev, method, payload, signal) => {
+      if (method === "getUpdates") {
+        const p = payload as Record<string, unknown>;
+        if (typeof p.offset !== "number" || p.offset < minOffset) {
+          p.offset = minOffset;
+        }
+      }
+      return prev(method, payload, signal);
+    });
+  }
+
   // Catch all errors from bot middleware to prevent unhandled rejections
   bot.catch((err) => {
     runtime.error?.(danger(`telegram bot error: ${formatUncaughtError(err)}`));
   });
 
   const recentUpdates = createTelegramUpdateDedupe();
-  const initialUpdateId =
-    typeof opts.updateOffset?.lastUpdateId === "number" ? opts.updateOffset.lastUpdateId : null;
 
   // Track update_ids that have entered the middleware pipeline but have not completed yet.
   // This includes updates that are "queued" behind sequentialize(...) for a chat/topic key.
