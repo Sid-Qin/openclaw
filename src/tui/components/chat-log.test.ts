@@ -41,4 +41,21 @@ describe("ChatLog", () => {
 
     expect(chatLog.children.length).toBe(20);
   });
+
+  it("sanitizes OSC sequences from system/user/assistant messages", () => {
+    const chatLog = new ChatLog(40);
+    const osc7 = "\x1b]7;file://example-host/tmp\x07";
+
+    chatLog.addSystem(`system-${osc7}-line`);
+    chatLog.addUser(`user-${osc7}-line`);
+    chatLog.startAssistant(`assistant-${osc7}-stream`, "run-osc");
+    chatLog.finalizeAssistant(`assistant-${osc7}-final`, "run-osc");
+
+    const rendered = chatLog.render(120).join("\n");
+    expect(rendered).not.toContain("\x1b]7;");
+    expect(rendered).not.toContain("file://example-host/tmp");
+    expect(rendered).toContain("system--line");
+    expect(rendered).toContain("user--line");
+    expect(rendered).toContain("assistant--final");
+  });
 });

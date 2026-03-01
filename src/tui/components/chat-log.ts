@@ -1,6 +1,7 @@
 import type { Component } from "@mariozechner/pi-tui";
 import { Container, Spacer, Text } from "@mariozechner/pi-tui";
 import { theme } from "../theme/theme.js";
+import { sanitizeRenderableText } from "../tui-formatters.js";
 import { AssistantMessageComponent } from "./assistant-message.js";
 import { ToolExecutionComponent } from "./tool-execution.js";
 import { UserMessageComponent } from "./user-message.js";
@@ -52,12 +53,13 @@ export class ChatLog extends Container {
   }
 
   addSystem(text: string) {
+    const sanitized = sanitizeRenderableText(text);
     this.append(new Spacer(1));
-    this.append(new Text(theme.system(text), 1, 0));
+    this.append(new Text(theme.system(sanitized), 1, 0));
   }
 
   addUser(text: string) {
-    this.append(new UserMessageComponent(text));
+    this.append(new UserMessageComponent(sanitizeRenderableText(text)));
   }
 
   private resolveRunId(runId?: string) {
@@ -65,7 +67,7 @@ export class ChatLog extends Container {
   }
 
   startAssistant(text: string, runId?: string) {
-    const component = new AssistantMessageComponent(text);
+    const component = new AssistantMessageComponent(sanitizeRenderableText(text));
     this.streamingRuns.set(this.resolveRunId(runId), component);
     this.append(component);
     return component;
@@ -78,18 +80,19 @@ export class ChatLog extends Container {
       this.startAssistant(text, runId);
       return;
     }
-    existing.setText(text);
+    existing.setText(sanitizeRenderableText(text));
   }
 
   finalizeAssistant(text: string, runId?: string) {
+    const sanitized = sanitizeRenderableText(text);
     const effectiveRunId = this.resolveRunId(runId);
     const existing = this.streamingRuns.get(effectiveRunId);
     if (existing) {
-      existing.setText(text);
+      existing.setText(sanitized);
       this.streamingRuns.delete(effectiveRunId);
       return;
     }
-    this.append(new AssistantMessageComponent(text));
+    this.append(new AssistantMessageComponent(sanitized));
   }
 
   dropAssistant(runId?: string) {

@@ -1,10 +1,10 @@
 // Regex patterns for ANSI escape sequences (constructed from strings to
 // satisfy the no-control-regex lint rule).
 const SGR_PATTERN = "\\x1b\\[[0-9;]*m";
-const OSC8_PATTERN = "\\x1b\\]8;;.*?(?:\\x07|\\x1b\\\\)";
-const ANSI_RE = new RegExp(`${SGR_PATTERN}|${OSC8_PATTERN}`, "g");
+const OSC_PATTERN = "\\x1b\\][^\\x07\\x1b]*(?:\\x07|\\x1b\\\\)";
+const ANSI_RE = new RegExp(`${SGR_PATTERN}|${OSC_PATTERN}`, "g");
 const SGR_START_RE = new RegExp(`^${SGR_PATTERN}`);
-const OSC8_START_RE = new RegExp(`^${OSC8_PATTERN}`);
+const OSC_START_RE = new RegExp(`^${OSC_PATTERN}`);
 
 /** Wrap text with an OSC 8 terminal hyperlink. */
 export function wrapOsc8(url: string, text: string): string {
@@ -175,8 +175,8 @@ function applyOsc8Ranges(line: string, ranges: UrlRange[]): string {
         continue;
       }
 
-      // Existing OSC 8 sequence (pass through)
-      const osc = line.slice(i).match(OSC8_START_RE);
+      // Existing OSC sequence (pass through)
+      const osc = line.slice(i).match(OSC_START_RE);
       if (osc) {
         result += osc[0];
         i += osc[0].length;

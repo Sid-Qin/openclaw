@@ -1,5 +1,6 @@
 import { Container, Spacer } from "@mariozechner/pi-tui";
 import { markdownTheme, theme } from "../theme/theme.js";
+import { sanitizeRenderableText } from "../tui-formatters.js";
 import { HyperlinkMarkdown } from "./hyperlink-markdown.js";
 
 export class AssistantMessageComponent extends Container {
@@ -7,7 +8,7 @@ export class AssistantMessageComponent extends Container {
 
   constructor(text: string) {
     super();
-    this.body = new HyperlinkMarkdown(text, 1, 0, markdownTheme, {
+    this.body = new HyperlinkMarkdown(sanitizeRenderableText(text), 1, 0, markdownTheme, {
       // Keep assistant body text in terminal default foreground so contrast
       // follows the user's terminal theme (dark or light).
       color: (line) => theme.assistantText(line),
@@ -17,6 +18,6 @@ export class AssistantMessageComponent extends Container {
   }
 
   setText(text: string) {
-    this.body.setText(text);
+    this.body.setText(sanitizeRenderableText(text));
   }
 }

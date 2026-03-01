@@ -87,6 +87,15 @@ describe("extractTextFromMessage", () => {
     expect(text).toBe("Hello redworld");
   });
 
+  it("strips OSC control sequences from string content", () => {
+    const text = extractTextFromMessage({
+      role: "assistant",
+      content: "before\x1b]7;file://example-host/tmp\x07after",
+    });
+
+    expect(text).toBe("beforeafter");
+  });
+
   it("redacts heavily corrupted binary-like lines", () => {
     const text = extractTextFromMessage({
       role: "assistant",
@@ -268,5 +277,13 @@ describe("sanitizeRenderableText", () => {
     const sanitized = sanitizeRenderableText(input);
 
     expect(sanitized).toBe(input);
+  });
+
+  it("removes generic OSC control sequences while preserving visible text", () => {
+    const input =
+      "x\x1b]7;file://example-host/tmp\x07y\x1b]8;;https://example.com\x07link\x1b]8;;\x07";
+    const sanitized = sanitizeRenderableText(input);
+
+    expect(sanitized).toBe("xylink");
   });
 });

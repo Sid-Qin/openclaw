@@ -1,12 +1,10 @@
-const ANSI_SGR_PATTERN = "\\x1b\\[[0-9;]*m";
-// OSC-8 hyperlinks: ESC ] 8 ; ; url ST ... ESC ] 8 ; ; ST
-const OSC8_PATTERN = "\\x1b\\]8;;.*?\\x1b\\\\|\\x1b\\]8;;\\x1b\\\\";
-
-const ANSI_REGEX = new RegExp(ANSI_SGR_PATTERN, "g");
-const OSC8_REGEX = new RegExp(OSC8_PATTERN, "g");
+const ANSI_CSI_PATTERN = "\\x1b\\[[0-?]*[ -/]*[@-~]";
+// Generic OSC sequence: ESC ] ... BEL or ESC \\
+const ANSI_OSC_PATTERN = "\\x1b\\][^\\x07\\x1b]*(?:\\x07|\\x1b\\\\)";
+const ANSI_REGEX = new RegExp(`${ANSI_CSI_PATTERN}|${ANSI_OSC_PATTERN}`, "g");
 
 export function stripAnsi(input: string): string {
-  return input.replace(OSC8_REGEX, "").replace(ANSI_REGEX, "");
+  return input.replace(ANSI_REGEX, "");
 }
 
 export function visibleWidth(input: string): number {
