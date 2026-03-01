@@ -110,6 +110,40 @@ describe("session cost usage", () => {
     });
   });
 
+  it("accepts flat numeric usage.cost values", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-cost-flat-"));
+    const sessionsDir = path.join(root, "agents", "main", "sessions");
+    await fs.mkdir(sessionsDir, { recursive: true });
+    const sessionFile = path.join(sessionsDir, "sess-flat-cost.jsonl");
+    const now = new Date();
+
+    await fs.writeFile(
+      sessionFile,
+      JSON.stringify({
+        type: "message",
+        timestamp: now.toISOString(),
+        message: {
+          role: "assistant",
+          provider: "openrouter",
+          model: "openai/gpt-4.1-mini",
+          usage: {
+            input: 100,
+            output: 50,
+            totalTokens: 150,
+            cost: 0.0045,
+          },
+        },
+      }),
+      "utf-8",
+    );
+
+    await withStateDir(root, async () => {
+      const summary = await loadCostUsageSummary({ days: 1 });
+      expect(summary.totals.totalTokens).toBe(150);
+      expect(summary.totals.totalCost).toBeCloseTo(0.0045, 8);
+    });
+  });
+
   it("summarizes a single session file", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-cost-session-"));
     const sessionFile = path.join(root, "session.jsonl");

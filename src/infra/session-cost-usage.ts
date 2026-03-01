@@ -82,10 +82,19 @@ const extractCostBreakdown = (usageRaw?: UsageLike | null): CostBreakdown | unde
     return undefined;
   }
   const record = usageRaw as Record<string, unknown>;
-  const cost = record.cost as Record<string, unknown> | undefined;
-  if (!cost) {
+  const costRaw = record.cost;
+  if (typeof costRaw === "number") {
+    const total = toFiniteNumber(costRaw);
+    if (total === undefined || total < 0) {
+      return undefined;
+    }
+    return { total };
+  }
+
+  if (!costRaw || typeof costRaw !== "object") {
     return undefined;
   }
+  const cost = costRaw as Record<string, unknown>;
 
   const total = toFiniteNumber(cost.total);
   if (total === undefined || total < 0) {
