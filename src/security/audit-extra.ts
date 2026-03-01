@@ -29,6 +29,7 @@ export {
 
 // Async collectors
 export {
+  collectLinuxUfwFindings,
   collectSandboxBrowserHashLabelFindings,
   collectIncludeFilePermFindings,
   collectInstalledSkillsCodeSafetyFindings,

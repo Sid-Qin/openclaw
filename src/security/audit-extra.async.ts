@@ -51,6 +51,9 @@ type ExecDockerRawFn = (
   args: string[],
   opts?: { allowFailure?: boolean; input?: Buffer | string; signal?: AbortSignal },
 ) => Promise<ExecDockerRawResult>;
+type SafeStatResult = Awaited<ReturnType<typeof safeStat>>;
+type SafeStatFn = (targetPath: string) => Promise<SafeStatResult>;
+type ReadFileTextFn = (targetPath: string) => Promise<string>;
 
 // --------------------------------------------------------------------------
 // Helpers
@@ -244,6 +247,131 @@ async function readInstalledPackageVersion(dir: string): Promise<string | undefi
   } catch {
     return undefined;
   }
+}
+
+const DEFAULT_UFW_BINARY_CANDIDATES = ["/usr/sbin/ufw", "/sbin/ufw", "/usr/local/sbin/ufw"];
+const DEFAULT_UFW_CONFIG_PATH = "/etc/ufw/ufw.conf";
+const DEFAULT_SAFE_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
+
+function parseUfwEnabled(raw: string): boolean | undefined {
+  for (const line of raw.split(/\r?\n/)) {
+    const withoutComment = line.split("#", 1)[0] ?? "";
+    const match = withoutComment.match(/^\s*ENABLED\s*=\s*(yes|no)\s*$/i);
+    if (!match?.[1]) {
+      continue;
+    }
+    return match[1].toLowerCase() === "yes";
+  }
+  return undefined;
+}
+
+function resolvePathEntrySet(envPath: string): Set<string> {
+  return new Set(
+    envPath
+      .split(path.delimiter)
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .map((entry) => path.resolve(entry)),
+  );
+}
+
+export async function collectLinuxUfwFindings(params?: {
+  platform?: NodeJS.Platform;
+  env?: NodeJS.ProcessEnv;
+  ufwBinaryCandidates?: string[];
+  ufwConfigPath?: string;
+  statFn?: SafeStatFn;
+  readFileFn?: ReadFileTextFn;
+}): Promise<SecurityAuditFinding[]> {
+  const platform = params?.platform ?? process.platform;
+  if (platform !== "linux") {
+    return [];
+  }
+
+  const statFn = params?.statFn ?? safeStat;
+  const readFileFn =
+    params?.readFileFn ?? (async (targetPath: string) => await fs.readFile(targetPath, "utf-8"));
+  const ufwBinaryCandidates = params?.ufwBinaryCandidates ?? DEFAULT_UFW_BINARY_CANDIDATES;
+  const ufwConfigPath = params?.ufwConfigPath ?? DEFAULT_UFW_CONFIG_PATH;
+  const envPath = (params?.env ?? process.env).PATH ?? "";
+  const pathEntries = resolvePathEntrySet(envPath);
+  const findings: SecurityAuditFinding[] = [];
+
+  const detectedBinaries: string[] = [];
+  for (const binaryPath of ufwBinaryCandidates) {
+    // eslint-disable-next-line no-await-in-loop
+    const st = await statFn(binaryPath);
+    if (!st.ok || st.isDir) {
+      continue;
+    }
+    detectedBinaries.push(binaryPath);
+  }
+
+  const configRaw = await readFileFn(ufwConfigPath).catch(() => "");
+  const enabled = configRaw ? parseUfwEnabled(configRaw) : undefined;
+  if (detectedBinaries.length === 0 && enabled !== true) {
+    return findings;
+  }
+
+  const binaryOnPath = detectedBinaries.some((binaryPath) =>
+    pathEntries.has(path.resolve(path.dirname(binaryPath))),
+  );
+  const primaryBinary = detectedBinaries[0] ?? "ufw";
+
+  if (enabled === true && detectedBinaries.length === 0) {
+    findings.push({
+      checkId: "host.firewall.ufw.config_enabled_binary_missing",
+      severity: "warn",
+      title: "UFW config says enabled but ufw binary was not detected",
+      detail: `${ufwConfigPath} reports ENABLED=yes, but no ufw binary was found in: ${ufwBinaryCandidates.join(", ")}.`,
+      remediation:
+        "Verify your UFW installation and package paths. If ufw is installed in a custom location, add that path to PATH.",
+    });
+    return findings;
+  }
+
+  if (enabled === true) {
+    if (binaryOnPath) {
+      findings.push({
+        checkId: "host.firewall.ufw.enabled",
+        severity: "info",
+        title: "UFW firewall appears enabled",
+        detail: `Detected ${primaryBinary}; ${ufwConfigPath} reports ENABLED=yes.`,
+      });
+      return findings;
+    }
+    findings.push({
+      checkId: "host.firewall.ufw.enabled_not_on_path",
+      severity: "info",
+      title: "UFW appears enabled but binary directory is not in PATH",
+      detail:
+        `Detected ${primaryBinary}; ${ufwConfigPath} reports ENABLED=yes, but current PATH does not include ${path.dirname(primaryBinary)}.` +
+        " Non-root shells can report `ufw: command not found` in this state.",
+      remediation: `Use a safe PATH for subprocess checks (for example ${DEFAULT_SAFE_PATH}) or run privileged checks via \`sudo ufw status\` when needed.`,
+    });
+    return findings;
+  }
+
+  if (enabled === false) {
+    findings.push({
+      checkId: "host.firewall.ufw.disabled",
+      severity: "info",
+      title: "UFW is installed but disabled",
+      detail: `Detected ${primaryBinary}; ${ufwConfigPath} reports ENABLED=no.`,
+      remediation: "Enable UFW if this host should enforce a host-level firewall policy.",
+    });
+    return findings;
+  }
+
+  findings.push({
+    checkId: "host.firewall.ufw.detected_unknown",
+    severity: "info",
+    title: "UFW binary detected (enablement unknown)",
+    detail:
+      `Detected ${primaryBinary}, but ENABLED could not be parsed from ${ufwConfigPath}.` +
+      " UFW may still be active; verify with privileged host checks.",
+  });
+  return findings;
 }
 
 // --------------------------------------------------------------------------
