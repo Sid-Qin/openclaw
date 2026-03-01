@@ -1,12 +1,13 @@
 import { vi } from "vitest";
 import { compactEmbeddedPiSessionDirect } from "./compact.js";
-import { runEmbeddedAttempt } from "./run/attempt.js";
+import { rollbackEmbeddedAttemptSession, runEmbeddedAttempt } from "./run/attempt.js";
 import {
   sessionLikelyHasOversizedToolResults,
   truncateOversizedToolResultsInSession,
 } from "./tool-result-truncation.js";
 
 export const mockedRunEmbeddedAttempt = vi.mocked(runEmbeddedAttempt);
+export const mockedRollbackEmbeddedAttemptSession = vi.mocked(rollbackEmbeddedAttemptSession);
 export const mockedCompactDirect = vi.mocked(compactEmbeddedPiSessionDirect);
 export const mockedSessionLikelyHasOversizedToolResults = vi.mocked(
   sessionLikelyHasOversizedToolResults,

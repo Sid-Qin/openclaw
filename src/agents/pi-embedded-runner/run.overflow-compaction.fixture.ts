@@ -41,6 +41,7 @@ export function makeAttemptResult(
     messagingToolSentMediaUrls: [],
     messagingToolSentTargets: [],
     cloudCodeAssistFormatError: false,
+    retryBranchBaseEntryId: null,
     ...overrides,
   };
 }

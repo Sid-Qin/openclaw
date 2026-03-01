@@ -86,6 +86,7 @@ vi.mock("../pi-embedded-helpers.js", () => ({
 
 vi.mock("./run/attempt.js", () => ({
   runEmbeddedAttempt: vi.fn(),
+  rollbackEmbeddedAttemptSession: vi.fn(async () => {}),
 }));
 
 vi.mock("./compact.js", () => ({

@@ -50,6 +50,11 @@ export type EmbeddedRunAttemptResult = {
   cloudCodeAssistFormatError: boolean;
   attemptUsage?: NormalizedUsage;
   compactionCount?: number;
+  /**
+   * Session branch leaf id captured immediately before submitting this attempt's prompt.
+   * Retries can rewind to this checkpoint to avoid duplicating the same inbound user turn.
+   */
+  retryBranchBaseEntryId?: string | null;
   /** Client tool call detected (OpenResponses hosted tools). */
   clientToolCall?: { name: string; params: Record<string, unknown> };
 };

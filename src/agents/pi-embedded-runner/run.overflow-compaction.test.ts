@@ -12,6 +12,7 @@ import {
 import { mockedGlobalHookRunner } from "./run.overflow-compaction.mocks.shared.js";
 import {
   mockedCompactDirect,
+  mockedRollbackEmbeddedAttemptSession,
   mockedRunEmbeddedAttempt,
   mockedSessionLikelyHasOversizedToolResults,
   mockedTruncateOversizedToolResultsInSession,
@@ -114,6 +115,29 @@ describe("runEmbeddedPiAgent overflow compaction trigger routing", () => {
     expect(mockedTruncateOversizedToolResultsInSession).toHaveBeenCalledTimes(1);
     expect(mockedRunEmbeddedAttempt).toHaveBeenCalledTimes(4);
     expect(result.meta.error?.kind).toBe("context_overflow");
+  });
+
+  it("rewinds session branch before retrying with fallback thinking", async () => {
+    mockedRunEmbeddedAttempt
+      .mockResolvedValueOnce(
+        makeAttemptResult({
+          promptError: new Error("unsupported reasoning mode"),
+          retryBranchBaseEntryId: "entry-before-retry",
+          compactionCount: 0,
+        }),
+      )
+      .mockResolvedValueOnce(makeAttemptResult({ promptError: null }));
+    mockedPickFallbackThinkingLevel.mockReturnValueOnce("low");
+
+    const result = await runEmbeddedPiAgent(overflowBaseRunParams);
+
+    expect(mockedRollbackEmbeddedAttemptSession).toHaveBeenCalledTimes(1);
+    expect(mockedRollbackEmbeddedAttemptSession).toHaveBeenCalledWith({
+      sessionFile: overflowBaseRunParams.sessionFile,
+      baseEntryId: "entry-before-retry",
+    });
+    expect(mockedRunEmbeddedAttempt).toHaveBeenCalledTimes(2);
+    expect(result.meta.error).toBeUndefined();
   });
 
   it("returns retry_limit when repeated retries never converge", async () => {
