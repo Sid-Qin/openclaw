@@ -12,7 +12,7 @@ import { stripAnsi, visibleWidth } from "../../terminal/ansi.js";
 import { findWordBoundaryIndex, fuzzyFilterLower } from "./fuzzy-filter.js";
 
 const ANSI_ESCAPE = String.fromCharCode(27);
-const ANSI_SGR_REGEX = new RegExp(`${ANSI_ESCAPE}\\[[0-9;]*m`, "g");
+const ANSI_SGR_REGEX = new RegExp(`${ANSI_ESCAPE}\\[[0-9;:]*m`, "g");
 
 export interface SearchableSelectListTheme extends SelectListTheme {
   searchPrompt: (text: string) => string;
@@ -209,6 +209,11 @@ export class SearchableSelectList implements Component {
     this.searchInput.invalidate();
   }
 
+  private clampLineWidth(line: string, width: number): string {
+    const safeWidth = Math.max(1, width);
+    return truncateToWidth(line, safeWidth, "");
+  }
+
   render(width: number): string[] {
     const lines: string[] = [];
 
@@ -218,14 +223,14 @@ export class SearchableSelectList implements Component {
     const inputWidth = Math.max(1, width - visibleWidth(prompt));
     const inputLines = this.searchInput.render(inputWidth);
     const inputText = inputLines[0] ?? "";
-    lines.push(`${prompt}${this.theme.searchInput(inputText)}`);
+    lines.push(this.clampLineWidth(`${prompt}${this.theme.searchInput(inputText)}`, width));
     lines.push(""); // Spacer
 
     const query = this.searchInput.getValue().trim();
 
     // If no items match filter, show message
     if (this.filteredItems.length === 0) {
-      lines.push(this.theme.noMatch("  No matches"));
+      lines.push(this.clampLineWidth(this.theme.noMatch("  No matches"), width));
       return lines;
     }
 
@@ -252,7 +257,7 @@ export class SearchableSelectList implements Component {
     // Show scroll indicator if needed
     if (this.filteredItems.length > this.maxVisible) {
       const scrollInfo = `${this.selectedIndex + 1}/${this.filteredItems.length}`;
-      lines.push(this.theme.scrollInfo(`  ${scrollInfo}`));
+      lines.push(this.clampLineWidth(this.theme.scrollInfo(`  ${scrollInfo}`), width));
     }
 
     return lines;
@@ -286,7 +291,8 @@ export class SearchableSelectList implements Component {
           const highlightedDesc = this.highlightMatch(truncatedDesc, query);
           const descText = isSelected ? highlightedDesc : this.theme.description(highlightedDesc);
           const line = `${prefix}${valueText}${spacing}${descText}`;
-          return isSelected ? this.theme.selectedText(line) : line;
+          const styledLine = isSelected ? this.theme.selectedText(line) : line;
+          return this.clampLineWidth(styledLine, width);
         }
       }
     }
@@ -295,7 +301,8 @@ export class SearchableSelectList implements Component {
     const truncatedValue = truncateToWidth(displayValue, maxWidth, "");
     const valueText = this.highlightMatch(truncatedValue, query);
     const line = `${prefix}${valueText}`;
-    return isSelected ? this.theme.selectedText(line) : line;
+    const styledLine = isSelected ? this.theme.selectedText(line) : line;
+    return this.clampLineWidth(styledLine, width);
   }
 
   private getDescriptionLayout(

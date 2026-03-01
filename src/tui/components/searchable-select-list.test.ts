@@ -24,6 +24,11 @@ const ansiHighlightTheme: SearchableSelectListTheme = {
   matchHighlight: (t) => `\u001b[31m${t}\u001b[0m`,
 };
 
+const ansiColonTheme: SearchableSelectListTheme = {
+  ...ansiHighlightTheme,
+  description: (t) => `\u001b[38:5:245m${t}\u001b[0m`,
+};
+
 const testItems = [
   {
     value: "anthropic/claude-3-opus",
@@ -118,6 +123,31 @@ describe("SearchableSelectList", () => {
     typeInput(list, "provider");
 
     const width = 80;
+    const output = list.render(width);
+    for (const line of output) {
+      expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+    }
+  });
+
+  it("keeps m-query rows within width when themed descriptions use colon ANSI codes", () => {
+    const items = [
+      { value: "minimax-cn/MiniMax-M2", label: "minimax-cn/MiniMax-M2", description: "MiniMax M2" },
+      {
+        value: "mistral/codestral-latest",
+        label: "mistral/codestral-latest",
+        description: "Codestral",
+      },
+      {
+        value: "mistral/devstral-medium-2507",
+        label: "mistral/devstral-medium-2507",
+        description: "Devstral Medium",
+      },
+    ];
+    const list = new SearchableSelectList(items, 8, ansiColonTheme);
+    list.setSelectedIndex(1); // force non-selected description rendering on first row
+
+    typeInput(list, "m");
+    const width = 64;
     const output = list.render(width);
     for (const line of output) {
       expect(visibleWidth(line)).toBeLessThanOrEqual(width);
