@@ -184,6 +184,146 @@ function createBedrockNoCacheWrapper(baseStreamFn: StreamFn | undefined): Stream
     });
 }
 
+function sanitizeBedrockNonEmptyText(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  return value.trim().length > 0 ? value : null;
+}
+
+function sanitizeBedrockContentBlocks(blocks: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(blocks)) {
+    return [];
+  }
+
+  const sanitized: Array<Record<string, unknown>> = [];
+  for (const rawBlock of blocks) {
+    if (!rawBlock || typeof rawBlock !== "object") {
+      continue;
+    }
+    const block = rawBlock as Record<string, unknown>;
+
+    if ("toolResult" in block && block.toolResult && typeof block.toolResult === "object") {
+      const toolResult = block.toolResult as Record<string, unknown>;
+      const rawToolResultContent = Array.isArray(toolResult.content) ? toolResult.content : [];
+      const nextToolResultContent: Array<Record<string, unknown>> = [];
+      for (const rawEntry of rawToolResultContent) {
+        if (!rawEntry || typeof rawEntry !== "object") {
+          continue;
+        }
+        const entry = rawEntry as Record<string, unknown>;
+        if ("text" in entry) {
+          const text = sanitizeBedrockNonEmptyText(entry.text) ?? " ";
+          nextToolResultContent.push({ ...entry, text });
+          continue;
+        }
+        nextToolResultContent.push(entry);
+      }
+
+      if (nextToolResultContent.length === 0) {
+        nextToolResultContent.push({ text: " " });
+      }
+      sanitized.push({
+        ...block,
+        toolResult: {
+          ...toolResult,
+          content: nextToolResultContent,
+        },
+      });
+      continue;
+    }
+
+    if ("text" in block) {
+      const text = sanitizeBedrockNonEmptyText(block.text);
+      if (!text) {
+        continue;
+      }
+      sanitized.push({ ...block, text });
+      continue;
+    }
+
+    const reasoningContent = block.reasoningContent;
+    if (
+      reasoningContent &&
+      typeof reasoningContent === "object" &&
+      !Array.isArray(reasoningContent)
+    ) {
+      const reasoningRecord = reasoningContent as Record<string, unknown>;
+      const reasoningTextRaw = reasoningRecord.reasoningText;
+      if (
+        reasoningTextRaw &&
+        typeof reasoningTextRaw === "object" &&
+        !Array.isArray(reasoningTextRaw)
+      ) {
+        const reasoningText = reasoningTextRaw as Record<string, unknown>;
+        const text = sanitizeBedrockNonEmptyText(reasoningText.text);
+        if (!text) {
+          continue;
+        }
+        sanitized.push({
+          ...block,
+          reasoningContent: {
+            ...reasoningRecord,
+            reasoningText: {
+              ...reasoningText,
+              text,
+            },
+          },
+        });
+        continue;
+      }
+    }
+
+    sanitized.push(block);
+  }
+  return sanitized;
+}
+
+function sanitizeBedrockPayload(payload: unknown) {
+  if (!payload || typeof payload !== "object") {
+    return;
+  }
+
+  const payloadRecord = payload as Record<string, unknown>;
+  if (Array.isArray(payloadRecord.messages)) {
+    const nextMessages: Array<Record<string, unknown>> = [];
+    for (const rawMessage of payloadRecord.messages) {
+      if (!rawMessage || typeof rawMessage !== "object") {
+        continue;
+      }
+      const message = rawMessage as Record<string, unknown>;
+      const content = sanitizeBedrockContentBlocks(message.content);
+      if (content.length === 0) {
+        continue;
+      }
+      nextMessages.push({
+        ...message,
+        content,
+      });
+    }
+    payloadRecord.messages = nextMessages;
+  }
+
+  if (Array.isArray(payloadRecord.system)) {
+    const nextSystem = sanitizeBedrockContentBlocks(payloadRecord.system);
+    payloadRecord.system = nextSystem.length > 0 ? nextSystem : undefined;
+  }
+}
+
+function createBedrockBlankTextGuardWrapper(baseStreamFn: StreamFn | undefined): StreamFn {
+  const underlying = baseStreamFn ?? streamSimple;
+  return (model, context, options) => {
+    const originalOnPayload = options?.onPayload;
+    return underlying(model, context, {
+      ...options,
+      onPayload: (payload) => {
+        sanitizeBedrockPayload(payload);
+        originalOnPayload?.(payload);
+      },
+    });
+  };
+}
+
 function isDirectOpenAIBaseUrl(baseUrl: unknown): boolean {
   if (typeof baseUrl !== "string" || !baseUrl.trim()) {
     return false;
@@ -786,6 +926,9 @@ export function applyExtraParamsToAgent(
   if (provider === "amazon-bedrock" && !isAnthropicBedrockModel(modelId)) {
     log.debug(`disabling prompt caching for non-Anthropic Bedrock model ${provider}/${modelId}`);
     agent.streamFn = createBedrockNoCacheWrapper(agent.streamFn);
+  }
+  if (provider === "amazon-bedrock") {
+    agent.streamFn = createBedrockBlankTextGuardWrapper(agent.streamFn);
   }
 
   // Enable Z.AI tool_stream for real-time tool call streaming.

@@ -209,6 +209,24 @@ describe("applyExtraParamsToAgent", () => {
     return calls[0]?.headers;
   }
 
+  function runBedrockPayloadMutationCase(payload: Record<string, unknown>) {
+    const baseStreamFn: StreamFn = (_model, _context, options) => {
+      options?.onPayload?.(payload);
+      return {} as ReturnType<StreamFn>;
+    };
+    const agent = { streamFn: baseStreamFn };
+    applyExtraParamsToAgent(agent, undefined, "amazon-bedrock", "us.anthropic.claude-sonnet-4-5");
+
+    const model = {
+      api: "openai-completions",
+      provider: "amazon-bedrock",
+      id: "us.anthropic.claude-sonnet-4-5",
+    } as Model<"openai-completions">;
+    const context: Context = { messages: [] };
+    void agent.streamFn?.(model, context, {});
+    return payload;
+  }
+
   it("does not inject reasoning when thinkingLevel is off (default) for OpenRouter", () => {
     // Regression: "off" is a truthy string, so the old code injected
     // reasoning: { effort: "none" }, causing a 400 on models that require
@@ -716,6 +734,74 @@ describe("applyExtraParamsToAgent", () => {
 
     expect(calls).toHaveLength(1);
     expect(calls[0]?.cacheRetention).toBe("long");
+  });
+
+  it("filters blank Bedrock text blocks after sanitization and drops empty messages", () => {
+    const payload = runBedrockPayloadMutationCase({
+      messages: [
+        {
+          role: "user",
+          content: [{ text: "hello" }, { text: "" }, { text: "   " }],
+        },
+        {
+          role: "assistant",
+          content: [
+            { text: "" },
+            { reasoningContent: { reasoningText: { text: "" } } },
+            { toolUse: { toolUseId: "tc-1", name: "search", input: {} } },
+          ],
+        },
+        {
+          role: "user",
+          content: [{ text: "" }],
+        },
+      ],
+      system: [{ text: "" }, { cachePoint: { type: "default" } }],
+    });
+
+    expect(payload.messages).toEqual([
+      {
+        role: "user",
+        content: [{ text: "hello" }],
+      },
+      {
+        role: "assistant",
+        content: [{ toolUse: { toolUseId: "tc-1", name: "search", input: {} } }],
+      },
+    ]);
+    expect(payload.system).toEqual([{ cachePoint: { type: "default" } }]);
+  });
+
+  it("normalizes blank Bedrock toolResult text blocks to single-space placeholders", () => {
+    const payload = runBedrockPayloadMutationCase({
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              toolResult: {
+                toolUseId: "tc-1",
+                content: [{ text: "" }, { image: { format: "png", source: { bytes: "AA==" } } }],
+                status: "success",
+              },
+            },
+            {
+              toolResult: {
+                toolUseId: "tc-2",
+                content: [],
+                status: "error",
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const messages = payload.messages as Array<{ content: Array<Record<string, unknown>> }>;
+    const toolResultA = messages[0]?.content[0]?.toolResult as { content?: Array<{ text?: string }> };
+    const toolResultB = messages[0]?.content[1]?.toolResult as { content?: Array<{ text?: string }> };
+    expect(toolResultA.content?.[0]?.text).toBe(" ");
+    expect(toolResultB.content?.[0]?.text).toBe(" ");
   });
 
   it("adds Anthropic 1M beta header when context1m is enabled for Opus/Sonnet", () => {
