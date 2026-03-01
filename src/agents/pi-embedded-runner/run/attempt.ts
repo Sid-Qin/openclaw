@@ -205,6 +205,18 @@ export function shouldInjectOllamaCompatNumCtx(params: {
   });
 }
 
+export function shouldUseOllamaNativeStream(params: {
+  model: { api?: string; provider?: string; baseUrl?: string };
+}): boolean {
+  if (params.model.api === "ollama") {
+    return true;
+  }
+  if (params.model.api !== "openai-completions") {
+    return false;
+  }
+  return isOllamaCompatProvider(params.model);
+}
+
 export function wrapOllamaCompatNumCtx(baseFn: StreamFn | undefined, numCtx: number): StreamFn {
   const streamFn = baseFn ?? streamSimple;
   return (model, context, options) =>
@@ -856,8 +868,13 @@ export async function runEmbeddedAttempt(
       });
 
       // Ollama native API: bypass SDK's streamSimple and use direct /api/chat calls
-      // for reliable streaming + tool calling support (#11828).
-      if (params.model.api === "ollama") {
+      // for reliable streaming + tool calling support (#11828). Also route
+      // Ollama OpenAI-compatible endpoints through native chat to avoid SDK
+      // timeout behavior on slower remote generations.
+      const useOllamaNativeStream = shouldUseOllamaNativeStream({
+        model: params.model,
+      });
+      if (useOllamaNativeStream) {
         // Use the resolved model baseUrl first so custom provider aliases work.
         const providerConfig = params.config?.models?.providers?.[params.model.provider];
         const modelBaseUrl =
@@ -882,7 +899,7 @@ export async function runEmbeddedAttempt(
         config: params.config,
         providerId: providerIdForNumCtx,
       });
-      if (shouldInjectNumCtx) {
+      if (shouldInjectNumCtx && !useOllamaNativeStream) {
         const numCtx = Math.max(
           1,
           Math.floor(

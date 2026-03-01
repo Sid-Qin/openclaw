@@ -7,6 +7,7 @@ import {
   resolvePromptBuildHookResult,
   resolvePromptModeForSession,
   shouldInjectOllamaCompatNumCtx,
+  shouldUseOllamaNativeStream,
   wrapOllamaCompatNumCtx,
   wrapStreamFnTrimToolCallNames,
 } from "./attempt.js";
@@ -330,6 +331,44 @@ describe("shouldInjectOllamaCompatNumCtx", () => {
           },
         },
         providerId: "ollama",
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("shouldUseOllamaNativeStream", () => {
+  it("uses native stream for explicit ollama api", () => {
+    expect(
+      shouldUseOllamaNativeStream({
+        model: {
+          provider: "ollama",
+          api: "ollama",
+          baseUrl: "http://127.0.0.1:11434",
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it("uses native stream for ollama-compatible openai-completions endpoints", () => {
+    expect(
+      shouldUseOllamaNativeStream({
+        model: {
+          provider: "my-ollama",
+          api: "openai-completions",
+          baseUrl: "http://remote-ollama-host:11434/v1",
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps streamSimple for non-ollama openai-compatible endpoints", () => {
+    expect(
+      shouldUseOllamaNativeStream({
+        model: {
+          provider: "openai",
+          api: "openai-completions",
+          baseUrl: "https://api.openai.com/v1",
+        },
       }),
     ).toBe(false);
   });
