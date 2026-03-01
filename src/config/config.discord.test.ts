@@ -85,4 +85,60 @@ describe("config discord", () => {
       ).toBe(true);
     }
   });
+
+  it("strips unsupported discord channel keys from legacy config writes", async () => {
+    await withTempHomeConfig(
+      {
+        channels: {
+          discord: {
+            guilds: {
+              "123": {
+                channels: {
+                  general: {
+                    allow: true,
+                    model: "anthropic/claude-sonnet-4-5",
+                    groupPolicy: "open",
+                    allowFrom: ["user:123"],
+                  },
+                },
+              },
+            },
+            accounts: {
+              work: {
+                guilds: {
+                  "999": {
+                    channels: {
+                      ops: {
+                        allow: true,
+                        model: "anthropic/claude-opus-4-5",
+                        groupPolicy: "allowlist",
+                        allowFrom: ["user:999"],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      async () => {
+        const cfg = loadConfig();
+        const baseChannel = cfg.channels?.discord?.guilds?.["123"]?.channels?.general as
+          | Record<string, unknown>
+          | undefined;
+        expect(baseChannel?.allow).toBe(true);
+        expect(baseChannel && "model" in baseChannel).toBe(false);
+        expect(baseChannel && "groupPolicy" in baseChannel).toBe(false);
+        expect(baseChannel && "allowFrom" in baseChannel).toBe(false);
+
+        const accountChannel = cfg.channels?.discord?.accounts?.work?.guilds?.["999"]?.channels
+          ?.ops as Record<string, unknown> | undefined;
+        expect(accountChannel?.allow).toBe(true);
+        expect(accountChannel && "model" in accountChannel).toBe(false);
+        expect(accountChannel && "groupPolicy" in accountChannel).toBe(false);
+        expect(accountChannel && "allowFrom" in accountChannel).toBe(false);
+      },
+    );
+  });
 });

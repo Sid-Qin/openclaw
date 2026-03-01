@@ -399,6 +399,78 @@ export const LEGACY_CONFIG_MIGRATIONS_PART_1: LegacyConfigMigration[] = [
     },
   },
   {
+    id: "channels.discord.guild-channel-unsupported-keys",
+    describe:
+      "Strip unsupported channels.discord.guilds.*.channels.* keys written by legacy config writes",
+    apply: (raw, changes) => {
+      const channels = getRecord(raw.channels);
+      const discord = getRecord(channels?.discord);
+      if (!channels || !discord) {
+        return;
+      }
+
+      const stripGuildChannelKeys = (owner: Record<string, unknown>) => {
+        const guilds = getRecord(owner.guilds);
+        if (!guilds) {
+          return 0;
+        }
+        let removed = 0;
+        for (const [guildId, guildValue] of Object.entries(guilds)) {
+          const guild = getRecord(guildValue);
+          if (!guild) {
+            continue;
+          }
+          const guildChannels = getRecord(guild.channels);
+          if (!guildChannels) {
+            continue;
+          }
+          for (const [channelId, channelValue] of Object.entries(guildChannels)) {
+            const channel = getRecord(channelValue);
+            if (!channel) {
+              continue;
+            }
+            const hadModel = hasOwnKey(channel, "model");
+            const hadGroupPolicy = hasOwnKey(channel, "groupPolicy");
+            const hadAllowFrom = hasOwnKey(channel, "allowFrom");
+            if (!hadModel && !hadGroupPolicy && !hadAllowFrom) {
+              continue;
+            }
+            delete channel.model;
+            delete channel.groupPolicy;
+            delete channel.allowFrom;
+            guildChannels[channelId] = channel;
+            removed += Number(hadModel) + Number(hadGroupPolicy) + Number(hadAllowFrom);
+          }
+          guild.channels = guildChannels;
+          guilds[guildId] = guild;
+        }
+        owner.guilds = guilds;
+        return removed;
+      };
+
+      let removedKeys = stripGuildChannelKeys(discord);
+      const accounts = getRecord(discord.accounts);
+      if (accounts) {
+        for (const [accountId, accountValue] of Object.entries(accounts)) {
+          const account = getRecord(accountValue);
+          if (!account) {
+            continue;
+          }
+          removedKeys += stripGuildChannelKeys(account);
+          accounts[accountId] = account;
+        }
+        discord.accounts = accounts;
+      }
+      if (removedKeys > 0) {
+        channels.discord = discord;
+        raw.channels = channels;
+        changes.push(
+          "Removed unsupported channels.discord.guilds.*.channels.* keys (model/groupPolicy/allowFrom).",
+        );
+      }
+    },
+  },
+  {
     id: "routing.allowFrom->channels.whatsapp.allowFrom",
     describe: "Move routing.allowFrom to channels.whatsapp.allowFrom",
     apply: (raw, changes) => {

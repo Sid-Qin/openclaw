@@ -357,8 +357,18 @@ export const DiscordGuildChannelSchema = z
     systemPrompt: z.string().optional(),
     includeThreadStarter: z.boolean().optional(),
     autoThread: z.boolean().optional(),
+    // Compatibility-only keys written by older Discord config-write flows.
+    // They are accepted to keep config loading stable, then stripped from
+    // the normalized config because runtime does not read them at channel scope.
+    model: z.string().optional(),
+    groupPolicy: GroupPolicySchema.optional(),
+    allowFrom: DiscordIdListSchema.optional(),
   })
-  .strict();
+  .strict()
+  .transform((value) => {
+    const { model: _model, groupPolicy: _groupPolicy, allowFrom: _allowFrom, ...rest } = value;
+    return rest;
+  });
 
 export const DiscordGuildSchema = z
   .object({
