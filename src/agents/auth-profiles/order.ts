@@ -58,9 +58,12 @@ export function resolveAuthProfileOrder(params: {
       }
     }
     if (cred.type === "api_key") {
-      return Boolean(cred.key?.trim());
+      return Boolean(cred.key?.trim() || cred.keyRef);
     }
     if (cred.type === "token") {
+      if (cred.tokenRef) {
+        return true;
+      }
       if (!cred.token?.trim()) {
         return false;
       }

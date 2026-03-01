@@ -193,6 +193,65 @@ describe("resolveAuthProfileOrder", () => {
     const order = resolveMinimaxOrderWithProfile(profile);
     expect(order).toEqual([]);
   });
+
+  it("keeps api_key profiles backed by keyRef when plaintext key is absent", () => {
+    const order = resolveAuthProfileOrder({
+      cfg: {
+        auth: {
+          order: {
+            anthropic: ["anthropic:default"],
+          },
+        },
+      },
+      store: {
+        version: 1,
+        profiles: {
+          "anthropic:default": {
+            type: "api_key",
+            provider: "anthropic",
+            keyRef: {
+              source: "exec",
+              provider: "vault_local",
+              id: "anthropic/default",
+            },
+          },
+        },
+      },
+      provider: "anthropic",
+    });
+    expect(order).toEqual(["anthropic:default"]);
+  });
+
+  it("keeps token profiles backed by tokenRef even when token string is blank/expired", () => {
+    const order = resolveAuthProfileOrder({
+      cfg: {
+        auth: {
+          order: {
+            minimax: ["minimax:default"],
+          },
+        },
+      },
+      store: {
+        version: 1,
+        profiles: {
+          "minimax:default": {
+            type: "token",
+            provider: "minimax",
+            token: "   ",
+            expires: Date.now() - 1_000,
+            tokenRef: {
+              source: "exec",
+              provider: "keychain",
+              id: "minimax/default",
+            },
+          },
+        },
+      },
+      provider: "minimax",
+    });
+    expect(order).toEqual(["minimax:default"]);
+  });
+
   it("keeps oauth profiles that can refresh", () => {
     const order = resolveAuthProfileOrder({
       cfg: {
