@@ -44,6 +44,22 @@ type PermissionError = {
   grantUrl?: string;
 };
 
+// Feishu API sometimes returns incorrect scope names in permission error
+// responses (e.g. "contact:contact.base:readonly" instead of the valid
+// "contact:user.base:readonly"). This map corrects known mismatches.
+const FEISHU_SCOPE_CORRECTIONS: Record<string, string> = {
+  "contact:contact.base:readonly": "contact:user.base:readonly",
+};
+
+function correctFeishuScopeInUrl(url: string): string {
+  let corrected = url;
+  for (const [wrong, right] of Object.entries(FEISHU_SCOPE_CORRECTIONS)) {
+    corrected = corrected.replaceAll(encodeURIComponent(wrong), encodeURIComponent(right));
+    corrected = corrected.replaceAll(wrong, right);
+  }
+  return corrected;
+}
+
 function extractPermissionError(err: unknown): PermissionError | null {
   if (!err || typeof err !== "object") return null;
 
@@ -64,7 +80,7 @@ function extractPermissionError(err: unknown): PermissionError | null {
   // Extract the grant URL from the error message (contains the direct link)
   const msg = feishuErr.msg ?? "";
   const urlMatch = msg.match(/https:\/\/[^\s,]+\/app\/[^\s,]+/);
-  const grantUrl = urlMatch?.[0];
+  const grantUrl = urlMatch?.[0] ? correctFeishuScopeInUrl(urlMatch[0]) : undefined;
 
   return {
     code: feishuErr.code,
