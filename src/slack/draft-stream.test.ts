@@ -137,4 +137,27 @@ describe("createSlackDraftStream", () => {
     expect(stream.messageId()).toBeUndefined();
     expect(stream.channelId()).toBeUndefined();
   });
+
+  it("flush populates messageId and channelId before deliver callback reads them", async () => {
+    const { stream, send } = createDraftStreamHarness();
+
+    stream.update("pending content");
+    expect(stream.messageId()).toBeUndefined();
+    expect(stream.channelId()).toBeUndefined();
+
+    await stream.flush();
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(stream.messageId()).toBe("111.222");
+    expect(stream.channelId()).toBe("C123");
+  });
+
+  it("flush is safe to call when no pending update exists", async () => {
+    const { stream, send } = createDraftStreamHarness();
+
+    await stream.flush();
+
+    expect(send).not.toHaveBeenCalled();
+    expect(stream.messageId()).toBeUndefined();
+  });
 });

@@ -270,6 +270,13 @@ export async function dispatchPreparedSlackMessage(prepared: PreparedSlackMessag
       }
 
       const mediaCount = payload.mediaUrls?.length ?? (payload.mediaUrl ? 1 : 0);
+      // Flush any pending draft so draftMessageId/draftChannelId are populated
+      // before we decide whether to edit-in-place or send a new message.
+      // Without this, DM deliveries race against the draft throttle and
+      // fall through to deliverNormally, causing duplicate messages.
+      if (previewStreamingEnabled && hasStreamedMessage && draftStream) {
+        await draftStream.flush();
+      }
       const draftMessageId = draftStream?.messageId();
       const draftChannelId = draftStream?.channelId();
       const finalText = payload.text;
