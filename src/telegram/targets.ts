@@ -20,6 +20,12 @@ export function stripTelegramInternalPrefixes(to: string): string {
       if (strippedTelegramPrefix && /^group:/i.test(trimmed)) {
         return trimmed.replace(/^group:/i, "").trim();
       }
+      // Bound delivery uses `channel:<conversationId>` as the target format.
+      // Strip the prefix so parseTelegramTarget sees the raw chat ID rather
+      // than misinterpreting the colon as a topic/thread separator.
+      if (/^channel:/i.test(trimmed)) {
+        return trimmed.replace(/^channel:/i, "").trim();
+      }
       return trimmed;
     })();
     if (next === trimmed) {
