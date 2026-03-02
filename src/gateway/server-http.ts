@@ -489,6 +489,30 @@ export function createGatewayHttpServer(opts: {
           return;
         }
       }
+      // Plugin webhook routes (e.g. LINE, custom plugins) must be checked
+      // before the Control UI for non-GET/HEAD methods; otherwise a
+      // configured basePath that overlaps a plugin webhook prefix causes
+      // the Control UI to 405 POST requests before the plugin can handle
+      // them (see #31599).
+      const isWriteMethod = req.method !== "GET" && req.method !== "HEAD";
+      if (handlePluginRequest && isWriteMethod) {
+        if ((shouldEnforcePluginGatewayAuth ?? isProtectedPluginRoutePath)(requestPath)) {
+          const pluginAuthOk = await enforcePluginRouteGatewayAuth({
+            req,
+            res,
+            auth: resolvedAuth,
+            trustedProxies,
+            allowRealIpFallback,
+            rateLimiter,
+          });
+          if (!pluginAuthOk) {
+            return;
+          }
+        }
+        if (await handlePluginRequest(req, res)) {
+          return;
+        }
+      }
       if (controlUiEnabled) {
         if (
           handleControlUiAvatarRequest(req, res, {
@@ -508,9 +532,9 @@ export function createGatewayHttpServer(opts: {
           return;
         }
       }
-      // Plugins run after built-in gateway routes so core surfaces keep
-      // precedence on overlapping paths.
-      if (handlePluginRequest) {
+      // For GET/HEAD the control UI takes precedence; plugins get the
+      // remaining read-only paths that the UI did not claim.
+      if (handlePluginRequest && !isWriteMethod) {
         if ((shouldEnforcePluginGatewayAuth ?? isProtectedPluginRoutePath)(requestPath)) {
           const pluginAuthOk = await enforcePluginRouteGatewayAuth({
             req,
