@@ -155,6 +155,113 @@ describe("openclaw-tools: subagents (sessions_spawn allowlist)", () => {
     });
   });
 
+  it("sessions_spawn inherits allowAgents from agents.defaults.subagents", async () => {
+    setSessionsSpawnConfigOverride({
+      session: {
+        mainKey: "main",
+        scope: "per-sender",
+      },
+      agents: {
+        defaults: {
+          subagents: {
+            allowAgents: ["coder", "researcher"],
+          },
+        },
+        list: [{ id: "main" }],
+      },
+    });
+    const getChildSessionKey = mockAcceptedSpawn(5300);
+
+    const result = await executeSpawn("call-defaults-1", "coder");
+
+    expect(result.details).toMatchObject({ status: "accepted" });
+    expect(getChildSessionKey()?.startsWith("agent:coder:subagent:")).toBe(true);
+  });
+
+  it("sessions_spawn merges defaults allowAgents with per-agent allowAgents", async () => {
+    setSessionsSpawnConfigOverride({
+      session: {
+        mainKey: "main",
+        scope: "per-sender",
+      },
+      agents: {
+        defaults: {
+          subagents: {
+            allowAgents: ["coder"],
+          },
+        },
+        list: [
+          {
+            id: "main",
+            subagents: {
+              allowAgents: ["researcher"],
+            },
+          },
+        ],
+      },
+    });
+    const getChildSessionKey1 = mockAcceptedSpawn(5400);
+
+    const result1 = await executeSpawn("call-merge-1", "coder");
+    expect(result1.details).toMatchObject({ status: "accepted" });
+    expect(getChildSessionKey1()?.startsWith("agent:coder:subagent:")).toBe(true);
+
+    const getChildSessionKey2 = mockAcceptedSpawn(5500);
+    const result2 = await executeSpawn("call-merge-2", "researcher");
+    expect(result2.details).toMatchObject({ status: "accepted" });
+    expect(getChildSessionKey2()?.startsWith("agent:researcher:subagent:")).toBe(true);
+  });
+
+  it("sessions_spawn rejects agents not in either defaults or per-agent allowAgents", async () => {
+    setSessionsSpawnConfigOverride({
+      session: {
+        mainKey: "main",
+        scope: "per-sender",
+      },
+      agents: {
+        defaults: {
+          subagents: {
+            allowAgents: ["coder"],
+          },
+        },
+        list: [
+          {
+            id: "main",
+            subagents: {
+              allowAgents: ["researcher"],
+            },
+          },
+        ],
+      },
+    });
+
+    const result = await executeSpawn("call-merge-reject", "unknown-agent");
+    expect(result.details).toMatchObject({ status: "forbidden" });
+    expect(callGatewayMock).not.toHaveBeenCalled();
+  });
+
+  it("sessions_spawn defaults allowAgents wildcard applies to all agents", async () => {
+    setSessionsSpawnConfigOverride({
+      session: {
+        mainKey: "main",
+        scope: "per-sender",
+      },
+      agents: {
+        defaults: {
+          subagents: {
+            allowAgents: ["*"],
+          },
+        },
+        list: [{ id: "main" }],
+      },
+    });
+    const getChildSessionKey = mockAcceptedSpawn(5600);
+
+    const result = await executeSpawn("call-defaults-wildcard", "any-agent");
+    expect(result.details).toMatchObject({ status: "accepted" });
+    expect(getChildSessionKey()?.startsWith("agent:any-agent:subagent:")).toBe(true);
+  });
+
   it("forbids sandboxed cross-agent spawns that would unsandbox the child", async () => {
     setSessionsSpawnConfigOverride({
       session: {

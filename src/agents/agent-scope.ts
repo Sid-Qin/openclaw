@@ -252,6 +252,21 @@ export function resolveEffectiveModelFallbacks(params: {
   return agentFallbacksOverride ?? defaultFallbacks;
 }
 
+export function resolveEffectiveAllowAgents(cfg: OpenClawConfig, agentId: string): string[] {
+  const defaultsAllowAgents = cfg.agents?.defaults?.subagents?.allowAgents ?? [];
+  const agentAllowAgents = resolveAgentConfig(cfg, agentId)?.subagents?.allowAgents ?? [];
+  const merged = [...defaultsAllowAgents, ...agentAllowAgents];
+  const seen = new Set<string>();
+  return merged.filter((entry) => {
+    const key = entry.trim().toLowerCase();
+    if (!key || seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
 export function resolveAgentWorkspaceDir(cfg: OpenClawConfig, agentId: string) {
   const id = normalizeAgentId(agentId);
   const configured = resolveAgentConfig(cfg, id)?.workspace?.trim();

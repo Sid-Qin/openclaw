@@ -12,7 +12,11 @@ import {
   parseAgentSessionKey,
 } from "../routing/session-key.js";
 import { normalizeDeliveryContext } from "../utils/delivery-context.js";
-import { resolveAgentConfig, resolveAgentWorkspaceDir } from "./agent-scope.js";
+import {
+  resolveAgentConfig,
+  resolveAgentWorkspaceDir,
+  resolveEffectiveAllowAgents,
+} from "./agent-scope.js";
 import { AGENT_LANE_SUBAGENT } from "./lanes.js";
 import { resolveSubagentSpawnModelSelection } from "./model-selection.js";
 import { resolveSandboxRuntimeStatus } from "./sandbox/runtime-status.js";
@@ -332,7 +336,7 @@ export async function spawnSubagentDirect(
   );
   const targetAgentId = requestedAgentId ? normalizeAgentId(requestedAgentId) : requesterAgentId;
   if (targetAgentId !== requesterAgentId) {
-    const allowAgents = resolveAgentConfig(cfg, requesterAgentId)?.subagents?.allowAgents ?? [];
+    const allowAgents = resolveEffectiveAllowAgents(cfg, requesterAgentId);
     const allowAny = allowAgents.some((value) => value.trim() === "*");
     const normalizedTargetId = targetAgentId.toLowerCase();
     const allowSet = new Set(

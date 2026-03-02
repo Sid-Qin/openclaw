@@ -7,6 +7,7 @@ import {
   resolveAgentDir,
   resolveAgentEffectiveModelPrimary,
   resolveAgentExplicitModelPrimary,
+  resolveEffectiveAllowAgents,
   resolveFallbackAgentId,
   resolveEffectiveModelFallbacks,
   resolveAgentModelFallbacksOverride,
@@ -426,5 +427,67 @@ describe("resolveAgentConfig", () => {
 
     const agentDir = resolveAgentDir({} as OpenClawConfig, "main");
     expect(agentDir).toBe(path.join(path.resolve(home), ".openclaw", "agents", "main", "agent"));
+  });
+});
+
+describe("resolveEffectiveAllowAgents", () => {
+  it("returns empty when no allowAgents configured", () => {
+    const cfg: OpenClawConfig = {
+      agents: { list: [{ id: "main" }] },
+    };
+    expect(resolveEffectiveAllowAgents(cfg, "main")).toEqual([]);
+  });
+
+  it("returns per-agent allowAgents when no defaults", () => {
+    const cfg: OpenClawConfig = {
+      agents: {
+        list: [{ id: "main", subagents: { allowAgents: ["coder", "researcher"] } }],
+      },
+    };
+    expect(resolveEffectiveAllowAgents(cfg, "main")).toEqual(["coder", "researcher"]);
+  });
+
+  it("returns defaults allowAgents when no per-agent config", () => {
+    const cfg: OpenClawConfig = {
+      agents: {
+        defaults: { subagents: { allowAgents: ["coder", "researcher"] } },
+        list: [{ id: "main" }],
+      },
+    };
+    expect(resolveEffectiveAllowAgents(cfg, "main")).toEqual(["coder", "researcher"]);
+  });
+
+  it("merges defaults and per-agent allowAgents additively", () => {
+    const cfg: OpenClawConfig = {
+      agents: {
+        defaults: { subagents: { allowAgents: ["coder"] } },
+        list: [{ id: "main", subagents: { allowAgents: ["researcher"] } }],
+      },
+    };
+    const result = resolveEffectiveAllowAgents(cfg, "main");
+    expect(result).toContain("coder");
+    expect(result).toContain("researcher");
+    expect(result).toHaveLength(2);
+  });
+
+  it("deduplicates overlapping entries case-insensitively", () => {
+    const cfg: OpenClawConfig = {
+      agents: {
+        defaults: { subagents: { allowAgents: ["Coder"] } },
+        list: [{ id: "main", subagents: { allowAgents: ["coder", "researcher"] } }],
+      },
+    };
+    const result = resolveEffectiveAllowAgents(cfg, "main");
+    expect(result).toHaveLength(2);
+  });
+
+  it("preserves wildcard from defaults", () => {
+    const cfg: OpenClawConfig = {
+      agents: {
+        defaults: { subagents: { allowAgents: ["*"] } },
+        list: [{ id: "main" }],
+      },
+    };
+    expect(resolveEffectiveAllowAgents(cfg, "main")).toEqual(["*"]);
   });
 });
