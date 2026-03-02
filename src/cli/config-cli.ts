@@ -1,9 +1,10 @@
 import type { Command } from "commander";
 import JSON5 from "json5";
 import { readConfigFileSnapshot, writeConfigFile } from "../config/config.js";
+import { CONFIG_PATH } from "../config/paths.js";
 import { isBlockedObjectKey } from "../config/prototype-keys.js";
 import { redactConfigObject } from "../config/redact-snapshot.js";
-import { danger, info } from "../globals.js";
+import { danger, info, success } from "../globals.js";
 import type { RuntimeEnv } from "../runtime.js";
 import { defaultRuntime } from "../runtime.js";
 import { formatDocsLink } from "../terminal/links.js";
@@ -335,11 +336,66 @@ export async function runConfigFile(opts: { runtime?: RuntimeEnv }) {
   }
 }
 
+export async function runConfigValidate(opts: { json?: boolean; runtime?: RuntimeEnv } = {}) {
+  const runtime = opts.runtime ?? defaultRuntime;
+  const configPath = CONFIG_PATH ?? "openclaw.json";
+  const shortPath = shortenHomePath(configPath);
+
+  try {
+    const snapshot = await readConfigFileSnapshot();
+
+    if (!snapshot.exists) {
+      if (opts.json) {
+        runtime.log(JSON.stringify({ valid: false, path: configPath, error: "file not found" }));
+      } else {
+        runtime.error(danger(`Config file not found: ${shortPath}`));
+      }
+      runtime.exit(1);
+      return;
+    }
+
+    if (!snapshot.valid) {
+      const issues = snapshot.issues.map((iss) => ({
+        path: iss.path || "<root>",
+        message: iss.message,
+      }));
+
+      if (opts.json) {
+        runtime.log(JSON.stringify({ valid: false, path: configPath, issues }, null, 2));
+      } else {
+        runtime.error(danger(`Config invalid at ${shortPath}:`));
+        for (const issue of issues) {
+          runtime.error(`  ${danger("×")} ${issue.path}: ${issue.message}`);
+        }
+        runtime.error("");
+        runtime.error(
+          `Run \`${formatCliCommand("openclaw doctor")}\` to repair, or fix the keys above manually.`,
+        );
+      }
+      runtime.exit(1);
+      return;
+    }
+
+    if (opts.json) {
+      runtime.log(JSON.stringify({ valid: true, path: configPath }));
+    } else {
+      runtime.log(success(`Config valid: ${shortPath}`));
+    }
+  } catch (err) {
+    if (opts.json) {
+      runtime.log(JSON.stringify({ valid: false, path: configPath, error: String(err) }));
+    } else {
+      runtime.error(danger(`Config validation error: ${String(err)}`));
+    }
+    runtime.exit(1);
+  }
+}
+
 export function registerConfigCli(program: Command) {
   const cmd = program
     .command("config")
     .description(
-      "Non-interactive config helpers (get/set/unset/file). Run without subcommand for the setup wizard.",
+      "Non-interactive config helpers (get/set/unset/file/validate). Run without subcommand for the setup wizard.",
     )
     .addHelpText(
       "after",
@@ -407,5 +463,13 @@ export function registerConfigCli(program: Command) {
     .description("Print the active config file path")
     .action(async () => {
       await runConfigFile({});
+    });
+
+  cmd
+    .command("validate")
+    .description("Validate the current config against the schema without starting the gateway")
+    .option("--json", "Output validation result as JSON", false)
+    .action(async (opts) => {
+      await runConfigValidate({ json: Boolean(opts.json) });
     });
 }
