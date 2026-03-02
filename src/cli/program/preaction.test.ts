@@ -90,6 +90,7 @@ describe("registerPreActionHooks", () => {
       .argument("<value>")
       .option("--json")
       .action(async () => {});
+    program.command("agent").action(async () => {});
     program.command("channels").action(async () => {});
     program.command("directory").action(async () => {});
     program.command("agents").action(async () => {});
@@ -163,6 +164,15 @@ describe("registerPreActionHooks", () => {
     await runCommand({
       parseArgv: ["agents"],
       processArgv: ["node", "openclaw", "agents"],
+    });
+
+    expect(ensurePluginRegistryLoadedMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("loads plugin registry for agent command", async () => {
+    await runCommand({
+      parseArgv: ["agent"],
+      processArgv: ["node", "openclaw", "agent"],
     });
 
     expect(ensurePluginRegistryLoadedMock).toHaveBeenCalledTimes(1);
