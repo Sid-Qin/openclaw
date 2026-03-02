@@ -153,8 +153,10 @@ function schedule(coalesceMs: number, kind: WakeTimerKind = "normal") {
           ...(pendingWake.sessionKey ? { sessionKey: pendingWake.sessionKey } : {}),
         };
         const res = await active(wakeOpts);
-        if (res.status === "skipped" && res.reason === "requests-in-flight") {
-          // The main lane is busy; retry this wake target soon.
+        if (
+          (res.status === "skipped" && res.reason === "requests-in-flight") ||
+          res.status === "failed"
+        ) {
           queuePendingWakeReason({
             reason: pendingWake.reason ?? "retry",
             agentId: pendingWake.agentId,

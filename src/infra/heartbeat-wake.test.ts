@@ -94,6 +94,19 @@ describe("heartbeat-wake", () => {
     expect(handler.mock.calls[1]?.[0]).toEqual({ reason: "hook:wake" });
   });
 
+  it("retries failed handler results after the default retry delay", async () => {
+    vi.useFakeTimers();
+    const handler = vi
+      .fn()
+      .mockResolvedValueOnce({ status: "failed", reason: "dispatch error" })
+      .mockResolvedValueOnce({ status: "ran", durationMs: 1 });
+    await expectRetryAfterDefaultDelay({
+      handler,
+      initialReason: "exec-event",
+      expectedRetryReason: "exec-event",
+    });
+  });
+
   it("retries thrown handler errors after the default retry delay", async () => {
     vi.useFakeTimers();
     const handler = vi
