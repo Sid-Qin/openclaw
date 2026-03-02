@@ -61,6 +61,25 @@ describe("startHeartbeatRunner", () => {
     runner.stop();
   });
 
+  it("re-arms timer after successful batch and fires again", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(0));
+
+    const runSpy = vi.fn().mockResolvedValue({ status: "ran", durationMs: 1 });
+    const runner = startDefaultRunner(runSpy);
+
+    await vi.advanceTimersByTimeAsync(30 * 60_000 + 1_000);
+    expect(runSpy).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(30 * 60_000 + 1_000);
+    expect(runSpy).toHaveBeenCalledTimes(2);
+
+    await vi.advanceTimersByTimeAsync(30 * 60_000 + 1_000);
+    expect(runSpy).toHaveBeenCalledTimes(3);
+
+    runner.stop();
+  });
+
   it("continues scheduling after runOnce throws an unhandled error", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(0));
