@@ -173,4 +173,38 @@ describe("agent-runner-utils", () => {
     expect(resolved.embeddedContext.messageProvider).toBe("telegram");
     expect(resolved.embeddedContext.messageTo).toBe("268300329");
   });
+
+  it("sets messageChannel equal to messageProvider", () => {
+    const run = makeRun();
+
+    const resolved = buildEmbeddedRunContexts({
+      run,
+      sessionCtx: {
+        Provider: "feishu",
+        OriginatingChannel: "feishu",
+        OriginatingTo: "oc_abc123",
+      },
+      hasRepliedRef: undefined,
+      provider: "openai",
+    });
+
+    expect(resolved.embeddedContext.messageProvider).toBe("feishu");
+    expect(resolved.embeddedContext.messageChannel).toBe("feishu");
+  });
+
+  it("prefers run.messageProvider over sessionCtx derivation", () => {
+    const run = makeRun({ messageProvider: "feishu" });
+
+    const resolved = buildEmbeddedRunContexts({
+      run,
+      sessionCtx: {
+        Provider: "webchat",
+      },
+      hasRepliedRef: undefined,
+      provider: "openai",
+    });
+
+    expect(resolved.embeddedContext.messageProvider).toBe("feishu");
+    expect(resolved.embeddedContext.messageChannel).toBe("feishu");
+  });
 });

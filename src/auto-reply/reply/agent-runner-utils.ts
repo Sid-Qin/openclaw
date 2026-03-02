@@ -193,14 +193,18 @@ export function buildEmbeddedContextFromTemplate(params: {
   sessionCtx: TemplateContext;
   hasRepliedRef: { value: boolean } | undefined;
 }) {
+  const messageProvider =
+    params.run.messageProvider ??
+    resolveOriginMessageProvider({
+      originatingChannel: params.sessionCtx.OriginatingChannel,
+      provider: params.sessionCtx.Provider,
+    });
   return {
     sessionId: params.run.sessionId,
     sessionKey: params.run.sessionKey,
     agentId: params.run.agentId,
-    messageProvider: resolveOriginMessageProvider({
-      originatingChannel: params.sessionCtx.OriginatingChannel,
-      provider: params.sessionCtx.Provider,
-    }),
+    messageProvider,
+    messageChannel: messageProvider,
     agentAccountId: params.sessionCtx.AccountId,
     messageTo: resolveOriginMessageTo({
       originatingTo: params.sessionCtx.OriginatingTo,
