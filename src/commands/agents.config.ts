@@ -27,6 +27,8 @@ export type AgentSummary = {
   routes?: string[];
   providers?: string[];
   isDefault: boolean;
+  toolDeny?: string[];
+  sandbox?: { mode: string };
 };
 
 type AgentEntry = NonNullable<NonNullable<OpenClawConfig["agents"]>["list"]>[number];
@@ -108,6 +110,9 @@ export function buildAgentSummaries(cfg: OpenClawConfig): AgentSummary[] {
       : configIdentity && (identityName || identityEmoji)
         ? "config"
         : undefined;
+    const entry = configuredAgents.find((agent) => normalizeAgentId(agent.id) === id);
+    const toolDeny = entry?.tools?.deny ?? cfg.agents?.defaults?.tools?.deny ?? undefined;
+    const sandboxMode = entry?.sandbox?.mode ?? cfg.agents?.defaults?.sandbox?.mode ?? undefined;
     return {
       id,
       name: resolveAgentName(cfg, id),
@@ -119,6 +124,8 @@ export function buildAgentSummaries(cfg: OpenClawConfig): AgentSummary[] {
       model: resolveAgentModel(cfg, id),
       bindings: bindingCounts.get(id) ?? 0,
       isDefault: id === defaultAgentId,
+      ...(toolDeny && toolDeny.length > 0 ? { toolDeny } : {}),
+      ...(sandboxMode ? { sandbox: { mode: sandboxMode } } : {}),
     };
   });
 }

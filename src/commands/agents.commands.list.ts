@@ -68,6 +68,13 @@ function formatSummary(summary: AgentSummary) {
       lines.push(`    - ${binding}`);
     }
   }
+
+  if (summary.toolDeny?.length) {
+    lines.push(`  Tools denied: ${summary.toolDeny.join(", ")}`);
+  }
+  if (summary.sandbox) {
+    lines.push(`  Sandbox: ${summary.sandbox.mode}`);
+  }
   return lines.join("\n");
 }
 

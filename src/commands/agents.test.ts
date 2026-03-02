@@ -60,6 +60,79 @@ describe("agents helpers", () => {
     expect(work?.isDefault).toBe(true);
   });
 
+  it("buildAgentSummaries includes toolDeny when configured", () => {
+    const cfg: OpenClawConfig = {
+      agents: {
+        defaults: { model: "anthropic/claude", workspace: "/ws" },
+        list: [
+          {
+            id: "main",
+            tools: { deny: ["group:runtime", "exec"] },
+          },
+          { id: "worker" },
+        ],
+      },
+    };
+
+    const summaries = buildAgentSummaries(cfg);
+    const main = summaries.find((s) => s.id === "main");
+    const worker = summaries.find((s) => s.id === "worker");
+
+    expect(main?.toolDeny).toEqual(["group:runtime", "exec"]);
+    expect(worker?.toolDeny).toBeUndefined();
+  });
+
+  it("buildAgentSummaries includes sandbox mode when configured", () => {
+    const cfg: OpenClawConfig = {
+      agents: {
+        defaults: { model: "anthropic/claude", workspace: "/ws" },
+        list: [
+          { id: "main", sandbox: { mode: "all" } },
+          { id: "open", sandbox: { mode: "off" } },
+          { id: "bare" },
+        ],
+      },
+    };
+
+    const summaries = buildAgentSummaries(cfg);
+
+    expect(summaries.find((s) => s.id === "main")?.sandbox).toEqual({ mode: "all" });
+    expect(summaries.find((s) => s.id === "open")?.sandbox).toEqual({ mode: "off" });
+    expect(summaries.find((s) => s.id === "bare")?.sandbox).toBeUndefined();
+  });
+
+  it("buildAgentSummaries inherits toolDeny from defaults", () => {
+    const cfg: OpenClawConfig = {
+      agents: {
+        defaults: {
+          model: "anthropic/claude",
+          workspace: "/ws",
+          tools: { deny: ["exec"] },
+        },
+        list: [{ id: "main" }],
+      },
+    };
+
+    const summaries = buildAgentSummaries(cfg);
+    expect(summaries[0]?.toolDeny).toEqual(["exec"]);
+  });
+
+  it("buildAgentSummaries inherits sandbox from defaults", () => {
+    const cfg: OpenClawConfig = {
+      agents: {
+        defaults: {
+          model: "anthropic/claude",
+          workspace: "/ws",
+          sandbox: { mode: "all" },
+        },
+        list: [{ id: "main" }],
+      },
+    };
+
+    const summaries = buildAgentSummaries(cfg);
+    expect(summaries[0]?.sandbox).toEqual({ mode: "all" });
+  });
+
   it("applyAgentConfig merges updates", () => {
     const cfg: OpenClawConfig = {
       agents: {
