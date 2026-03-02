@@ -258,6 +258,14 @@ export async function monitorTelegramProvider(opts: MonitorTelegramOpts = {}) {
       }
     };
 
+    const drainPollingSession = async (bot: TelegramBot) => {
+      try {
+        await bot.api.getUpdates({ offset: -1, limit: 1, timeout: 0 });
+      } catch {
+        // Best-effort: connection may already be closed.
+      }
+    };
+
     const runPollingCycle = async (bot: TelegramBot): Promise<"continue" | "exit"> => {
       const runner = run(bot, runnerOptions);
       activeRunner = runner;
@@ -309,6 +317,7 @@ export async function monitorTelegramProvider(opts: MonitorTelegramOpts = {}) {
       } finally {
         opts.abortSignal?.removeEventListener("abort", stopOnAbort);
         await stopRunner();
+        await drainPollingSession(bot);
       }
     };
 
