@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { AuthProfileStore } from "./auth-profiles.js";
-import { requireApiKey, resolveAwsSdkEnvVarName, resolveModelAuthMode } from "./model-auth.js";
+import {
+  requireApiKey,
+  resolveAwsSdkEnvVarName,
+  resolveEnvVarNameForProvider,
+  resolveModelAuthMode,
+} from "./model-auth.js";
 
 describe("resolveAwsSdkEnvVarName", () => {
   it("prefers bearer token over access keys and profile", () => {
@@ -115,5 +120,31 @@ describe("requireApiKey", () => {
         "openai",
       ),
     ).toThrow('No API key resolved for provider "openai"');
+  });
+});
+
+describe("resolveEnvVarNameForProvider", () => {
+  it("returns GEMINI_API_KEY for google", () => {
+    expect(resolveEnvVarNameForProvider("google")).toBe("GEMINI_API_KEY");
+  });
+
+  it("returns OPENAI_API_KEY for openai", () => {
+    expect(resolveEnvVarNameForProvider("openai")).toBe("OPENAI_API_KEY");
+  });
+
+  it("returns ANTHROPIC_API_KEY for anthropic", () => {
+    expect(resolveEnvVarNameForProvider("anthropic")).toBe("ANTHROPIC_API_KEY");
+  });
+
+  it("returns ZAI_API_KEY for zai", () => {
+    expect(resolveEnvVarNameForProvider("zai")).toBe("ZAI_API_KEY");
+  });
+
+  it("returns null for unknown providers", () => {
+    expect(resolveEnvVarNameForProvider("custom-unknown")).toBeNull();
+  });
+
+  it("normalizes provider id before lookup", () => {
+    expect(resolveEnvVarNameForProvider("Google")).toBe("GEMINI_API_KEY");
   });
 });

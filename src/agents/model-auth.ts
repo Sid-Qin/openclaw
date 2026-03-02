@@ -1,4 +1,3 @@
-import path from "node:path";
 import { type Api, getEnvApiKey, type Model } from "@mariozechner/pi-ai";
 import { formatCliCommand } from "../cli/command-format.js";
 import type { OpenClawConfig } from "../config/config.js";
@@ -14,7 +13,6 @@ import {
   listProfilesForProvider,
   resolveApiKeyForProfile,
   resolveAuthProfileOrder,
-  resolveAuthStorePathForDisplay,
 } from "./auth-profiles.js";
 import { normalizeProviderId } from "./model-selection.js";
 
@@ -221,15 +219,17 @@ export async function resolveApiKeyForProvider(params: {
     }
   }
 
-  const authStorePath = resolveAuthStorePathForDisplay(params.agentDir);
-  const resolvedAgentDir = path.dirname(authStorePath);
-  throw new Error(
-    [
-      `No API key found for provider "${provider}".`,
-      `Auth store: ${authStorePath} (agentDir: ${resolvedAgentDir}).`,
-      `Configure auth for this agent (${formatCliCommand("openclaw agents add <id>")}) or copy auth-profiles.json from the main agentDir.`,
-    ].join(" "),
+  const envVarHint = resolveEnvVarNameForProvider(provider);
+  const hints: string[] = [`No API key found for provider "${provider}".`];
+  if (envVarHint) {
+    hints.push(
+      `Set ${envVarHint} in your environment or openclaw.json (models.providers.${provider}.apiKey).`,
+    );
+  }
+  hints.push(
+    `Alternatively, run ${formatCliCommand(`openclaw auth login --provider ${provider}`)} or ${formatCliCommand("openclaw agents add <id>")}.`,
   );
+  throw new Error(hints.join(" "));
 }
 
 export type EnvApiKeyResult = { apiKey: string; source: string };
@@ -329,6 +329,34 @@ export function resolveEnvApiKey(provider: string): EnvApiKeyResult | null {
     return null;
   }
   return pick(envVar);
+}
+
+export function resolveEnvVarNameForProvider(provider: string): string | null {
+  const normalized = normalizeProviderId(provider);
+  const envMap: Record<string, string> = {
+    openai: "OPENAI_API_KEY",
+    anthropic: "ANTHROPIC_API_KEY",
+    google: "GEMINI_API_KEY",
+    zai: "ZAI_API_KEY",
+    groq: "GROQ_API_KEY",
+    cerebras: "CEREBRAS_API_KEY",
+    xai: "XAI_API_KEY",
+    openrouter: "OPENROUTER_API_KEY",
+    moonshot: "MOONSHOT_API_KEY",
+    minimax: "MINIMAX_API_KEY",
+    mistral: "MISTRAL_API_KEY",
+    together: "TOGETHER_API_KEY",
+    deepgram: "DEEPGRAM_API_KEY",
+    nvidia: "NVIDIA_API_KEY",
+    voyage: "VOYAGE_API_KEY",
+    ollama: "OLLAMA_API_KEY",
+    vllm: "VLLM_API_KEY",
+    kilocode: "KILOCODE_API_KEY",
+    "github-copilot": "GH_TOKEN",
+    volcengine: "VOLCANO_ENGINE_API_KEY",
+    byteplus: "BYTEPLUS_API_KEY",
+  };
+  return envMap[normalized] ?? null;
 }
 
 export function resolveModelAuthMode(
