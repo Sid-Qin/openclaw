@@ -19,6 +19,10 @@ export type AgentBootstrapHookContext = {
   sessionKey?: string;
   sessionId?: string;
   agentId?: string;
+  /** Resolved provider id for this run (e.g. "anthropic", "openai"). */
+  provider?: string;
+  /** Resolved model id for this run (e.g. "claude-opus-4-6"). */
+  modelId?: string;
 };
 
 export type AgentBootstrapHookEvent = InternalHookEvent & {

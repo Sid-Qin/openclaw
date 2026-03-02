@@ -44,4 +44,54 @@ describe("applyBootstrapHookOverrides", () => {
     expect(updated).toHaveLength(2);
     expect(updated[1]?.path).toBe("/tmp/EXTRA.md");
   });
+
+  it("passes provider and modelId to hook context", async () => {
+    let capturedContext: AgentBootstrapHookContext | undefined;
+    registerInternalHook("agent:bootstrap", (event) => {
+      capturedContext = event.context as AgentBootstrapHookContext;
+    });
+
+    await applyBootstrapHookOverrides({
+      files: [makeFile()],
+      workspaceDir: "/tmp",
+      provider: "anthropic",
+      modelId: "claude-opus-4-6",
+    });
+
+    expect(capturedContext?.provider).toBe("anthropic");
+    expect(capturedContext?.modelId).toBe("claude-opus-4-6");
+  });
+
+  it("leaves provider and modelId undefined when not supplied", async () => {
+    let capturedContext: AgentBootstrapHookContext | undefined;
+    registerInternalHook("agent:bootstrap", (event) => {
+      capturedContext = event.context as AgentBootstrapHookContext;
+    });
+
+    await applyBootstrapHookOverrides({
+      files: [makeFile()],
+      workspaceDir: "/tmp",
+    });
+
+    expect(capturedContext?.provider).toBeUndefined();
+    expect(capturedContext?.modelId).toBeUndefined();
+  });
+
+  it("allows hook to filter files based on provider", async () => {
+    registerInternalHook("agent:bootstrap", (event) => {
+      const ctx = event.context as AgentBootstrapHookContext;
+      if (ctx.provider === "anthropic" && ctx.modelId?.includes("haiku")) {
+        ctx.bootstrapFiles = ctx.bootstrapFiles.filter((f) => f.name !== DEFAULT_SOUL_FILENAME);
+      }
+    });
+
+    const result = await applyBootstrapHookOverrides({
+      files: [makeFile()],
+      workspaceDir: "/tmp",
+      provider: "anthropic",
+      modelId: "claude-3-5-haiku",
+    });
+
+    expect(result).toHaveLength(0);
+  });
 });
