@@ -9,6 +9,7 @@ import {
   resolveBinaryVersion,
   resolveRuntimeServiceVersion,
   resolveVersionFromModuleUrl,
+  VERSION,
 } from "./version.js";
 
 async function withTempDir<T>(run: (dir: string) => Promise<T>): Promise<T> {
@@ -131,7 +132,7 @@ describe("version resolution", () => {
     });
   });
 
-  it("prefers OPENCLAW_VERSION over service and package versions", () => {
+  it("prefers OPENCLAW_VERSION over binary and service versions", () => {
     expect(
       resolveRuntimeServiceVersion({
         OPENCLAW_VERSION: "9.9.9",
@@ -141,14 +142,25 @@ describe("version resolution", () => {
     ).toBe("9.9.9");
   });
 
-  it("uses service and package fallbacks and ignores blank env values", () => {
+  it("prefers binary VERSION over stale OPENCLAW_SERVICE_VERSION", () => {
+    expect(VERSION).not.toBe("0.0.0");
+    const result = resolveRuntimeServiceVersion({
+      OPENCLAW_VERSION: "",
+      OPENCLAW_SERVICE_VERSION: "1.0.0-stale",
+      npm_package_version: "",
+    });
+    expect(result).toBe(VERSION);
+    expect(result).not.toBe("1.0.0-stale");
+  });
+
+  it("uses env fallbacks and ignores blank env values", () => {
     expect(
       resolveRuntimeServiceVersion({
         OPENCLAW_VERSION: "   ",
         OPENCLAW_SERVICE_VERSION: "  2.0.0  ",
         npm_package_version: "1.0.0",
       }),
-    ).toBe("2.0.0");
+    ).toBe(VERSION);
 
     expect(
       resolveRuntimeServiceVersion({
@@ -156,17 +168,6 @@ describe("version resolution", () => {
         OPENCLAW_SERVICE_VERSION: "\t",
         npm_package_version: " 1.0.0-package ",
       }),
-    ).toBe("1.0.0-package");
-
-    expect(
-      resolveRuntimeServiceVersion(
-        {
-          OPENCLAW_VERSION: "",
-          OPENCLAW_SERVICE_VERSION: " ",
-          npm_package_version: "",
-        },
-        "fallback",
-      ),
-    ).toBe("fallback");
+    ).toBe(VERSION);
   });
 });

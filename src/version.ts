@@ -94,9 +94,14 @@ export function resolveRuntimeServiceVersion(
   env: RuntimeVersionEnv = process.env as RuntimeVersionEnv,
   fallback = "dev",
 ): string {
+  // Prefer the actual binary version over OPENCLAW_SERVICE_VERSION from the
+  // systemd unit file, which can become stale after `npm update -g openclaw`
+  // without a subsequent `daemon install --force`.
+  const binaryVersion = VERSION !== "0.0.0" ? VERSION : undefined;
   return (
     firstNonEmpty(
       env["OPENCLAW_VERSION"],
+      binaryVersion,
       env["OPENCLAW_SERVICE_VERSION"],
       env["npm_package_version"],
     ) ?? fallback
