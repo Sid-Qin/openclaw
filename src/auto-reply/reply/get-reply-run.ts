@@ -15,6 +15,10 @@ import {
   type SessionEntry,
   updateSessionStore,
 } from "../../config/sessions.js";
+import {
+  injectTimestamp,
+  timestampOptsFromConfig,
+} from "../../gateway/server-methods/agent-timestamp.js";
 import { logVerbose } from "../../globals.js";
 import { clearCommandLane, getQueueSize } from "../../process/command-queue.js";
 import { normalizeMainKey } from "../../routing/session-key.js";
@@ -302,7 +306,7 @@ export async function runPreparedReply(
       : { ...sessionCtx, ThreadStarterBody: undefined },
   );
   const baseBodyForPrompt = isBareSessionReset
-    ? baseBodyFinal
+    ? injectTimestamp(baseBodyFinal, timestampOptsFromConfig(cfg))
     : [inboundUserContext, baseBodyFinal].filter(Boolean).join("\n\n");
   const baseBodyTrimmed = baseBodyForPrompt.trim();
   const hasMediaAttachment = Boolean(

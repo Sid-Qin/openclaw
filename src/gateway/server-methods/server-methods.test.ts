@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { BARE_SESSION_RESET_PROMPT } from "../../auto-reply/reply/session-reset-prompt.js";
 import { emitAgentEvent } from "../../infra/agent-events.js";
 import { formatZonedTimestamp } from "../../infra/format-time/format-datetime.js";
 import { buildSystemRunApprovalBinding } from "../../infra/system-run-approval-binding.js";
@@ -180,6 +181,14 @@ describe("injectTimestamp", () => {
     });
 
     expect(result).toMatch(/^\[Fri 2025-07-04 12:00 EDT\]/);
+  });
+
+  it("injects timestamp into bare session reset prompt", () => {
+    const result = injectTimestamp(BARE_SESSION_RESET_PROMPT, {
+      timezone: "America/New_York",
+    });
+
+    expect(result).toMatch(/^\[Wed 2026-01-28 20:30 EST\] A new session was started/);
   });
 });
 
