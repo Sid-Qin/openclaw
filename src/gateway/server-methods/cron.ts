@@ -61,6 +61,7 @@ export const cronHandlers: GatewayRequestHandlers = {
       enabled?: "all" | "enabled" | "disabled";
       sortBy?: "nextRunAtMs" | "updatedAtMs" | "name";
       sortDir?: "asc" | "desc";
+      sessionKeyPrefix?: string;
     };
     const page = await context.cron.listPage({
       includeDisabled: p.includeDisabled,
@@ -70,6 +71,7 @@ export const cronHandlers: GatewayRequestHandlers = {
       enabled: p.enabled,
       sortBy: p.sortBy,
       sortDir: p.sortDir,
+      sessionKeyPrefix: p.sessionKeyPrefix,
     });
     respond(true, page, undefined);
   },

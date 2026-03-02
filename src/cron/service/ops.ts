@@ -34,6 +34,8 @@ export type CronListPageOptions = {
   enabled?: CronJobsEnabledFilter;
   sortBy?: CronJobsSortBy;
   sortDir?: CronSortDir;
+  /** Filter jobs whose sessionKey starts with this prefix. */
+  sessionKeyPrefix?: string;
 };
 
 export type CronListPageResult = {
@@ -199,12 +201,19 @@ export async function listPage(state: CronServiceState, opts?: CronListPageOptio
     const sortBy = opts?.sortBy ?? "nextRunAtMs";
     const sortDir = opts?.sortDir ?? "asc";
     const source = state.store?.jobs ?? [];
+    const sessionKeyPrefix = opts?.sessionKeyPrefix?.trim().toLowerCase() ?? "";
     const filtered = source.filter((job) => {
       if (enabledFilter === "enabled" && !job.enabled) {
         return false;
       }
       if (enabledFilter === "disabled" && job.enabled) {
         return false;
+      }
+      if (sessionKeyPrefix) {
+        const jobKey = (job.sessionKey ?? "").toLowerCase();
+        if (!jobKey.startsWith(sessionKeyPrefix)) {
+          return false;
+        }
       }
       if (!query) {
         return true;

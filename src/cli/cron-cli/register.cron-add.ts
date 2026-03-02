@@ -38,11 +38,16 @@ export function registerCronListCommand(cron: Command) {
       .command("list")
       .description("List cron jobs")
       .option("--all", "Include disabled jobs", false)
+      .option(
+        "--context <prefix>",
+        "Filter by session key prefix (e.g. agent:main:telegram:group:123)",
+      )
       .option("--json", "Output JSON", false)
       .action(async (opts) => {
         try {
           const res = await callGatewayFromCli("cron.list", opts, {
             includeDisabled: Boolean(opts.all),
+            ...(opts.context ? { sessionKeyPrefix: opts.context } : {}),
           });
           if (opts.json) {
             defaultRuntime.log(JSON.stringify(res, null, 2));
