@@ -603,6 +603,13 @@ export const dispatchTelegramMessage = async ({
                     messageId: previewMessageId,
                     textSnapshot: answerLane.lastPartialText,
                   });
+                  // Delete the stale preview immediately so users don't see
+                  // accumulated partial messages during model fallback retries.
+                  try {
+                    await bot.api.deleteMessage(chatId, previewMessageId);
+                  } catch {
+                    // Best-effort: the message may already be gone.
+                  }
                 }
                 answerLane.stream?.forceNewMessage();
               }
