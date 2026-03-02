@@ -13,6 +13,6 @@ describe("monitorMatrixProvider helpers", () => {
   });
 
   it("uses a non-zero startup grace window", () => {
-    expect(DEFAULT_STARTUP_GRACE_MS).toBe(5000);
+    expect(DEFAULT_STARTUP_GRACE_MS).toBe(10 * 60 * 1000);
   });
 });

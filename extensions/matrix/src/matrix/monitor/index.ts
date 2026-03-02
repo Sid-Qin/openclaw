@@ -36,7 +36,7 @@ export type MonitorMatrixOpts = {
 };
 
 const DEFAULT_MEDIA_MAX_MB = 20;
-export const DEFAULT_STARTUP_GRACE_MS = 5000;
+export const DEFAULT_STARTUP_GRACE_MS = 10 * 60 * 1000;
 
 export function isConfiguredMatrixRoomEntry(entry: string): boolean {
   return entry.startsWith("!") || (entry.startsWith("#") && entry.includes(":"));
