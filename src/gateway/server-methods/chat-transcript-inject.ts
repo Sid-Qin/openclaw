@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { SessionManager } from "@mariozechner/pi-coding-agent";
 
 type AppendMessageArg = Parameters<SessionManager["appendMessage"]>[0];
@@ -69,6 +70,31 @@ export function appendInjectedAssistantMessageToTranscript(params: {
     const sessionManager = SessionManager.open(params.transcriptPath);
     const messageId = sessionManager.appendMessage(messageBody);
     return { ok: true, messageId, message: messageBody };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+export function appendInjectedUserMessageToTranscript(params: {
+  transcriptPath: string;
+  message: string;
+  idempotencyKey?: string;
+  now?: number;
+}): GatewayInjectedTranscriptAppendResult {
+  const now = params.now ?? Date.now();
+  const messageBody: Record<string, unknown> = {
+    type: "message",
+    role: "user",
+    content: [{ type: "text", text: params.message }],
+    timestamp: now,
+    provider: "openclaw",
+    model: "gateway-injected",
+    ...(params.idempotencyKey ? { idempotencyKey: params.idempotencyKey } : {}),
+  };
+
+  try {
+    fs.appendFileSync(params.transcriptPath, `${JSON.stringify(messageBody)}\n`, "utf-8");
+    return { ok: true, message: messageBody };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }

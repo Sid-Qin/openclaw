@@ -46,7 +46,10 @@ import {
 import { formatForLog } from "../ws-log.js";
 import { injectTimestamp, timestampOptsFromConfig } from "./agent-timestamp.js";
 import { normalizeRpcAttachmentsToChatAttachments } from "./attachment-normalize.js";
-import { appendInjectedAssistantMessageToTranscript } from "./chat-transcript-inject.js";
+import {
+  appendInjectedAssistantMessageToTranscript,
+  appendInjectedUserMessageToTranscript,
+} from "./chat-transcript-inject.js";
 import type { GatewayRequestContext, GatewayRequestHandlers } from "./types.js";
 
 type TranscriptAppendResult = {
@@ -375,6 +378,49 @@ function appendAssistantTranscriptMessage(params: {
     label: params.label,
     idempotencyKey: params.idempotencyKey,
     abortMeta: params.abortMeta,
+  });
+}
+
+function appendUserTranscriptMessage(params: {
+  message: string;
+  sessionId: string;
+  storePath: string | undefined;
+  sessionFile?: string;
+  agentId?: string;
+  createIfMissing?: boolean;
+  idempotencyKey?: string;
+}): TranscriptAppendResult {
+  const transcriptPath = resolveTranscriptPath({
+    sessionId: params.sessionId,
+    storePath: params.storePath,
+    sessionFile: params.sessionFile,
+    agentId: params.agentId,
+  });
+  if (!transcriptPath) {
+    return { ok: false, error: "transcript path not resolved" };
+  }
+
+  if (!fs.existsSync(transcriptPath)) {
+    if (!params.createIfMissing) {
+      return { ok: false, error: "transcript file not found" };
+    }
+    const ensured = ensureTranscriptFile({
+      transcriptPath,
+      sessionId: params.sessionId,
+    });
+    if (!ensured.ok) {
+      return { ok: false, error: ensured.error ?? "failed to create transcript file" };
+    }
+  }
+
+  if (params.idempotencyKey && transcriptHasIdempotencyKey(transcriptPath, params.idempotencyKey)) {
+    return { ok: true };
+  }
+
+  return appendInjectedUserMessageToTranscript({
+    transcriptPath,
+    message: params.message,
+    idempotencyKey: params.idempotencyKey,
   });
 }
 
@@ -844,6 +890,22 @@ export const chatHandlers: GatewayRequestHandlers = {
           finalReplyParts.push(text);
         },
       });
+
+      const sessionId = entry?.sessionId ?? clientRunId;
+      const persistedUser = appendUserTranscriptMessage({
+        message: parsedMessage,
+        sessionId,
+        storePath: loadSessionEntry(sessionKey).storePath,
+        sessionFile: entry?.sessionFile,
+        agentId,
+        createIfMissing: true,
+        idempotencyKey: clientRunId,
+      });
+      if (!persistedUser.ok) {
+        context.logGateway.warn(
+          `webchat user message transcript append failed: ${persistedUser.error ?? "unknown"}`,
+        );
+      }
 
       let agentRunStarted = false;
       void dispatchInboundMessage({
