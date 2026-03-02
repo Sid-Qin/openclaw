@@ -426,4 +426,87 @@ describe("tui-event-handlers: handleAgentEvent", () => {
     expect(chatLog.dropAssistant).toHaveBeenCalledWith("run-silent");
     expect(chatLog.finalizeAssistant).not.toHaveBeenCalled();
   });
+
+  it("resets status to idle when cross-channel run completes and no active run remains", () => {
+    const h = createHandlersHarness({ state: { activeChatRunId: null } });
+
+    h.handleChatEvent({
+      runId: "cross-run-1",
+      sessionKey: h.state.currentSessionKey,
+      state: "delta",
+      message: { content: "hello from telegram" },
+    } as ChatEvent);
+    expect(h.setActivityStatus).toHaveBeenCalledWith("streaming");
+
+    h.setActivityStatus.mockClear();
+
+    h.handleChatEvent({
+      runId: "cross-run-1",
+      sessionKey: h.state.currentSessionKey,
+      state: "final",
+      message: { content: [{ type: "text", text: "done" }] },
+    } as ChatEvent);
+    expect(h.setActivityStatus).toHaveBeenCalledWith("idle");
+  });
+
+  it("resets status to idle when non-active cross-channel run ends and no runs remain", () => {
+    const h = createHandlersHarness({
+      state: { activeChatRunId: "local-run" },
+    });
+
+    h.handleChatEvent({
+      runId: "local-run",
+      sessionKey: h.state.currentSessionKey,
+      state: "delta",
+      message: { content: "local" },
+    } as ChatEvent);
+
+    h.handleChatEvent({
+      runId: "cross-run-2",
+      sessionKey: h.state.currentSessionKey,
+      state: "delta",
+      message: { content: "cross" },
+    } as ChatEvent);
+    expect(h.setActivityStatus).toHaveBeenCalledWith("streaming");
+    h.setActivityStatus.mockClear();
+
+    h.handleChatEvent({
+      runId: "local-run",
+      sessionKey: h.state.currentSessionKey,
+      state: "final",
+      message: { content: [{ type: "text", text: "done" }] },
+    } as ChatEvent);
+    expect(h.setActivityStatus).toHaveBeenCalledWith("idle");
+    h.setActivityStatus.mockClear();
+
+    h.handleChatEvent({
+      runId: "cross-run-2",
+      sessionKey: h.state.currentSessionKey,
+      state: "final",
+      message: { content: [{ type: "text", text: "done" }] },
+    } as ChatEvent);
+    expect(h.setActivityStatus).toHaveBeenCalledWith("idle");
+  });
+
+  it("does not leave status stuck on streaming when cross-channel run is aborted", () => {
+    const h = createHandlersHarness({ state: { activeChatRunId: null } });
+
+    h.handleChatEvent({
+      runId: "cross-abort",
+      sessionKey: h.state.currentSessionKey,
+      state: "delta",
+      message: { content: "streaming" },
+    } as ChatEvent);
+    expect(h.setActivityStatus).toHaveBeenCalledWith("streaming");
+    h.setActivityStatus.mockClear();
+
+    h.handleChatEvent({
+      runId: "cross-abort",
+      sessionKey: h.state.currentSessionKey,
+      state: "aborted",
+    } as ChatEvent);
+    expect(h.setActivityStatus).toHaveBeenCalled();
+    const lastCall = h.setActivityStatus.mock.calls[h.setActivityStatus.mock.calls.length - 1];
+    expect(lastCall[0]).not.toBe("streaming");
+  });
 });

@@ -109,6 +109,8 @@ export function createEventHandlers(context: EventHandlerContext) {
     clearActiveRunIfMatch(params.runId);
     if (params.wasActiveRun) {
       setActivityStatus(params.status);
+    } else if (!state.activeChatRunId || !sessionRuns.has(state.activeChatRunId)) {
+      setActivityStatus("idle");
     }
     void refreshSessionInfo?.();
   };
@@ -123,6 +125,8 @@ export function createEventHandlers(context: EventHandlerContext) {
     clearActiveRunIfMatch(params.runId);
     if (params.wasActiveRun) {
       setActivityStatus(params.status);
+    } else if (!state.activeChatRunId || !sessionRuns.has(state.activeChatRunId)) {
+      setActivityStatus("idle");
     }
     void refreshSessionInfo?.();
   };
