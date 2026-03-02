@@ -323,6 +323,11 @@ function isLaunchctlNotLoaded(res: { stdout: string; stderr: string; code: numbe
   );
 }
 
+function isAlreadyBootstrapped(detail: string): boolean {
+  const normalized = detail.toLowerCase();
+  return normalized.includes("bootstrap failed: 5:") || normalized.includes("already loaded");
+}
+
 function isUnsupportedGuiDomain(detail: string): boolean {
   const normalized = detail.toLowerCase();
   return (
@@ -465,6 +470,10 @@ export async function restartLaunchAgent({
     await waitForPidExit(previousPid);
   }
 
+  // Clear any persistent "disabled" state left by bootout so the service is
+  // startable after bootstrap — mirrors what installLaunchAgent does.
+  await execLaunchctl(["enable", `${domain}/${label}`]);
+
   const boot = await execLaunchctl(["bootstrap", domain, plistPath]);
   if (boot.code !== 0) {
     const detail = (boot.stderr || boot.stdout).trim();
@@ -479,7 +488,9 @@ export async function restartLaunchAgent({
         ].join("\n"),
       );
     }
-    throw new Error(`launchctl bootstrap failed: ${detail}`);
+    if (!isAlreadyBootstrapped(detail)) {
+      throw new Error(`launchctl bootstrap failed: ${detail}`);
+    }
   }
 
   const start = await execLaunchctl(["kickstart", "-k", `${domain}/${label}`]);
