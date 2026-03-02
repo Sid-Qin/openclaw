@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import Module from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
@@ -557,6 +558,14 @@ export function loadOpenClawPlugins(options: PluginLoadOptions = {}): PluginRegi
     fs.closeSync(opened.fd);
 
     let mod: OpenClawPluginModule | null = null;
+    const pluginNodeModules = path.join(pluginRoot, "node_modules");
+    const savedNodePath = process.env.NODE_PATH;
+    if (fs.existsSync(pluginNodeModules)) {
+      const sep = path.delimiter;
+      process.env.NODE_PATH = [pluginNodeModules, savedNodePath].filter(Boolean).join(sep);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (Module as any)._initPaths?.();
+    }
     try {
       mod = getJiti()(safeSource) as OpenClawPluginModule;
     } catch (err) {
@@ -572,6 +581,12 @@ export function loadOpenClawPlugins(options: PluginLoadOptions = {}): PluginRegi
         diagnosticMessagePrefix: "failed to load plugin: ",
       });
       continue;
+    } finally {
+      if (process.env.NODE_PATH !== savedNodePath) {
+        process.env.NODE_PATH = savedNodePath ?? "";
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (Module as any)._initPaths?.();
+      }
     }
 
     const resolved = resolvePluginModuleExport(mod);

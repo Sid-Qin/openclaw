@@ -801,6 +801,49 @@ describe("loadOpenClawPlugins", () => {
     expect(registry.diagnostics.some((entry) => entry.message.includes("escapes"))).toBe(true);
   });
 
+  it("loads plugin whose dependency lives in its own node_modules", () => {
+    const bundledDir = makeTempDir();
+    const pluginDir = path.join(bundledDir, "ext-dep");
+    fs.mkdirSync(pluginDir, { recursive: true });
+
+    const depDir = path.join(pluginDir, "node_modules", "my-ext-dep");
+    fs.mkdirSync(depDir, { recursive: true });
+    fs.writeFileSync(path.join(depDir, "index.js"), "module.exports = { ok: true };", "utf-8");
+    fs.writeFileSync(
+      path.join(depDir, "package.json"),
+      JSON.stringify({ name: "my-ext-dep", version: "1.0.0", main: "index.js" }),
+      "utf-8",
+    );
+
+    fs.writeFileSync(
+      path.join(pluginDir, "package.json"),
+      JSON.stringify({
+        name: "ext-dep",
+        openclaw: { extensions: ["./index.js"] },
+      }),
+      "utf-8",
+    );
+    writePlugin({
+      id: "ext-dep",
+      body: `const dep = require("my-ext-dep"); export default { id: "ext-dep", register() {} };`,
+      dir: pluginDir,
+      filename: "index.js",
+    });
+
+    process.env.OPENCLAW_BUNDLED_PLUGINS_DIR = bundledDir;
+    const registry = loadOpenClawPlugins({
+      cache: false,
+      config: {
+        plugins: {
+          allow: ["ext-dep"],
+          entries: { "ext-dep": { enabled: true } },
+        },
+      },
+    });
+    const plugin = registry.plugins.find((entry) => entry.id === "ext-dep");
+    expect(plugin?.status).toBe("loaded");
+  });
+
   it("prefers dist plugin-sdk alias when loader runs from dist", () => {
     const root = makeTempDir();
     const srcFile = path.join(root, "src", "plugin-sdk", "index.ts");
