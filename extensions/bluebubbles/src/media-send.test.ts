@@ -58,6 +58,8 @@ function createConfig(overrides?: Record<string, unknown>): OpenClawConfig {
   return {
     channels: {
       bluebubbles: {
+        serverUrl: "https://bb.example.com",
+        password: "test-pass",
         ...overrides,
       },
     },
@@ -252,5 +254,33 @@ describe("sendBlueBubblesMedia local-path hardening", () => {
       expect.objectContaining({ url: "https://example.com/file.png" }),
     );
     expect(sendBlueBubblesAttachmentMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes ssrfPolicy with allowPrivateNetwork for localhost server", async () => {
+    await sendBlueBubblesMedia({
+      cfg: createConfig({ serverUrl: "http://localhost:1234", allowPrivateNetwork: true }),
+      to: "chat:123",
+      mediaUrl: "https://example.com/file.png",
+    });
+
+    expect(runtimeMocks.fetchRemoteMedia).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ssrfPolicy: { allowPrivateNetwork: true },
+      }),
+    );
+  });
+
+  it("passes ssrfPolicy with allowedHostnames when serverUrl is set", async () => {
+    await sendBlueBubblesMedia({
+      cfg: createConfig({ serverUrl: "https://my-bb-server.example.com:8080" }),
+      to: "chat:123",
+      mediaUrl: "https://example.com/file.png",
+    });
+
+    expect(runtimeMocks.fetchRemoteMedia).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ssrfPolicy: { allowedHostnames: ["my-bb-server.example.com"] },
+      }),
+    );
   });
 });

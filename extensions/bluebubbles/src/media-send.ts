@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveChannelMediaMaxBytes, type OpenClawConfig } from "openclaw/plugin-sdk";
+import { resolveBlueBubblesServerAccount } from "./account-resolve.js";
 import { resolveBlueBubblesAccount } from "./accounts.js";
 import { sendBlueBubblesAttachment } from "./attachments.js";
 import { resolveBlueBubblesMessageId } from "./monitor.js";
@@ -11,6 +12,16 @@ import { getBlueBubblesRuntime } from "./runtime.js";
 import { sendMessageBlueBubbles } from "./send.js";
 
 const HTTP_URL_RE = /^https?:\/\//i;
+
+function safeExtractHostname(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    const hostname = new URL(url).hostname.trim();
+    return hostname || undefined;
+  } catch {
+    return undefined;
+  }
+}
 const MB = 1024 * 1024;
 
 function assertMediaWithinLimit(sizeBytes: number, maxBytes?: number): void {
@@ -220,6 +231,7 @@ export async function sendBlueBubblesMedia(params: {
     asVoice,
   } = params;
   const core = getBlueBubblesRuntime();
+  const serverAccount = resolveBlueBubblesServerAccount({ cfg, accountId });
   const maxBytes = resolveChannelMediaMaxBytes({
     cfg,
     resolveChannelLimitMb: ({ cfg, accountId }) =>
@@ -253,9 +265,15 @@ export async function sendBlueBubblesMedia(params: {
       throw new Error("BlueBubbles media delivery requires mediaUrl, mediaPath, or mediaBuffer.");
     }
     if (HTTP_URL_RE.test(source)) {
+      const trustedHostname = safeExtractHostname(serverAccount.baseUrl);
       const fetched = await core.channel.media.fetchRemoteMedia({
         url: source,
         maxBytes: typeof maxBytes === "number" && maxBytes > 0 ? maxBytes : undefined,
+        ssrfPolicy: serverAccount.allowPrivateNetwork
+          ? { allowPrivateNetwork: true }
+          : trustedHostname
+            ? { allowedHostnames: [trustedHostname] }
+            : undefined,
       });
       buffer = fetched.buffer;
       resolvedContentType = resolvedContentType ?? fetched.contentType ?? undefined;
