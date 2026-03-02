@@ -185,6 +185,8 @@ export type TelegramTopicConfig = {
   allowFrom?: Array<string | number>;
   /** Optional system prompt snippet for this topic. */
   systemPrompt?: string;
+  /** Route this topic to a specific agent id (overrides group-level and binding routing). */
+  agentId?: string;
 };
 
 export type TelegramGroupConfig = {
