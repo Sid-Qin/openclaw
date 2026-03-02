@@ -24,8 +24,8 @@ import {
   applyMessageDefaults,
   applyModelDefaults,
   applySessionDefaults,
-  applyTalkConfigNormalization,
   applyTalkApiKey,
+  applyTalkConfigNormalization,
 } from "./defaults.js";
 import { restoreEnvVarRefs } from "./env-preserve.js";
 import {
@@ -953,8 +953,14 @@ export function createConfigIO(overrides: ConfigIoDeps = {}) {
         applyTalkApiKey(
           applyTalkConfigNormalization(
             applyModelDefaults(
-              applyAgentDefaults(
-                applySessionDefaults(applyLoggingDefaults(applyMessageDefaults(validated.config))),
+              applyCompactionDefaults(
+                applyContextPruningDefaults(
+                  applyAgentDefaults(
+                    applySessionDefaults(
+                      applyLoggingDefaults(applyMessageDefaults(validated.config)),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -1040,7 +1046,8 @@ export function createConfigIO(overrides: ConfigIoDeps = {}) {
     let envRefMap: Map<string, string> | null = null;
     let changedPaths: Set<string> | null = null;
     if (snapshot.valid && snapshot.exists) {
-      const patch = createMergePatch(snapshot.config, cfg);
+      const alignedCfg = applyTalkApiKey(cfg);
+      const patch = createMergePatch(snapshot.config, alignedCfg);
       persistCandidate = applyMergePatch(snapshot.resolved, patch);
       try {
         const resolvedIncludes = resolveConfigIncludes(snapshot.parsed, configPath, {
