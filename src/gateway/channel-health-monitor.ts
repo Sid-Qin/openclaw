@@ -18,6 +18,15 @@ const ONE_HOUR_MS = 60 * 60_000;
  */
 const DEFAULT_STALE_EVENT_THRESHOLD_MS = 30 * 60_000;
 
+/**
+ * Grace period after a channel starts before `connected === false` is treated
+ * as unhealthy.  This covers the normal startup window where the WebSocket is
+ * still negotiating (hello, identify, resume) and `connected` has not yet
+ * flipped to `true`.  Without this, the health monitor can restart a channel
+ * that is in the middle of its normal connection sequence.
+ */
+const CONNECTION_SETTLE_MS = 2 * 60_000;
+
 export type ChannelHealthMonitorDeps = {
   channelManager: ChannelManager;
   checkIntervalMs?: number;
@@ -59,7 +68,11 @@ function isChannelHealthy(
     return false;
   }
   if (snapshot.connected === false) {
-    return false;
+    const startAge = snapshot.lastStartAt != null ? opts.now - snapshot.lastStartAt : Infinity;
+    if (startAge > CONNECTION_SETTLE_MS) {
+      return false;
+    }
+    return true;
   }
 
   // Stale socket detection: if the channel has been running long enough
