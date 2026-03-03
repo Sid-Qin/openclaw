@@ -163,11 +163,27 @@ describe("resolveDefaultTelegramAccountId", () => {
     );
   });
 
-  it("warns only once per process lifetime", () => {
+  it("does not warn when only one non-default account is configured", () => {
     const cfg: OpenClawConfig = {
       channels: {
         telegram: {
           accounts: { work: { botToken: "tok-work" } },
+        },
+      },
+    };
+
+    resolveDefaultTelegramAccountId(cfg);
+    const warnLines = warnMock.mock.calls.map(([line]: [string]) => line);
+    expect(warnLines.every((line: string) => !line.includes("accounts.default is missing"))).toBe(
+      true,
+    );
+  });
+
+  it("warns only once per process lifetime", () => {
+    const cfg: OpenClawConfig = {
+      channels: {
+        telegram: {
+          accounts: { work: { botToken: "tok-work" }, alerts: { botToken: "tok-alerts" } },
         },
       },
     };

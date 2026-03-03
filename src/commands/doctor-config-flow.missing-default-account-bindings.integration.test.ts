@@ -52,4 +52,35 @@ describe("doctor missing default account binding warning", () => {
       "Doctor warnings",
     );
   });
+
+  it("emits a warning when multiple accounts have no explicit default", async () => {
+    await withEnvAsync(
+      {
+        TELEGRAM_BOT_TOKEN: undefined,
+        TELEGRAM_BOT_TOKEN_FILE: undefined,
+      },
+      async () => {
+        await runDoctorConfigWithInput({
+          config: {
+            channels: {
+              telegram: {
+                accounts: {
+                  alerts: {},
+                  work: {},
+                },
+              },
+            },
+          },
+          run: loadAndMaybeMigrateDoctorConfig,
+        });
+      },
+    );
+
+    expect(noteSpy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "channels.telegram: multiple accounts are configured but no explicit default is set",
+      ),
+      "Doctor warnings",
+    );
+  });
 });

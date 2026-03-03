@@ -86,7 +86,7 @@ export function resolveDefaultTelegramAccountId(cfg: OpenClawConfig): string {
   if (ids.includes(DEFAULT_ACCOUNT_ID)) {
     return DEFAULT_ACCOUNT_ID;
   }
-  if (ids.length > 0 && !emittedMissingDefaultWarn) {
+  if (ids.length > 1 && !emittedMissingDefaultWarn) {
     emittedMissingDefaultWarn = true;
     log.warn(
       `channels.telegram: accounts.default is missing; falling back to "${ids[0]}". ` +
