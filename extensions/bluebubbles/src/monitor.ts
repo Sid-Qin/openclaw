@@ -225,9 +225,15 @@ export async function handleBlueBubblesWebhookRequest(
     }
     const message = reaction ? null : normalizeWebhookMessage(payload);
     if (!message && !reaction) {
-      res.statusCode = 400;
-      res.end("invalid payload");
-      console.warn("[bluebubbles] webhook rejected: unable to parse message payload");
+      res.statusCode = 200;
+      res.end("ok");
+      if (firstTarget) {
+        logVerbose(
+          firstTarget.core,
+          firstTarget.runtime,
+          `webhook ignored unparseable ${eventType || "event"} payload (missing sender or message data)`,
+        );
+      }
       return true;
     }
 

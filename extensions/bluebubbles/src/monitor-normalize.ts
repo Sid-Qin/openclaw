@@ -761,7 +761,7 @@ export function normalizeWebhookMessage(
 export function normalizeWebhookReaction(
   payload: Record<string, unknown>,
 ): NormalizedWebhookReaction | null {
-  const message = extractMessagePayload(payload);
+  const message = extractMessagePayload(payload) ?? parseRecord(payload.reaction);
   if (!message) {
     return null;
   }

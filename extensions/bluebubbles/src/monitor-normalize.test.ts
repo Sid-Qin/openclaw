@@ -56,6 +56,38 @@ describe("normalizeWebhookMessage", () => {
 });
 
 describe("normalizeWebhookReaction", () => {
+  it("parses reaction from payload.reaction path", () => {
+    const result = normalizeWebhookReaction({
+      type: "new-message",
+      reaction: {
+        guid: "react-1",
+        text: 'Loved "hello"',
+        isFromMe: false,
+        handle: { address: "+15551234567" },
+        associatedMessageGuid: "msg-original-1",
+        associatedMessageType: 2000,
+        chats: [{ guid: "iMessage;-;+15559876543" }],
+      },
+    });
+    expect(result).not.toBeNull();
+    expect(result?.emoji).toBe("❤️");
+    expect(result?.action).toBe("added");
+  });
+
+  it("returns null when reaction payload has no associated guid", () => {
+    const result = normalizeWebhookReaction({
+      type: "message-reaction",
+      data: {
+        guid: "msg-2",
+        text: "Liked",
+        isFromMe: false,
+        handle: { address: "+15551234567" },
+        chats: [{ guid: "iMessage;-;+15559876543" }],
+      },
+    });
+    expect(result).toBeNull();
+  });
+
   it("falls back to DM chatGuid handle when reaction sender handle is missing", () => {
     const result = normalizeWebhookReaction({
       type: "updated-message",
