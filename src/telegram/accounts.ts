@@ -63,6 +63,13 @@ export function listTelegramAccountIds(cfg: OpenClawConfig): string[] {
   return ids.toSorted((a, b) => a.localeCompare(b));
 }
 
+let emittedMissingDefaultWarn = false;
+
+/** @internal Reset the once-per-process warning flag. Exported for tests only. */
+export function resetMissingDefaultWarnFlag(): void {
+  emittedMissingDefaultWarn = false;
+}
+
 export function resolveDefaultTelegramAccountId(cfg: OpenClawConfig): string {
   const boundDefault = resolveDefaultAgentBoundAccountId(cfg, "telegram");
   if (boundDefault) {
@@ -78,6 +85,14 @@ export function resolveDefaultTelegramAccountId(cfg: OpenClawConfig): string {
   const ids = listTelegramAccountIds(cfg);
   if (ids.includes(DEFAULT_ACCOUNT_ID)) {
     return DEFAULT_ACCOUNT_ID;
+  }
+  if (ids.length > 0 && !emittedMissingDefaultWarn) {
+    emittedMissingDefaultWarn = true;
+    log.warn(
+      `channels.telegram: accounts.default is missing; falling back to "${ids[0]}". ` +
+        "Set channels.telegram.defaultAccount or add an accounts.default entry " +
+        "to avoid routing surprises in multi-account setups.",
+    );
   }
   return ids[0] ?? DEFAULT_ACCOUNT_ID;
 }
