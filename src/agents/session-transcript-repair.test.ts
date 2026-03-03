@@ -207,6 +207,72 @@ describe("sanitizeToolUseResultPairing", () => {
     expect(result.added[0]?.toolCallId).toBe("call_normal");
   });
 
+  it("strips tool_use blocks from errored assistant messages to prevent Anthropic rejection", () => {
+    const input = castAgentMessages([
+      {
+        role: "assistant",
+        content: [
+          { type: "text", text: "Let me check that for you." },
+          { type: "toolCall", id: "call_err1", name: "exec", arguments: {} },
+        ],
+        stopReason: "error",
+      },
+      { role: "user", content: "what happened?" },
+    ]);
+
+    const result = repairToolUseResultPairing(input);
+
+    expect(result.added).toHaveLength(0);
+    const assistantMsg = result.messages[0] as { role: string; content?: unknown[] };
+    expect(assistantMsg.role).toBe("assistant");
+    const hasToolCall = assistantMsg.content?.some(
+      (b: { type?: string }) => b.type === "toolCall" || b.type === "toolUse",
+    );
+    expect(hasToolCall).toBeFalsy();
+  });
+
+  it("strips tool_use blocks from aborted assistant messages preserving text", () => {
+    const input = castAgentMessages([
+      {
+        role: "assistant",
+        content: [
+          { type: "text", text: "Working on it..." },
+          { type: "toolCall", id: "call_ab1", name: "Bash", arguments: {} },
+          { type: "toolCall", id: "call_ab2", name: "read", arguments: {} },
+        ],
+        stopReason: "aborted",
+      },
+      { role: "user", content: "retry" },
+    ]);
+
+    const result = repairToolUseResultPairing(input);
+
+    const assistantMsg = result.messages[0] as { role: string; content?: unknown[] };
+    expect(assistantMsg.role).toBe("assistant");
+    expect(assistantMsg.content).toHaveLength(1);
+    expect((assistantMsg.content![0] as { type: string }).type).toBe("text");
+  });
+
+  it("replaces errored assistant with only tool_use blocks with fallback text", () => {
+    const input = castAgentMessages([
+      {
+        role: "assistant",
+        content: [
+          { type: "toolCall", id: "call_only", name: "exec", arguments: {} },
+        ],
+        stopReason: "error",
+      },
+      { role: "user", content: "what now?" },
+    ]);
+
+    const result = repairToolUseResultPairing(input);
+
+    const assistantMsg = result.messages[0] as { role: string; content?: unknown[] };
+    expect(assistantMsg.role).toBe("assistant");
+    expect(assistantMsg.content).toHaveLength(1);
+    expect((assistantMsg.content![0] as { text: string }).text).toBe("(tool calls removed)");
+  });
+
   it("drops orphan tool results that follow an aborted assistant message", () => {
     // When an assistant message is aborted, any tool results that follow should be
     // dropped as orphans (since we skip extracting tool calls from aborted messages).

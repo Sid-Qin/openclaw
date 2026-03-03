@@ -339,6 +339,27 @@ export type ToolUseRepairReport = {
   moved: boolean;
 };
 
+function stripDanglingToolUseBlocks(
+  assistant: Extract<AgentMessage, { role: "assistant" }>,
+): AgentMessage | null {
+  const content = (assistant as { content?: unknown[] }).content;
+  if (!Array.isArray(content)) {
+    return assistant;
+  }
+  const filtered = content.filter((block) => !isRawToolCallBlock(block));
+  if (filtered.length === content.length) {
+    return assistant;
+  }
+  if (filtered.length === 0) {
+    const hasText = (assistant as { text?: unknown }).text;
+    if (typeof hasText === "string" && hasText.trim().length > 0) {
+      return { ...assistant, content: undefined } as unknown as AgentMessage;
+    }
+    return { ...assistant, content: [{ type: "text", text: "(tool calls removed)" }] } as unknown as AgentMessage;
+  }
+  return { ...assistant, content: filtered } as unknown as AgentMessage;
+}
+
 export function repairToolUseResultPairing(messages: AgentMessage[]): ToolUseRepairReport {
   // Anthropic (and Cloud Code Assist) reject transcripts where assistant tool calls are not
   // immediately followed by matching tool results. Session files can end up with results
@@ -398,7 +419,15 @@ export function repairToolUseResultPairing(messages: AgentMessage[]): ToolUseRep
     // See: https://github.com/openclaw/openclaw/issues/4597
     const stopReason = (assistant as { stopReason?: string }).stopReason;
     if (stopReason === "error" || stopReason === "aborted") {
-      out.push(msg);
+      const stripped = stripDanglingToolUseBlocks(assistant);
+      if (stripped) {
+        out.push(stripped);
+        if (stripped !== msg) {
+          changed = true;
+        }
+      } else {
+        changed = true;
+      }
       continue;
     }
 
