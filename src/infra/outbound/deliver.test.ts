@@ -511,6 +511,38 @@ describe("deliverOutboundPayloads", () => {
     );
   });
 
+  it("drops NO_REPLY payloads that leak through upstream normalization (#32403)", async () => {
+    const sendWhatsApp = vi.fn().mockResolvedValue({ messageId: "w1", toJid: "jid" });
+    const results = await deliverWhatsAppPayload({
+      sendWhatsApp,
+      payload: { text: "NO_REPLY" },
+    });
+    expect(sendWhatsApp).not.toHaveBeenCalled();
+    expect(results).toEqual([]);
+  });
+
+  it("drops None/null/undefined artifact payloads (#32403)", async () => {
+    const sendWhatsApp = vi.fn().mockResolvedValue({ messageId: "w1", toJid: "jid" });
+    for (const artifact of ["None", "null", "undefined"]) {
+      sendWhatsApp.mockClear();
+      const results = await deliverWhatsAppPayload({
+        sendWhatsApp,
+        payload: { text: artifact },
+      });
+      expect(sendWhatsApp).not.toHaveBeenCalled();
+      expect(results).toEqual([]);
+    }
+  });
+
+  it("preserves None/null in substantive text (#32403)", async () => {
+    const sendWhatsApp = vi.fn().mockResolvedValue({ messageId: "w1", toJid: "jid" });
+    await deliverWhatsAppPayload({
+      sendWhatsApp,
+      payload: { text: "The result is None of the above" },
+    });
+    expect(sendWhatsApp).toHaveBeenCalledTimes(1);
+  });
+
   it("drops whitespace-only WhatsApp text payloads when no media is attached", async () => {
     const sendWhatsApp = vi.fn().mockResolvedValue({ messageId: "w1", toJid: "jid" });
     const results = await deliverWhatsAppPayload({

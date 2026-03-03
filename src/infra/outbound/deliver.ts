@@ -4,6 +4,7 @@ import {
   resolveChunkMode,
   resolveTextChunkLimit,
 } from "../../auto-reply/chunk.js";
+import { isSilentReplyText } from "../../auto-reply/tokens.js";
 import type { ReplyPayload } from "../../auto-reply/types.js";
 import { resolveChannelMediaMaxBytes } from "../../channels/plugins/media-limits.js";
 import { loadChannelOutboundAdapter } from "../../channels/plugins/outbound/load.js";
@@ -255,6 +256,8 @@ function hasChannelDataPayload(payload: ReplyPayload): boolean {
   return Boolean(payload.channelData && Object.keys(payload.channelData).length > 0);
 }
 
+const NULL_ARTIFACT_RE = /^(?:None|null|undefined)$/;
+
 function normalizePayloadForChannelDelivery(
   payload: ReplyPayload,
   channelId: string,
@@ -262,6 +265,14 @@ function normalizePayloadForChannelDelivery(
   const hasMedia = hasMediaPayload(payload);
   const hasChannelData = hasChannelDataPayload(payload);
   const rawText = typeof payload.text === "string" ? payload.text : "";
+
+  if (!hasMedia && !hasChannelData) {
+    const trimmed = rawText.trim();
+    if (isSilentReplyText(trimmed) || NULL_ARTIFACT_RE.test(trimmed)) {
+      return null;
+    }
+  }
+
   const normalizedText =
     channelId === "whatsapp" ? rawText.replace(/^(?:[ \t]*\r?\n)+/, "") : rawText;
   if (!normalizedText.trim()) {
