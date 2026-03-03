@@ -226,6 +226,60 @@ describe("resolveModel", () => {
     expect(result.model?.reasoning).toBe(true);
   });
 
+  it("defaults to openai-completions for custom providers without explicit api (#32871)", () => {
+    const cfg = {
+      models: {
+        providers: {
+          routellm: {
+            baseUrl: "https://routellm.example.com/v1",
+            models: [makeModel("gpt-5")],
+          },
+        },
+      },
+    } as OpenClawConfig;
+
+    const result = resolveModel("routellm", "gpt-5", "/tmp/agent", cfg);
+
+    expect(result.model?.api).toBe("openai-completions");
+    expect(result.model?.id).toBe("gpt-5");
+  });
+
+  it("respects explicit api: openai-completions from provider config (#32871)", () => {
+    const cfg = {
+      models: {
+        providers: {
+          routellm: {
+            baseUrl: "https://routellm.example.com/v1",
+            api: "openai-completions" as const,
+            models: [makeModel("gpt-5")],
+          },
+        },
+      },
+    } as OpenClawConfig;
+
+    const result = resolveModel("routellm", "gpt-5", "/tmp/agent", cfg);
+
+    expect(result.model?.api).toBe("openai-completions");
+  });
+
+  it("respects explicit api: openai-responses from provider config", () => {
+    const cfg = {
+      models: {
+        providers: {
+          myopenai: {
+            baseUrl: "https://api.openai.com/v1",
+            api: "openai-responses" as const,
+            models: [makeModel("gpt-5")],
+          },
+        },
+      },
+    } as OpenClawConfig;
+
+    const result = resolveModel("myopenai", "gpt-5", "/tmp/agent", cfg);
+
+    expect(result.model?.api).toBe("openai-responses");
+  });
+
   it("builds an openai-codex fallback for gpt-5.3-codex", () => {
     mockOpenAICodexTemplateModel();
 

@@ -63,7 +63,10 @@ export function resolveModel(
       (entry) => normalizeProviderId(entry.provider) === normalizedProvider && entry.id === modelId,
     );
     if (inlineMatch) {
-      const normalized = normalizeModelCompat(inlineMatch as Model<Api>);
+      const withApi = inlineMatch.api
+        ? inlineMatch
+        : { ...inlineMatch, api: "openai-completions" as const };
+      const normalized = normalizeModelCompat(withApi as Model<Api>);
       return {
         model: normalized,
         authStorage,
@@ -97,10 +100,11 @@ export function resolveModel(
     const providerCfg = providers[provider];
     if (providerCfg || modelId.startsWith("mock-")) {
       const configuredModel = providerCfg?.models?.find((candidate) => candidate.id === modelId);
+      const resolvedApi = configuredModel?.api ?? providerCfg?.api ?? "openai-completions";
       const fallbackModel: Model<Api> = normalizeModelCompat({
         id: modelId,
         name: modelId,
-        api: providerCfg?.api ?? "openai-responses",
+        api: resolvedApi,
         provider,
         baseUrl: providerCfg?.baseUrl,
         reasoning: configuredModel?.reasoning ?? false,
