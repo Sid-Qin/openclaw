@@ -596,21 +596,11 @@ export const dispatchTelegramMessage = async ({
         onAssistantMessageStart: answerLane.stream
           ? async () => {
               reasoningStepState.resetForNextStep();
-              if (answerLane.hasStreamedMessage) {
-                const previewMessageId = answerLane.stream?.messageId();
-                // Only archive previews that still need a matching final text update.
-                // Once a preview has already been finalized, archiving it here causes
-                // cleanup to delete a user-visible final message on later media-only turns.
-                if (typeof previewMessageId === "number" && !finalizedPreviewByLane.answer) {
-                  archivedAnswerPreviews.push({
-                    messageId: previewMessageId,
-                    textSnapshot: answerLane.lastPartialText,
-                  });
-                }
-                answerLane.stream?.forceNewMessage();
-              }
+              // Reuse the same preview message across tool-use rounds so intermediate
+              // text between tool calls is overwritten rather than leaked as separate
+              // messages (#32535). Previous behavior archived the preview and called
+              // forceNewMessage(), creating a visible message per round.
               resetDraftLaneState(answerLane);
-              // New assistant message boundary: this lane now tracks a fresh preview lifecycle.
               finalizedPreviewByLane.answer = false;
             }
           : undefined,

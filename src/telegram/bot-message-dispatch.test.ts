@@ -401,7 +401,7 @@ describe("dispatchTelegramMessage draft streaming", () => {
   });
 
   it.each(["block", "partial"] as const)(
-    "forces new message when assistant message restarts (%s mode)",
+    "reuses same preview message when assistant message restarts (%s mode, #32535)",
     async (streamMode) => {
       const draftStream = createDraftStream(999);
       createTelegramDraftStream.mockReturnValue(draftStream);
@@ -418,7 +418,7 @@ describe("dispatchTelegramMessage draft streaming", () => {
 
       await dispatchWithContext({ context: createContext(), streamMode });
 
-      expect(draftStream.forceNewMessage).toHaveBeenCalledTimes(1);
+      expect(draftStream.forceNewMessage).not.toHaveBeenCalled();
     },
   );
 
@@ -444,7 +444,7 @@ describe("dispatchTelegramMessage draft streaming", () => {
     expect(draftStream.forceNewMessage).not.toHaveBeenCalled();
   });
 
-  it("finalizes multi-message assistant stream to matching preview messages in order", async () => {
+  it("reuses single preview across multi-message assistant stream (#32535)", async () => {
     const answerDraftStream = createSequencedDraftStream(1001);
     const reasoningDraftStream = createDraftStream();
     createTelegramDraftStream
@@ -469,7 +469,10 @@ describe("dispatchTelegramMessage draft streaming", () => {
 
     await dispatchWithContext({ context: createContext(), streamMode: "partial" });
 
-    expect(answerDraftStream.forceNewMessage).toHaveBeenCalledTimes(2);
+    // No forceNewMessage: all tool-use rounds share a single preview message,
+    // preventing intermediate text from leaking as separate messages.
+    expect(answerDraftStream.forceNewMessage).not.toHaveBeenCalled();
+    // First final edits the single preview message; remaining finals are delivered normally.
     expect(editMessageTelegram).toHaveBeenNthCalledWith(
       1,
       123,
@@ -477,21 +480,6 @@ describe("dispatchTelegramMessage draft streaming", () => {
       "Message A final",
       expect.any(Object),
     );
-    expect(editMessageTelegram).toHaveBeenNthCalledWith(
-      2,
-      123,
-      1002,
-      "Message B final",
-      expect.any(Object),
-    );
-    expect(editMessageTelegram).toHaveBeenNthCalledWith(
-      3,
-      123,
-      1003,
-      "Message C final",
-      expect.any(Object),
-    );
-    expect(deliverReplies).not.toHaveBeenCalled();
   });
 
   it("maps finals correctly when first preview id resolves after message boundary", async () => {
