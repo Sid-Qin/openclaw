@@ -11,6 +11,7 @@ import { resolveDefaultAgentWorkspaceDir } from "../../agents/workspace.js";
 import { formatCliCommand } from "../../cli/command-format.js";
 import { parseDurationMs } from "../../cli/parse-duration.js";
 import { logConfigUpdated } from "../../config/logging.js";
+import { buildOauthProviderAuthResult } from "../../plugin-sdk/provider-auth-result.js";
 import { resolvePluginProviders } from "../../plugins/providers.js";
 import type { ProviderAuthResult, ProviderPlugin } from "../../plugins/types.js";
 import type { RuntimeEnv } from "../../runtime.js";
@@ -21,6 +22,7 @@ import { isRemoteEnvironment } from "../oauth-env.js";
 import { createVpsAwareOAuthHandlers } from "../oauth-flow.js";
 import { applyAuthProfileConfig } from "../onboard-auth.js";
 import { openUrl } from "../onboard-helpers.js";
+import { loginOpenAICodexOAuth } from "../openai-codex-oauth.js";
 import {
   applyDefaultModel,
   mergeConfigPatch,
@@ -284,6 +286,9 @@ export async function modelsAuthLoginCommand(opts: LoginOptions, runtime: Runtim
     resolveAgentWorkspaceDir(config, defaultAgentId) ?? resolveDefaultAgentWorkspaceDir();
 
   const providers = resolvePluginProviders({ config, workspaceDir });
+  if (!providers.some((p) => normalizeProviderId(p.id) === "openai-codex")) {
+    providers.push(createBuiltinOpenAICodexProvider());
+  }
   if (providers.length === 0) {
     throw new Error(
       `No provider plugins found. Install one via \`${formatCliCommand("openclaw plugins install")}\`.`,
@@ -386,4 +391,39 @@ export async function modelsAuthLoginCommand(opts: LoginOptions, runtime: Runtim
   if (result.notes && result.notes.length > 0) {
     await prompter.note(result.notes.join("\n"), "Provider notes");
   }
+}
+
+function createBuiltinOpenAICodexProvider(): ProviderPlugin {
+  return {
+    id: "openai-codex",
+    label: "OpenAI Codex (OAuth)",
+    aliases: ["codex"],
+    auth: [
+      {
+        id: "oauth",
+        label: "OAuth (browser sign-in)",
+        hint: "Uses OpenAI OAuth flow to obtain Codex credentials",
+        kind: "oauth",
+        run: async (ctx) => {
+          const creds = await loginOpenAICodexOAuth({
+            prompter: ctx.prompter,
+            runtime: ctx.runtime,
+            isRemote: ctx.isRemote,
+            openUrl: ctx.openUrl,
+          });
+          if (!creds) {
+            return { profiles: [] };
+          }
+          return buildOauthProviderAuthResult({
+            providerId: "openai-codex",
+            defaultModel: "openai-codex/codex-mini-latest",
+            access: creds.access,
+            refresh: creds.refresh,
+            expires: creds.expires,
+            email: (creds as { email?: string }).email,
+          });
+        },
+      },
+    ],
+  };
 }
