@@ -48,6 +48,74 @@ describe("resolveIMessageInboundDecision echo detection", () => {
   });
 });
 
+describe("resolveIMessageInboundDecision self-chat dedup (#32166)", () => {
+  const cfg = {} as OpenClawConfig;
+
+  it("records is_from_me text in echo cache so the duplicate is caught", () => {
+    const echoRemember = vi.fn();
+    const echoHas = vi.fn().mockReturnValue(false);
+
+    const fromMeDecision = resolveIMessageInboundDecision({
+      cfg,
+      accountId: "default",
+      message: {
+        id: 100,
+        sender: "+15555550123",
+        text: "Hello from self-chat",
+        is_from_me: true,
+        is_group: false,
+      },
+      opts: undefined,
+      messageText: "Hello from self-chat",
+      bodyText: "Hello from self-chat",
+      allowFrom: [],
+      groupAllowFrom: [],
+      groupPolicy: "open",
+      dmPolicy: "open",
+      storeAllowFrom: [],
+      historyLimit: 0,
+      groupHistories: new Map(),
+      echoCache: { has: echoHas, remember: echoRemember },
+      logVerbose: undefined,
+    });
+
+    expect(fromMeDecision).toEqual({ kind: "drop", reason: "from me" });
+    expect(echoRemember).toHaveBeenCalledWith("default:imessage:+15555550123", {
+      text: "Hello from self-chat",
+    });
+
+    echoHas.mockImplementation((_scope: string, lookup: { text?: string }) => {
+      return lookup.text === "Hello from self-chat";
+    });
+
+    const echoDecision = resolveIMessageInboundDecision({
+      cfg,
+      accountId: "default",
+      message: {
+        id: 101,
+        sender: "+15555550123",
+        text: "Hello from self-chat",
+        is_from_me: false,
+        is_group: false,
+      },
+      opts: undefined,
+      messageText: "Hello from self-chat",
+      bodyText: "Hello from self-chat",
+      allowFrom: [],
+      groupAllowFrom: [],
+      groupPolicy: "open",
+      dmPolicy: "open",
+      storeAllowFrom: [],
+      historyLimit: 0,
+      groupHistories: new Map(),
+      echoCache: { has: echoHas, remember: echoRemember },
+      logVerbose: undefined,
+    });
+
+    expect(echoDecision).toEqual({ kind: "drop", reason: "echo" });
+  });
+});
+
 describe("describeIMessageEchoDropLog", () => {
   it("includes message id when available", () => {
     expect(

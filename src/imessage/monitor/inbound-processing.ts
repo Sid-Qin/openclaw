@@ -99,7 +99,10 @@ export function resolveIMessageInboundDecision(params: {
   storeAllowFrom: string[];
   historyLimit: number;
   groupHistories: Map<string, HistoryEntry[]>;
-  echoCache?: { has: (scope: string, lookup: { text?: string; messageId?: string }) => boolean };
+  echoCache?: {
+    has: (scope: string, lookup: { text?: string; messageId?: string }) => boolean;
+    remember?: (scope: string, lookup: { text?: string; messageId?: string }) => void;
+  };
   logVerbose?: (msg: string) => void;
 }): IMessageInboundDecision {
   const senderRaw = params.message.sender ?? "";
@@ -109,6 +112,20 @@ export function resolveIMessageInboundDecision(params: {
   }
   const senderNormalized = normalizeIMessageHandle(sender);
   if (params.message.is_from_me) {
+    // macOS self-chat creates a duplicate entry with is_from_me:false.
+    // Record the text in the echo cache so the duplicate is caught below (#32166).
+    const trimmedText = params.messageText?.trim();
+    if (params.echoCache?.remember && trimmedText) {
+      const chatId = params.message.chat_id ?? undefined;
+      const isGroup = Boolean(params.message.is_group);
+      const echoScope = buildIMessageEchoScope({
+        accountId: params.accountId,
+        isGroup,
+        chatId,
+        sender,
+      });
+      params.echoCache.remember(echoScope, { text: trimmedText });
+    }
     return { kind: "drop", reason: "from me" };
   }
 
