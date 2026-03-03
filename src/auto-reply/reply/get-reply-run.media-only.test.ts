@@ -327,6 +327,56 @@ describe("runPreparedReply media-only handling", () => {
     expect(call?.suppressTyping).toBe(true);
   });
 
+  it("allows webchat image-only messages via opts.images (#32474)", async () => {
+    const result = await runPreparedReply(
+      baseParams({
+        ctx: {
+          Body: "",
+          RawBody: "",
+          CommandBody: "",
+        },
+        sessionCtx: {
+          Body: "",
+          BodyStripped: "",
+          Provider: "webchat",
+        },
+        opts: {
+          images: [
+            { type: "image", source: { type: "base64", data: "abc", media_type: "image/png" } },
+          ],
+        },
+      }),
+    );
+
+    expect(result).toEqual({ text: "ok" });
+    expect(vi.mocked(runReplyAgent)).toHaveBeenCalled();
+  });
+
+  it("rejects webchat messages with empty opts.images array and no text", async () => {
+    const result = await runPreparedReply(
+      baseParams({
+        ctx: {
+          Body: "",
+          RawBody: "",
+          CommandBody: "",
+        },
+        sessionCtx: {
+          Body: "",
+          BodyStripped: "",
+          Provider: "webchat",
+        },
+        opts: {
+          images: [],
+        },
+      }),
+    );
+
+    expect(result).toEqual({
+      text: "I didn't receive any text in your message. Please resend or add a caption.",
+    });
+    expect(vi.mocked(runReplyAgent)).not.toHaveBeenCalled();
+  });
+
   it("routes queued system events to system prompt context, not user prompt text", async () => {
     vi.mocked(buildQueuedSystemPrompt).mockResolvedValueOnce(
       "## Runtime System Events (gateway-generated)\n- [t] Model switched.",
