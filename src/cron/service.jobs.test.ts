@@ -389,18 +389,18 @@ describe("createJob rejects sessionTarget main for non-default agents", () => {
     expect(() => createJob(state, mainJobInput("MAIN"))).not.toThrow();
   });
 
-  it("rejects creating a main-session job for a non-default agentId", () => {
+  it("allows creating a main-session job for a non-default agentId (#33155)", () => {
     const state = createMockState(now, { defaultAgentId: "main" });
-    expect(() => createJob(state, mainJobInput("custom-agent"))).toThrow(
-      'cron: sessionTarget "main" is only valid for the default agent',
-    );
+    const job = createJob(state, mainJobInput("custom-agent"));
+    expect(job.sessionTarget).toBe("main");
+    expect(job.agentId).toBe("custom-agent");
   });
 
-  it("rejects main-session job for non-default agent even without explicit defaultAgentId", () => {
+  it("allows main-session job for non-default agent even without explicit defaultAgentId (#33155)", () => {
     const state = createMockState(now);
-    expect(() => createJob(state, mainJobInput("custom-agent"))).toThrow(
-      'cron: sessionTarget "main" is only valid for the default agent',
-    );
+    const job = createJob(state, mainJobInput("custom-agent"));
+    expect(job.sessionTarget).toBe("main");
+    expect(job.agentId).toBe("custom-agent");
   });
 
   it("allows isolated session job for non-default agents", () => {
@@ -438,7 +438,7 @@ describe("createJob rejects sessionTarget main for non-default agents", () => {
   });
 });
 
-describe("applyJobPatch rejects sessionTarget main for non-default agents", () => {
+describe("applyJobPatch allows sessionTarget main for any agent (#33155)", () => {
   const now = Date.now();
 
   const createMainJob = (agentId?: string): CronJob => ({
@@ -455,13 +455,14 @@ describe("applyJobPatch rejects sessionTarget main for non-default agents", () =
     agentId,
   });
 
-  it("rejects patching agentId to non-default on a main-session job", () => {
+  it("allows patching agentId to non-default on a main-session job (#33155)", () => {
     const job = createMainJob();
     expect(() =>
       applyJobPatch(job, { agentId: "custom-agent" } as CronJobPatch, {
         defaultAgentId: "main",
       }),
-    ).toThrow('cron: sessionTarget "main" is only valid for the default agent');
+    ).not.toThrow();
+    expect(job.agentId).toBe("custom-agent");
   });
 
   it("allows patching agentId to the default agent on a main-session job", () => {
