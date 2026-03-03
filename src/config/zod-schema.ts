@@ -800,6 +800,12 @@ export const OpenClawSchema = z
       })
       .strict()
       .optional(),
+    tui: z
+      .object({
+        deliver: z.boolean().optional(),
+      })
+      .strict()
+      .optional(),
     plugins: z
       .object({
         enabled: z.boolean().optional(),

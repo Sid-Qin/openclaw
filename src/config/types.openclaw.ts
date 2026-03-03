@@ -114,6 +114,10 @@ export type OpenClawConfig = {
   talk?: TalkConfig;
   gateway?: GatewayConfig;
   memory?: MemoryConfig;
+  tui?: {
+    /** Default value for the --deliver flag in `openclaw tui`. */
+    deliver?: boolean;
+  };
 };
 
 export type ConfigValidationIssue = {

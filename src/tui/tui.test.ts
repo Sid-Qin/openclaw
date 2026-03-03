@@ -153,6 +153,31 @@ describe("resolveCtrlCAction", () => {
   });
 });
 
+describe("tui deliver config", () => {
+  function resolveDeliver(
+    cliFlag: boolean | undefined,
+    configValue: boolean | undefined,
+  ): boolean {
+    return cliFlag !== undefined ? Boolean(cliFlag) : (configValue ?? false);
+  }
+
+  it("resolves deliver from config when CLI flag is not set", () => {
+    expect(resolveDeliver(undefined, true)).toBe(true);
+  });
+
+  it("CLI --deliver flag overrides config", () => {
+    expect(resolveDeliver(true, false)).toBe(true);
+  });
+
+  it("CLI --no-deliver overrides config", () => {
+    expect(resolveDeliver(false, true)).toBe(false);
+  });
+
+  it("defaults to false when neither CLI nor config is set", () => {
+    expect(resolveDeliver(undefined, undefined)).toBe(false);
+  });
+});
+
 describe("TUI shutdown safety", () => {
   it("treats setRawMode EBADF errors as ignorable", () => {
     expect(isIgnorableTuiStopError(new Error("setRawMode EBADF"))).toBe(true);
