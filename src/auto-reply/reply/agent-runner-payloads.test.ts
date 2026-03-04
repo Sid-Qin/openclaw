@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildReplyPayloads } from "./agent-runner-payloads.js";
+import { createBlockReplyPayloadKey } from "./block-reply-pipeline.js";
 
 const baseParams = {
   isHeartbeat: false,
@@ -135,5 +136,25 @@ describe("buildReplyPayloads media filter integration", () => {
 
     expect(replyPayloads).toHaveLength(1);
     expect(replyPayloads[0]?.text).toBe("hello world!");
+  });
+});
+
+describe("createBlockReplyPayloadKey dedup (#33592)", () => {
+  it("produces the same key regardless of replyToId", () => {
+    const blockPayload = { text: "Hello!", replyToId: undefined };
+    const finalPayload = { text: "Hello!", replyToId: "msg-42" };
+    expect(createBlockReplyPayloadKey(blockPayload)).toBe(createBlockReplyPayloadKey(finalPayload));
+  });
+
+  it("still differentiates by text content", () => {
+    const a = { text: "Hello!" };
+    const b = { text: "Goodbye!" };
+    expect(createBlockReplyPayloadKey(a)).not.toBe(createBlockReplyPayloadKey(b));
+  });
+
+  it("still differentiates by media content", () => {
+    const a = { text: "photo", mediaUrl: "file:///a.jpg" };
+    const b = { text: "photo", mediaUrl: "file:///b.jpg" };
+    expect(createBlockReplyPayloadKey(a)).not.toBe(createBlockReplyPayloadKey(b));
   });
 });

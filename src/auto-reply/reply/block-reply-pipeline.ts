@@ -44,7 +44,6 @@ export function createBlockReplyPayloadKey(payload: ReplyPayload): string {
   return JSON.stringify({
     text,
     mediaList,
-    replyToId: payload.replyToId ?? null,
   });
 }
 
