@@ -268,10 +268,6 @@ function resolveHeartbeatSession(
   const store = loadSessionStore(storePath);
   const mainEntry = store[mainSessionKey];
 
-  if (scope === "global") {
-    return { sessionKey: mainSessionKey, storePath, store, entry: mainEntry };
-  }
-
   const forced = forcedSessionKey?.trim();
   if (forced) {
     const forcedCandidate = toAgentStoreSessionKey({
@@ -295,6 +291,10 @@ function resolveHeartbeatSession(
         };
       }
     }
+  }
+
+  if (scope === "global") {
+    return { sessionKey: mainSessionKey, storePath, store, entry: mainEntry };
   }
 
   const trimmed = heartbeat?.session?.trim() ?? "";
