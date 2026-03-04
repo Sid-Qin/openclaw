@@ -2,13 +2,36 @@ import { describe, expect, it } from "vitest";
 import { resolveMentionGating, resolveMentionGatingWithBypass } from "./mention-gating.js";
 
 describe("resolveMentionGating", () => {
-  it("combines explicit, implicit, and bypass mentions", () => {
+  it("suppresses implicit mention when requireMention is true", () => {
     const res = resolveMentionGating({
       requireMention: true,
       canDetectMention: true,
       wasMentioned: false,
       implicitMention: true,
       shouldBypassMention: false,
+    });
+    expect(res.effectiveWasMentioned).toBe(false);
+    expect(res.shouldSkip).toBe(true);
+  });
+
+  it("allows implicit mention when requireMention is false", () => {
+    const res = resolveMentionGating({
+      requireMention: false,
+      canDetectMention: true,
+      wasMentioned: false,
+      implicitMention: true,
+      shouldBypassMention: false,
+    });
+    expect(res.effectiveWasMentioned).toBe(true);
+    expect(res.shouldSkip).toBe(false);
+  });
+
+  it("allows explicit mention even when requireMention is true", () => {
+    const res = resolveMentionGating({
+      requireMention: true,
+      canDetectMention: true,
+      wasMentioned: true,
+      implicitMention: false,
     });
     expect(res.effectiveWasMentioned).toBe(true);
     expect(res.shouldSkip).toBe(false);
@@ -32,6 +55,18 @@ describe("resolveMentionGating", () => {
       canDetectMention: false,
       wasMentioned: false,
     });
+    expect(res.shouldSkip).toBe(false);
+  });
+
+  it("allows bypass even when requireMention suppresses implicit", () => {
+    const res = resolveMentionGating({
+      requireMention: true,
+      canDetectMention: true,
+      wasMentioned: false,
+      implicitMention: true,
+      shouldBypassMention: true,
+    });
+    expect(res.effectiveWasMentioned).toBe(true);
     expect(res.shouldSkip).toBe(false);
   });
 });
