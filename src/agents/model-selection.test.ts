@@ -12,6 +12,7 @@ import {
   modelKey,
   resolveAllowedModelRef,
   resolveConfiguredModelRef,
+  resolveSubagentConfiguredModelSelection,
   resolveThinkingDefault,
   resolveModelRefFromString,
 } from "./model-selection.js";
@@ -566,5 +567,76 @@ describe("normalizeModelSelection", () => {
     expect(normalizeModelSelection(undefined)).toBeUndefined();
     expect(normalizeModelSelection(null)).toBeUndefined();
     expect(normalizeModelSelection(42)).toBeUndefined();
+  });
+});
+
+describe("resolveSubagentConfiguredModelSelection", () => {
+  it("agent-level model takes priority over global defaults.subagents.model", () => {
+    const cfg = {
+      agents: {
+        defaults: {
+          subagents: { model: "anthropic/claude-sonnet-4-6" },
+        },
+        list: [{ id: "imagegen", model: "google/gemini-3.1-flash-image-preview" }],
+      },
+    } as OpenClawConfig;
+    expect(resolveSubagentConfiguredModelSelection({ cfg, agentId: "imagegen" })).toBe(
+      "google/gemini-3.1-flash-image-preview",
+    );
+  });
+
+  it("agent-level subagents.model takes highest priority", () => {
+    const cfg = {
+      agents: {
+        defaults: {
+          subagents: { model: "anthropic/claude-sonnet-4-6" },
+        },
+        list: [
+          {
+            id: "imagegen",
+            model: "google/gemini-3.1-flash-image-preview",
+            subagents: { model: "openai/gpt-5.2" },
+          },
+        ],
+      },
+    } as OpenClawConfig;
+    expect(resolveSubagentConfiguredModelSelection({ cfg, agentId: "imagegen" })).toBe(
+      "openai/gpt-5.2",
+    );
+  });
+
+  it("falls back to global defaults.subagents.model when agent has no model", () => {
+    const cfg = {
+      agents: {
+        defaults: {
+          subagents: { model: "anthropic/claude-sonnet-4-6" },
+        },
+        list: [{ id: "helper" }],
+      },
+    } as OpenClawConfig;
+    expect(resolveSubagentConfiguredModelSelection({ cfg, agentId: "helper" })).toBe(
+      "anthropic/claude-sonnet-4-6",
+    );
+  });
+
+  it("returns undefined when no model is configured at any level", () => {
+    const cfg = {
+      agents: {
+        list: [{ id: "bare" }],
+      },
+    } as OpenClawConfig;
+    expect(resolveSubagentConfiguredModelSelection({ cfg, agentId: "bare" })).toBeUndefined();
+  });
+
+  it("returns undefined for unknown agent", () => {
+    const cfg = {
+      agents: {
+        defaults: { subagents: { model: "anthropic/claude-sonnet-4-6" } },
+        list: [],
+      },
+    } as OpenClawConfig;
+    expect(resolveSubagentConfiguredModelSelection({ cfg, agentId: "missing" })).toBe(
+      "anthropic/claude-sonnet-4-6",
+    );
   });
 });
