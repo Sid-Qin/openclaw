@@ -84,7 +84,7 @@ function emitMemorySecretResolveDiagnostics(
 function formatSourceLabel(source: string, workspaceDir: string, agentId: string): string {
   if (source === "memory") {
     return shortenHomeInString(
-      `memory (MEMORY.md + ${path.join(workspaceDir, "memory")}${path.sep}*.md)`,
+      `memory (MEMORY.md + ${path.join(workspaceDir, "memory")}${path.sep}**${path.sep}*.md)`,
     );
   }
   if (source === "sessions") {
