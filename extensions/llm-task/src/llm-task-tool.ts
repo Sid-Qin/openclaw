@@ -24,8 +24,9 @@ async function loadRunEmbeddedPiAgent(): Promise<RunEmbeddedPiAgentFn> {
     // ignore
   }
 
-  // Bundled install (built)
-  const mod = await import("../../../dist/extensionAPI.js");
+  // Bundled install (built) — use variable so TS skips module resolution for dist/
+  const distEntry = "../../../dist/extensionAPI.js";
+  const mod = await import(distEntry);
   if (typeof mod.runEmbeddedPiAgent !== "function") {
     throw new Error("Internal error: runEmbeddedPiAgent not available");
   }

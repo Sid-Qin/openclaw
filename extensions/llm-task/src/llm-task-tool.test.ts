@@ -130,10 +130,11 @@ describe("llm-task tool (json-only)", () => {
         "utf-8",
       ),
     );
-    const importLines = [...source.matchAll(/await import\(["']([^"']+)["']\)/g)].map((m) => m[1]);
-    expect(importLines).toHaveLength(2);
-    expect(importLines[0]).toContain("src/agents/pi-embedded-runner");
-    expect(importLines[1]).toContain("dist/extensionAPI");
+    expect(source).toContain("src/agents/pi-embedded-runner");
+    expect(source).toContain("dist/extensionAPI.js");
+    expect(source).not.toMatch(
+      /Bundled install[\s\S]*?await import\(["']\.\.\/\.\.\/\.\.\/src\/agents/,
+    );
   });
 
   it("disables tools for embedded run", async () => {
