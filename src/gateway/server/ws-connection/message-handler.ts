@@ -1032,7 +1032,11 @@ export function attachGatewayWsMessageHandler(params: {
           type: "hello-ok",
           protocol: PROTOCOL_VERSION,
           server: {
-            version: resolveRuntimeServiceVersion(process.env),
+            version: resolveRuntimeServiceVersion(
+              process.env,
+              undefined,
+              loadConfig()?.wizard?.lastRunVersion,
+            ),
             connId,
           },
           features: { methods: gatewayMethods, events },

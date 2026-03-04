@@ -105,6 +105,7 @@ export function resolveUsableRuntimeVersion(version: string | undefined): string
 export function resolveRuntimeServiceVersion(
   env: RuntimeVersionEnv = process.env as RuntimeVersionEnv,
   fallback = RUNTIME_SERVICE_VERSION_FALLBACK,
+  configVersionHint?: string,
 ): string {
   const runtimeVersion = resolveUsableRuntimeVersion(VERSION);
 
@@ -114,6 +115,7 @@ export function resolveRuntimeServiceVersion(
       runtimeVersion,
       env["OPENCLAW_SERVICE_VERSION"],
       env["npm_package_version"],
+      configVersionHint,
     ) ?? fallback
   );
 }
