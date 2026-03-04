@@ -307,6 +307,9 @@ export async function sendMessageDiscord(
       ).catch(() => null);
       if (dmFallback?.channelId) {
         try {
+          // replyTo is intentionally not cleared: the original message ID is invalid
+          // in a DM context, but fail_if_not_exists: false ensures Discord silently
+          // ignores the stale reference rather than erroring.
           result = await sendToChannel(dmFallback.channelId);
         } catch (retryErr) {
           throw await buildDiscordSendError(retryErr, {
