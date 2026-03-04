@@ -362,7 +362,7 @@ describe("chat directive tag stripping for non-streaming final payloads", () => 
     expect(extractFirstTextBlock(payload)).toBe("hello");
   });
 
-  it("chat.send inherits originating routing metadata from session delivery context", async () => {
+  it("chat.send keeps explicit delivery routes for channel-scoped sessions", async () => {
     createTranscriptFixture("openclaw-chat-send-origin-routing-");
     mockState.finalText = "ok";
     mockState.sessionEntry = {
@@ -400,7 +400,7 @@ describe("chat directive tag stripping for non-streaming final payloads", () => 
     );
   });
 
-  it("chat.send inherits Feishu routing metadata from session delivery context", async () => {
+  it("chat.send keeps explicit delivery routes for Feishu channel-scoped sessions", async () => {
     createTranscriptFixture("openclaw-chat-send-feishu-origin-routing-");
     mockState.finalText = "ok";
     mockState.sessionEntry = {
@@ -429,12 +429,13 @@ describe("chat directive tag stripping for non-streaming final payloads", () => 
       expect.objectContaining({
         OriginatingChannel: "feishu",
         OriginatingTo: "ou_feishu_direct_123",
+        ExplicitDeliverRoute: true,
         AccountId: "default",
       }),
     );
   });
 
-  it("chat.send inherits routing metadata for per-account channel-peer session keys", async () => {
+  it("chat.send keeps explicit delivery routes for per-account channel-peer sessions", async () => {
     createTranscriptFixture("openclaw-chat-send-per-account-channel-peer-routing-");
     mockState.finalText = "ok";
     mockState.sessionEntry = {
@@ -463,12 +464,13 @@ describe("chat directive tag stripping for non-streaming final payloads", () => 
       expect.objectContaining({
         OriginatingChannel: "telegram",
         OriginatingTo: "telegram:6812765697",
+        ExplicitDeliverRoute: true,
         AccountId: "account-a",
       }),
     );
   });
 
-  it("chat.send inherits routing metadata for legacy channel-peer session keys", async () => {
+  it("chat.send keeps explicit delivery routes for legacy channel-peer sessions", async () => {
     createTranscriptFixture("openclaw-chat-send-legacy-channel-peer-routing-");
     mockState.finalText = "ok";
     mockState.sessionEntry = {
@@ -497,12 +499,13 @@ describe("chat directive tag stripping for non-streaming final payloads", () => 
       expect.objectContaining({
         OriginatingChannel: "telegram",
         OriginatingTo: "telegram:6812765697",
+        ExplicitDeliverRoute: true,
         AccountId: "default",
       }),
     );
   });
 
-  it("chat.send inherits routing metadata for legacy channel-peer thread session keys", async () => {
+  it("chat.send keeps explicit delivery routes for legacy thread sessions", async () => {
     createTranscriptFixture("openclaw-chat-send-legacy-thread-channel-peer-routing-");
     mockState.finalText = "ok";
     mockState.sessionEntry = {
@@ -533,6 +536,7 @@ describe("chat directive tag stripping for non-streaming final payloads", () => 
       expect.objectContaining({
         OriginatingChannel: "telegram",
         OriginatingTo: "telegram:6812765697",
+        ExplicitDeliverRoute: true,
         AccountId: "default",
         MessageThreadId: "42",
       }),
