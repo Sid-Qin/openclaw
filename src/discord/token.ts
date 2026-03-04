@@ -1,6 +1,6 @@
 import type { BaseTokenResolution } from "../channels/plugins/types.js";
 import type { OpenClawConfig } from "../config/config.js";
-import { normalizeResolvedSecretInputString } from "../config/types.secrets.js";
+import { normalizeSecretInputStringTolerant } from "../config/types.secrets.js";
 import { DEFAULT_ACCOUNT_ID, normalizeAccountId } from "../routing/session-key.js";
 
 export type DiscordTokenSource = "env" | "config" | "none";
@@ -9,8 +9,8 @@ export type DiscordTokenResolution = BaseTokenResolution & {
   source: DiscordTokenSource;
 };
 
-export function normalizeDiscordToken(raw: unknown, path: string): string | undefined {
-  const trimmed = normalizeResolvedSecretInputString({ value: raw, path });
+export function normalizeDiscordToken(raw: unknown, _path: string): string | undefined {
+  const trimmed = normalizeSecretInputStringTolerant({ value: raw });
   if (!trimmed) {
     return undefined;
   }

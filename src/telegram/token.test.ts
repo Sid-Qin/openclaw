@@ -127,7 +127,8 @@ describe("resolveTelegramToken", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  it("throws when botToken is an unresolved SecretRef object", () => {
+  it("returns source none when botToken is an unresolved SecretRef object", () => {
+    vi.stubEnv("TELEGRAM_BOT_TOKEN", "");
     const cfg = {
       channels: {
         telegram: {
@@ -136,9 +137,24 @@ describe("resolveTelegramToken", () => {
       },
     } as unknown as OpenClawConfig;
 
-    expect(() => resolveTelegramToken(cfg)).toThrow(
-      /channels\.telegram\.botToken: unresolved SecretRef/i,
-    );
+    const res = resolveTelegramToken(cfg);
+    expect(res.token).toBe("");
+    expect(res.source).toBe("none");
+  });
+
+  it("falls through to env when botToken is an unresolved SecretRef", () => {
+    vi.stubEnv("TELEGRAM_BOT_TOKEN", "env-fallback");
+    const cfg = {
+      channels: {
+        telegram: {
+          botToken: { source: "env", provider: "default", id: "TELEGRAM_BOT_TOKEN" },
+        },
+      },
+    } as unknown as OpenClawConfig;
+
+    const res = resolveTelegramToken(cfg);
+    expect(res.token).toBe("env-fallback");
+    expect(res.source).toBe("env");
   });
 });
 

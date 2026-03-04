@@ -233,6 +233,7 @@ export {
   isSecretRef,
   normalizeResolvedSecretInputString,
   normalizeSecretInputString,
+  normalizeSecretInputStringTolerant,
 } from "../config/types.secrets.js";
 export type { SecretInput, SecretRef } from "../config/types.secrets.js";
 export { ToolPolicySchema } from "../config/zod-schema.agent-runtime.js";

@@ -150,6 +150,32 @@ export function normalizeResolvedSecretInputString(params: {
   return undefined;
 }
 
+/**
+ * Same as {@link normalizeResolvedSecretInputString} but returns `undefined`
+ * instead of throwing when the value is an unresolved SecretRef. Useful for
+ * diagnostic / status code paths where resolution may be incomplete and the
+ * caller can fall through to alternative resolution (e.g. env vars).
+ */
+export function normalizeSecretInputStringTolerant(params: {
+  value: unknown;
+  refValue?: unknown;
+  defaults?: SecretDefaults;
+}): string | undefined {
+  const normalized = normalizeSecretInputString(params.value);
+  if (normalized) {
+    return normalized;
+  }
+  const { ref } = resolveSecretInputRef({
+    value: params.value,
+    refValue: params.refValue,
+    defaults: params.defaults,
+  });
+  if (ref) {
+    return undefined;
+  }
+  return undefined;
+}
+
 export function resolveSecretInputRef(params: {
   value: unknown;
   refValue?: unknown;
