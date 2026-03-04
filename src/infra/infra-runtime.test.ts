@@ -12,6 +12,7 @@ import {
   scheduleGatewaySigusr1Restart,
   setGatewaySigusr1RestartPolicy,
   setPreRestartDeferralCheck,
+  triggerOpenClawRestart,
 } from "./restart.js";
 import { createTelegramRetryRunner } from "./retry-policy.js";
 import { listTailnetAddresses } from "./tailnet.js";
@@ -178,7 +179,6 @@ describe("infra runtime", () => {
 
   describe("triggerOpenClawRestart cooldown", () => {
     it("coalesces rapid triggerOpenClawRestart calls within cooldown window", () => {
-      const { triggerOpenClawRestart } = require("./restart.js");
       const first = triggerOpenClawRestart();
       const second = triggerOpenClawRestart();
 
