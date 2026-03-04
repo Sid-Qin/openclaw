@@ -274,6 +274,30 @@ describe("restart-helper", () => {
     });
   });
 
+  describe("macOS recovery after interrupted refresh (#34534)", () => {
+    it("script bootstraps plist then kickstarts when initial kickstart fails", async () => {
+      Object.defineProperty(process, "platform", { value: "darwin" });
+      process.getuid = () => 501;
+
+      const { scriptPath, content } = await prepareAndReadScript({
+        HOME: "/Users/testuser",
+        OPENCLAW_PROFILE: "default",
+      });
+
+      const kickstartIdx = content.indexOf("launchctl kickstart -k");
+      const bootstrapIdx = content.indexOf("launchctl bootstrap");
+      const secondKickstartIdx = content.indexOf("launchctl kickstart -k", bootstrapIdx);
+
+      expect(kickstartIdx).toBeGreaterThanOrEqual(0);
+      expect(bootstrapIdx).toBeGreaterThan(kickstartIdx);
+      expect(secondKickstartIdx).toBeGreaterThan(bootstrapIdx);
+
+      expect(content).toContain("if ! launchctl kickstart");
+
+      await cleanupScript(scriptPath);
+    });
+  });
+
   describe("runRestartScript", () => {
     it("spawns the script as a detached process on Linux", async () => {
       Object.defineProperty(process, "platform", { value: "linux" });

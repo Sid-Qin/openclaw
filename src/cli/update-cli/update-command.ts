@@ -519,6 +519,19 @@ async function maybeRestartService(params: {
     try {
       let restarted = false;
       let restartInitiated = false;
+
+      // Spawn the detached restart script BEFORE refreshing the service env.
+      // `refreshGatewayServiceEnv` runs `gateway install --force` which performs
+      // launchctl bootout → bootstrap → kickstart -k.  The kickstart may kill
+      // the current process tree when the update CLI runs inside the gateway
+      // daemon.  By spawning the detached script first it acts as a safety net:
+      // if the in-process refresh is interrupted mid-sequence (after bootout but
+      // before bootstrap), the script recovers via bootstrap + kickstart (#34534).
+      if (params.restartScriptPath) {
+        await runRestartScript(params.restartScriptPath);
+        restartInitiated = true;
+      }
+
       if (params.refreshServiceEnv) {
         try {
           await refreshGatewayServiceEnv({
@@ -535,10 +548,8 @@ async function maybeRestartService(params: {
           }
         }
       }
-      if (params.restartScriptPath) {
-        await runRestartScript(params.restartScriptPath);
-        restartInitiated = true;
-      } else {
+
+      if (!restartInitiated) {
         restarted = await runDaemonRestart();
       }
 
