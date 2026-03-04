@@ -302,6 +302,59 @@ describe("gateway sessions patch", () => {
     expectPatchError(result, "invalid groupActivation");
   });
 
+  test("resolves provider-scoped shorthand (nvidia/kimi) to unique allowlisted model", async () => {
+    const cfg = {
+      agents: {
+        defaults: {
+          model: { primary: "anthropic/claude-sonnet-4-6" },
+          models: {
+            "nvidia/moonshotai/kimi-k2.5": {},
+            "anthropic/claude-sonnet-4-6": { alias: "sonnet" },
+          },
+        },
+      },
+    } as OpenClawConfig;
+
+    const entry = expectPatchOk(
+      await runPatch({
+        cfg,
+        patch: { key: MAIN_SESSION_KEY, model: "nvidia/kimi" },
+        loadGatewayModelCatalog: async () => [
+          { provider: "anthropic", id: "claude-sonnet-4-6", name: "sonnet" },
+          { provider: "nvidia", id: "moonshotai/kimi-k2.5", name: "kimi" },
+        ],
+      }),
+    );
+    expect(entry.providerOverride).toBe("nvidia");
+    expect(entry.modelOverride).toBe("moonshotai/kimi-k2.5");
+  });
+
+  test("rejects ambiguous provider-scoped shorthand", async () => {
+    const cfg = {
+      agents: {
+        defaults: {
+          model: { primary: "anthropic/claude-sonnet-4-6" },
+          models: {
+            "nvidia/moonshotai/kimi-k2.5": {},
+            "nvidia/kimi-pro": {},
+            "anthropic/claude-sonnet-4-6": { alias: "sonnet" },
+          },
+        },
+      },
+    } as OpenClawConfig;
+
+    const result = await runPatch({
+      cfg,
+      patch: { key: MAIN_SESSION_KEY, model: "nvidia/kimi" },
+      loadGatewayModelCatalog: async () => [
+        { provider: "anthropic", id: "claude-sonnet-4-6", name: "sonnet" },
+        { provider: "nvidia", id: "moonshotai/kimi-k2.5", name: "kimi" },
+        { provider: "nvidia", id: "kimi-pro", name: "kimi-pro" },
+      ],
+    });
+    expectPatchError(result, "ambiguous model shorthand");
+  });
+
   test("allows target agent own model for subagent session even when missing from global allowlist", async () => {
     const cfg = makeKimiSubagentCfg({
       agentPrimaryModel: "synthetic/hf:moonshotai/Kimi-K2.5",

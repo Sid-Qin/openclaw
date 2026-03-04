@@ -318,6 +318,86 @@ describe("model-selection", () => {
       });
     });
 
+    it("resolves provider-scoped shorthand to unique allowlisted model", () => {
+      const cfg = {
+        agents: {
+          defaults: {
+            model: { primary: "anthropic/claude-sonnet-4-6" },
+            models: {
+              "nvidia/moonshotai/kimi-k2.5": {},
+              "anthropic/claude-sonnet-4-6": { alias: "sonnet" },
+            },
+          },
+        },
+      } as OpenClawConfig;
+
+      const result = resolveAllowedModelRef({
+        cfg,
+        catalog: [],
+        raw: "nvidia/kimi",
+        defaultProvider: "anthropic",
+      });
+
+      expect(result).toEqual({
+        key: "nvidia/moonshotai/kimi-k2.5",
+        ref: { provider: "nvidia", model: "moonshotai/kimi-k2.5" },
+      });
+    });
+
+    it("returns ambiguity error when provider-scoped shorthand matches multiple models", () => {
+      const cfg = {
+        agents: {
+          defaults: {
+            model: { primary: "anthropic/claude-sonnet-4-6" },
+            models: {
+              "nvidia/moonshotai/kimi-k2.5": {},
+              "nvidia/kimi-pro": {},
+              "anthropic/claude-sonnet-4-6": { alias: "sonnet" },
+            },
+          },
+        },
+      } as OpenClawConfig;
+
+      const result = resolveAllowedModelRef({
+        cfg,
+        catalog: [],
+        raw: "nvidia/kimi",
+        defaultProvider: "anthropic",
+      });
+
+      expect("error" in result).toBe(true);
+      if ("error" in result) {
+        expect(result.error).toContain("ambiguous model shorthand");
+        expect(result.error).toContain("nvidia/kimi");
+      }
+    });
+
+    it("does not apply shorthand resolution for bare model names without provider", () => {
+      const cfg = {
+        agents: {
+          defaults: {
+            model: { primary: "anthropic/claude-sonnet-4-6" },
+            models: {
+              "nvidia/moonshotai/kimi-k2.5": {},
+              "anthropic/claude-sonnet-4-6": { alias: "sonnet" },
+            },
+          },
+        },
+      } as OpenClawConfig;
+
+      const result = resolveAllowedModelRef({
+        cfg,
+        catalog: [],
+        raw: "kimi",
+        defaultProvider: "anthropic",
+      });
+
+      expect("error" in result).toBe(true);
+      if ("error" in result) {
+        expect(result.error).toContain("model not allowed");
+      }
+    });
+
     it("strips trailing auth profile suffix before allowlist matching", () => {
       const cfg: OpenClawConfig = {
         agents: {

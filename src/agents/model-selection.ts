@@ -526,6 +526,47 @@ export function resolveAllowedModelRef(params: {
     defaultModel: params.defaultModel,
   });
   if (!status.allowed) {
+    // Provider-scoped shorthand resolution: when the raw input has an explicit
+    // provider (contains "/") and the model segment is a simple name (no "/"),
+    // try fuzzy-matching against allowlisted models under the same provider.
+    if (trimmed.includes("/") && !resolved.ref.model.includes("/")) {
+      const shorthandLower = resolved.ref.model.toLowerCase();
+      const allowed = buildAllowedModelSet({
+        cfg: params.cfg,
+        catalog: params.catalog,
+        defaultProvider: params.defaultProvider,
+        defaultModel: params.defaultModel,
+      });
+
+      if (!allowed.allowAny) {
+        const matches: ModelRef[] = [];
+        for (const key of allowed.allowedKeys) {
+          const slashIdx = key.indexOf("/");
+          if (slashIdx === -1) continue;
+          const keyProvider = key.slice(0, slashIdx);
+          const keyModel = key.slice(slashIdx + 1);
+          if (keyProvider !== resolved.ref.provider) continue;
+
+          const segments = keyModel.toLowerCase().split("/");
+          if (segments.some((seg) => seg.startsWith(shorthandLower))) {
+            matches.push({ provider: keyProvider, model: keyModel });
+          }
+        }
+
+        if (matches.length === 1) {
+          const match = matches[0]!;
+          const matchKey = modelKey(match.provider, match.model);
+          return { ref: match, key: matchKey };
+        }
+        if (matches.length > 1) {
+          const matchKeys = matches.map((m) => modelKey(m.provider, m.model)).join(", ");
+          return {
+            error: `ambiguous model shorthand "${trimmed}": matches ${matchKeys}`,
+          };
+        }
+      }
+    }
+
     return { error: `model not allowed: ${status.key}` };
   }
 
