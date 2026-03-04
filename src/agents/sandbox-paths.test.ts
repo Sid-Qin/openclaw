@@ -4,7 +4,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 import { resolvePreferredOpenClawTmpDir } from "../infra/tmp-openclaw-dir.js";
-import { resolveSandboxedMediaSource } from "./sandbox-paths.js";
+import { resolveSandboxPath, resolveSandboxedMediaSource } from "./sandbox-paths.js";
 
 async function withSandboxRoot<T>(run: (sandboxDir: string) => Promise<T>) {
   const sandboxDir = await fs.mkdtemp(path.join(os.tmpdir(), "sandbox-media-"));
@@ -276,5 +276,62 @@ describe("resolveSandboxedMediaSource", () => {
       sandboxRoot: "/any/path",
     });
     expect(result).toBe("");
+  });
+});
+
+describe("resolveSandboxPath with additionalRoots", () => {
+  it("accepts a path inside an additionalRoot", async () => {
+    await withSandboxRoot(async (sandboxDir) => {
+      const extraRoot = path.join(os.tmpdir(), "extra-allowed-root");
+      const targetFile = path.join(extraRoot, "data", "file.txt");
+      const result = resolveSandboxPath({
+        filePath: targetFile,
+        cwd: sandboxDir,
+        root: sandboxDir,
+        additionalRoots: [extraRoot],
+      });
+      expect(result.resolved).toBe(path.resolve(targetFile));
+      expect(result.relative).toBe(path.join("data", "file.txt"));
+    });
+  });
+
+  it("rejects a path outside all roots", async () => {
+    await withSandboxRoot(async (sandboxDir) => {
+      const extraRoot = path.join(os.tmpdir(), "extra-allowed-root");
+      expect(() =>
+        resolveSandboxPath({
+          filePath: "/etc/passwd",
+          cwd: sandboxDir,
+          root: sandboxDir,
+          additionalRoots: [extraRoot],
+        }),
+      ).toThrow(/sandbox/i);
+    });
+  });
+
+  it("works correctly when no additionalRoots are provided", async () => {
+    await withSandboxRoot(async (sandboxDir) => {
+      const inside = path.join(sandboxDir, "child.txt");
+      const result = resolveSandboxPath({
+        filePath: inside,
+        cwd: sandboxDir,
+        root: sandboxDir,
+      });
+      expect(result.resolved).toBe(path.resolve(inside));
+      expect(result.relative).toBe("child.txt");
+    });
+  });
+
+  it("still rejects escaping paths when additionalRoots is empty", async () => {
+    await withSandboxRoot(async (sandboxDir) => {
+      expect(() =>
+        resolveSandboxPath({
+          filePath: "/etc/passwd",
+          cwd: sandboxDir,
+          root: sandboxDir,
+          additionalRoots: [],
+        }),
+      ).toThrow(/sandbox/i);
+    });
   });
 });

@@ -279,6 +279,8 @@ export type FsToolsConfig = {
    * Default: false (unrestricted, matches legacy behavior).
    */
   workspaceOnly?: boolean;
+  /** Additional directory roots allowed for fs operations when workspaceOnly is true. */
+  allowedRoots?: string[];
 };
 
 export type AgentToolsConfig = {

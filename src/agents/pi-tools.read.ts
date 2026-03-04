@@ -350,8 +350,12 @@ async function normalizeReadImageResult(
   return { ...result, content: nextContent };
 }
 
-export function wrapToolWorkspaceRootGuard(tool: AnyAgentTool, root: string): AnyAgentTool {
-  return wrapToolWorkspaceRootGuardWithOptions(tool, root);
+export function wrapToolWorkspaceRootGuard(
+  tool: AnyAgentTool,
+  root: string,
+  options?: { additionalRoots?: string[] },
+): AnyAgentTool {
+  return wrapToolWorkspaceRootGuardWithOptions(tool, root, options);
 }
 
 function mapContainerPathToWorkspaceRoot(params: {
@@ -411,6 +415,7 @@ export function wrapToolWorkspaceRootGuardWithOptions(
   root: string,
   options?: {
     containerWorkdir?: string;
+    additionalRoots?: string[];
   },
 ): AnyAgentTool {
   return {
@@ -427,7 +432,12 @@ export function wrapToolWorkspaceRootGuardWithOptions(
           root,
           containerWorkdir: options?.containerWorkdir,
         });
-        await assertSandboxPath({ filePath: sandboxPath, cwd: root, root });
+        await assertSandboxPath({
+          filePath: sandboxPath,
+          cwd: root,
+          root,
+          additionalRoots: options?.additionalRoots,
+        });
       }
       return tool.execute(toolCallId, normalized ?? args, signal, onUpdate);
     },

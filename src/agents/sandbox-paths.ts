@@ -41,7 +41,12 @@ export function resolveSandboxInputPath(filePath: string, cwd: string): string {
   return resolveToCwd(filePath, cwd);
 }
 
-export function resolveSandboxPath(params: { filePath: string; cwd: string; root: string }): {
+export function resolveSandboxPath(params: {
+  filePath: string;
+  cwd: string;
+  root: string;
+  additionalRoots?: string[];
+}): {
   resolved: string;
   relative: string;
 } {
@@ -52,6 +57,18 @@ export function resolveSandboxPath(params: { filePath: string; cwd: string; root
     return { resolved, relative: "" };
   }
   if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    if (params.additionalRoots?.length) {
+      for (const extraRoot of params.additionalRoots) {
+        const resolvedExtra = path.resolve(extraRoot);
+        const extraRelative = path.relative(resolvedExtra, resolved);
+        if (
+          extraRelative === "" ||
+          (!extraRelative.startsWith("..") && !path.isAbsolute(extraRelative))
+        ) {
+          return { resolved, relative: extraRelative };
+        }
+      }
+    }
     throw new Error(`Path escapes sandbox root (${shortPath(rootResolved)}): ${params.filePath}`);
   }
   return { resolved, relative };
@@ -61,6 +78,7 @@ export async function assertSandboxPath(params: {
   filePath: string;
   cwd: string;
   root: string;
+  additionalRoots?: string[];
   allowFinalSymlinkForUnlink?: boolean;
   allowFinalHardlinkForUnlink?: boolean;
 }) {
