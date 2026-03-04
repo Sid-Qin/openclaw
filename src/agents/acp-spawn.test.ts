@@ -406,6 +406,40 @@ describe("spawnAcpDirect", () => {
     expect(hoisted.initializeSessionMock).not.toHaveBeenCalled();
   });
 
+  it("closes runtime when agent dispatch fails after session init", async () => {
+    hoisted.callGatewayMock.mockImplementation(async (argsUnknown: unknown) => {
+      const args = argsUnknown as { method?: string };
+      if (args.method === "sessions.patch") {
+        return { ok: true };
+      }
+      if (args.method === "agent") {
+        throw new Error("gateway dispatch timeout");
+      }
+      if (args.method === "sessions.delete") {
+        return { ok: true };
+      }
+      return {};
+    });
+
+    const result = await spawnAcpDirect(
+      {
+        task: "hello",
+        agentId: "codex",
+      },
+      {
+        agentSessionKey: "agent:main:main",
+      },
+    );
+
+    expect(result.status).toBe("error");
+    expect(result.error).toContain("gateway dispatch timeout");
+
+    const initResult = await hoisted.initializeSessionMock.mock.results[0]?.value;
+    expect(initResult?.runtime?.close).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: "spawn-failed" }),
+    );
+  });
+
   it('forbids sandbox="require" for runtime=acp', async () => {
     const result = await spawnAcpDirect(
       {
