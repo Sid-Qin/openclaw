@@ -1406,6 +1406,16 @@ function detectEmptyAllowlistPolicy(cfg: OpenClawConfig): string[] {
         }
       }
     }
+
+    if (groupPolicy === "allowlist" && channelName === "discord") {
+      const guilds = asObjectRecord(account.guilds) ?? asObjectRecord(parent?.guilds);
+      const hasGuilds = guilds !== null && Object.keys(guilds).length > 0;
+      if (!hasGuilds) {
+        warnings.push(
+          `- ${prefix}.groupPolicy is "allowlist" but no guilds are configured — all guild messages will be silently dropped. Add guild entries to ${prefix}.guilds, or set groupPolicy to "open".`,
+        );
+      }
+    }
   };
 
   for (const [channelName, channelConfig] of Object.entries(

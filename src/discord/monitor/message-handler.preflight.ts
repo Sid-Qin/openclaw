@@ -474,6 +474,16 @@ export async function preflightDiscordMessage(
   const channelAllowed = channelConfig?.allowed !== false;
   if (
     isGuildMessage &&
+    params.groupPolicy === "allowlist" &&
+    (!params.guildEntries || Object.keys(params.guildEntries).length === 0)
+  ) {
+    logger.warn(
+      { guildId: params.data.guild_id },
+      "Discord groupPolicy is 'allowlist' but no guilds are configured — all guild messages will be dropped",
+    );
+  }
+  if (
+    isGuildMessage &&
     !isDiscordGroupAllowedByPolicy({
       groupPolicy: params.groupPolicy,
       guildAllowlisted: Boolean(guildInfo),

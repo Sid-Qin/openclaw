@@ -55,4 +55,50 @@ describe("resolveDiscordAccount allowFrom precedence", () => {
 
     expect(resolved.config.allowFrom).toBeUndefined();
   });
+
+  it("inherits base guilds when account sets groupPolicy=allowlist without own guilds", () => {
+    const resolved = resolveDiscordAccount({
+      cfg: {
+        channels: {
+          discord: {
+            guilds: {
+              "guild-1": { requireMention: false },
+            },
+            accounts: {
+              default: { groupPolicy: "allowlist", token: "token-default" },
+            },
+          },
+        },
+      },
+      accountId: "default",
+    });
+
+    expect(resolved.config.groupPolicy).toBe("allowlist");
+    expect(resolved.config.guilds).toEqual({ "guild-1": { requireMention: false } });
+  });
+
+  it("uses account guilds when account overrides guilds", () => {
+    const resolved = resolveDiscordAccount({
+      cfg: {
+        channels: {
+          discord: {
+            guilds: {
+              "guild-1": { requireMention: false },
+            },
+            accounts: {
+              default: {
+                groupPolicy: "allowlist",
+                guilds: { "guild-2": { requireMention: true } },
+                token: "token-default",
+              },
+            },
+          },
+        },
+      },
+      accountId: "default",
+    });
+
+    expect(resolved.config.groupPolicy).toBe("allowlist");
+    expect(resolved.config.guilds).toEqual({ "guild-2": { requireMention: true } });
+  });
 });
