@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   GROUP_POLICY_BLOCKED_LABEL,
+  normalizeGroupPolicy,
   resetMissingProviderGroupPolicyFallbackWarningsForTesting,
   resolveAllowlistProviderRuntimeGroupPolicy,
   resolveDefaultGroupPolicy,
@@ -71,6 +72,44 @@ describe("resolveDefaultGroupPolicy", () => {
       channels: { defaults: { groupPolicy: "disabled" } },
     });
     expect(resolved).toBe("disabled");
+  });
+});
+
+describe("normalizeGroupPolicy", () => {
+  it.each([
+    ["open", "open"],
+    ["disabled", "disabled"],
+    ["allowlist", "allowlist"],
+    ["allow", "open"],
+    ["allowed", "open"],
+    ["enabled", "open"],
+    ["deny", "disabled"],
+    ["denied", "disabled"],
+    ["block", "disabled"],
+    ["blocked", "disabled"],
+    ["whitelist", "allowlist"],
+  ])("normalizes %s → %s", (input, expected) => {
+    expect(normalizeGroupPolicy(input)).toBe(expected);
+  });
+
+  it("is case-insensitive", () => {
+    expect(normalizeGroupPolicy("Allow")).toBe("open");
+    expect(normalizeGroupPolicy("OPEN")).toBe("open");
+    expect(normalizeGroupPolicy("Disabled")).toBe("disabled");
+  });
+
+  it("returns undefined for undefined input", () => {
+    expect(normalizeGroupPolicy(undefined)).toBeUndefined();
+  });
+});
+
+describe("resolveRuntimeGroupPolicy with aliases", () => {
+  it("normalizes 'allow' to 'open' when provider config is present", () => {
+    const resolved = resolveRuntimeGroupPolicy({
+      providerConfigPresent: true,
+      groupPolicy: "allow" as never,
+    });
+    expect(resolved.groupPolicy).toBe("open");
   });
 });
 

@@ -1,5 +1,27 @@
 import type { GroupPolicy } from "./types.base.js";
 
+const GROUP_POLICY_ALIASES: Record<string, GroupPolicy> = {
+  allow: "open",
+  allowed: "open",
+  enabled: "open",
+  deny: "disabled",
+  denied: "disabled",
+  block: "disabled",
+  blocked: "disabled",
+  whitelist: "allowlist",
+};
+
+export function normalizeGroupPolicy(raw: string | undefined): GroupPolicy | undefined {
+  if (raw === undefined) {
+    return undefined;
+  }
+  const lower = raw.trim().toLowerCase();
+  if (lower === "open" || lower === "disabled" || lower === "allowlist") {
+    return lower;
+  }
+  return GROUP_POLICY_ALIASES[lower] ?? (raw as GroupPolicy);
+}
+
 export type RuntimeGroupPolicyResolution = {
   groupPolicy: GroupPolicy;
   providerMissingFallbackApplied: boolean;
@@ -18,9 +40,11 @@ export function resolveRuntimeGroupPolicy(
 ): RuntimeGroupPolicyResolution {
   const configuredFallbackPolicy = params.configuredFallbackPolicy ?? "open";
   const missingProviderFallbackPolicy = params.missingProviderFallbackPolicy ?? "allowlist";
+  const normalized = normalizeGroupPolicy(params.groupPolicy);
+  const normalizedDefault = normalizeGroupPolicy(params.defaultGroupPolicy);
   const groupPolicy = params.providerConfigPresent
-    ? (params.groupPolicy ?? params.defaultGroupPolicy ?? configuredFallbackPolicy)
-    : (params.groupPolicy ?? missingProviderFallbackPolicy);
+    ? (normalized ?? normalizedDefault ?? configuredFallbackPolicy)
+    : (normalized ?? missingProviderFallbackPolicy);
   const providerMissingFallbackApplied =
     !params.providerConfigPresent && params.groupPolicy === undefined;
   return { groupPolicy, providerMissingFallbackApplied };
