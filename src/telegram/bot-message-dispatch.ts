@@ -585,6 +585,10 @@ export const dispatchTelegramMessage = async ({
               const payloadWithoutSuppressedReasoning =
                 typeof payload.text === "string" ? { ...payload, text: "" } : payload;
               await sendPayload(payloadWithoutSuppressedReasoning);
+            } else if (info.kind === "final") {
+              // Reasoning was the only content and it was suppressed.  Mark as a
+              // non-silent skip so the empty-response fallback fires (#34373).
+              deliveryState.markNonSilentSkip();
             }
             if (info.kind === "final") {
               await flushBufferedFinalAnswer();

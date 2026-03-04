@@ -1146,6 +1146,23 @@ describe("dispatchTelegramMessage draft streaming", () => {
     expect(editMessageTelegram).not.toHaveBeenCalled();
   });
 
+  it("sends empty-response fallback when reasoning-only reply is suppressed without media (#34373)", async () => {
+    setupDraftStreams({});
+    dispatchReplyWithBufferedBlockDispatcher.mockImplementation(async ({ dispatcherOptions }) => {
+      await dispatcherOptions.deliver({ text: "Reasoning:\n_step one_" }, { kind: "final" });
+      return { queuedFinal: false };
+    });
+    deliverReplies.mockResolvedValue({ delivered: true });
+
+    await dispatchWithContext({ context: createContext(), streamMode: "partial" });
+
+    expect(deliverReplies).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replies: [expect.objectContaining({ text: expect.stringContaining("No response") })],
+      }),
+    );
+  });
+
   it.each([undefined, null] as const)(
     "skips outbound send when final payload text is %s and has no media",
     async (emptyText) => {
