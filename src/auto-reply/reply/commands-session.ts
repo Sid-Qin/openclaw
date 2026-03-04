@@ -165,9 +165,14 @@ export const handleUsageCommand: CommandHandler = async (params, allowTextComman
       : undefined;
     const sessionMissing = sessionSummary?.missingCostEntries ?? 0;
     const sessionSuffix = sessionMissing > 0 ? " (partial)" : "";
+    const sessionCalls = sessionSummary?.modelUsage?.reduce(
+      (sum, m) => sum + (m.count ?? 0),
+      0,
+    );
+    const callsSuffix = sessionCalls ? ` · ${sessionCalls} calls` : "";
     const sessionLine =
       sessionCost || sessionTokens
-        ? `Session ${sessionCost ?? "n/a"}${sessionSuffix}${sessionTokens ? ` · ${sessionTokens} tokens` : ""}`
+        ? `Session ${sessionCost ?? "n/a"}${sessionSuffix}${sessionTokens ? ` · ${sessionTokens} tokens` : ""}${callsSuffix}`
         : "Session n/a";
 
     const todayKey = new Date().toLocaleDateString("en-CA");

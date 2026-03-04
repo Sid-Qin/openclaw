@@ -114,7 +114,7 @@ function renderSessionSummary(
     usage.modelUsage?.slice(0, 6).map((entry) => ({
       label: entry.model ?? "unknown",
       value: formatCost(entry.totals.totalCost),
-      sub: formatTokens(entry.totals.totalTokens),
+      sub: `${formatTokens(entry.totals.totalTokens)} · ${entry.count ?? 0} calls`,
     })) ?? [];
 
   return html`
