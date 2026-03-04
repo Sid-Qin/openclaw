@@ -373,9 +373,9 @@ export async function ensureLoaded(
       currentPayload?.kind === "agentTurn" &&
       typeof currentPayload.timeoutSeconds !== "number" &&
       typeof raw.timeout === "number" &&
-      Number.isFinite(raw.timeout as number)
+      Number.isFinite(raw.timeout)
     ) {
-      currentPayload.timeoutSeconds = Math.max(0, Math.floor(raw.timeout as number));
+      currentPayload.timeoutSeconds = Math.max(0, Math.floor(raw.timeout));
       mutated = true;
     }
 
