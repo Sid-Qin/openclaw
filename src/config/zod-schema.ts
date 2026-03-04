@@ -404,6 +404,12 @@ export const OpenClawSchema = z
           })
           .strict()
           .optional(),
+        delivery: z
+          .object({
+            mode: z.union([z.literal("inherit"), z.literal("none")]).optional(),
+          })
+          .strict()
+          .optional(),
       })
       .strict()
       .optional(),

@@ -34,6 +34,13 @@ export type AcpRuntimeConfig = {
   installCommand?: string;
 };
 
+export type AcpDeliveryConfig = {
+  /** Controls whether ACP session output is delivered to the parent channel.
+   *  "inherit" (default): inherit parent session delivery context.
+   *  "none": suppress all channel delivery for ACP sessions. */
+  mode?: "inherit" | "none";
+};
+
 export type AcpConfig = {
   /** Global ACP runtime gate. */
   enabled?: boolean;
@@ -45,4 +52,5 @@ export type AcpConfig = {
   maxConcurrentSessions?: number;
   stream?: AcpStreamConfig;
   runtime?: AcpRuntimeConfig;
+  delivery?: AcpDeliveryConfig;
 };

@@ -409,7 +409,9 @@ export async function spawnAcpDirect(
   const inferredDeliveryTo = boundThreadId
     ? `channel:${boundThreadId}`
     : requesterOrigin?.to?.trim() || (deliveryThreadId ? `channel:${deliveryThreadId}` : undefined);
-  const hasDeliveryTarget = Boolean(requesterOrigin?.channel && inferredDeliveryTo);
+  const acpDeliveryMode = cfg.acp?.delivery?.mode ?? "inherit";
+  const hasDeliveryTarget =
+    acpDeliveryMode !== "none" && Boolean(requesterOrigin?.channel && inferredDeliveryTo);
   const childIdem = crypto.randomUUID();
   let childRunId: string = childIdem;
   try {
