@@ -116,13 +116,13 @@ export function scheduleFollowupDrain(
             summary,
             renderItem: (item, idx) => `---\nQueued #${idx + 1}\n${item.prompt}`.trim(),
           });
+          queue.items.splice(0, items.length);
           await runFollowup({
             prompt,
             run,
             enqueuedAt: Date.now(),
             ...routing,
           });
-          queue.items.splice(0, items.length);
           if (summary) {
             clearQueueSummaryState(queue);
           }

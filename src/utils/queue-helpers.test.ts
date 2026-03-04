@@ -4,6 +4,7 @@ import {
   buildQueueSummaryPrompt,
   clearQueueSummaryState,
   drainCollectItemIfNeeded,
+  drainNextQueueItem,
   previewQueueSummaryPrompt,
 } from "./queue-helpers.js";
 
@@ -110,6 +111,37 @@ describe("queue summary helpers", () => {
     clearQueueSummaryState(state);
     expect(state.droppedCount).toBe(0);
     expect(state.summaryLines).toEqual([]);
+  });
+});
+
+describe("drainNextQueueItem", () => {
+  it("removes item from queue before calling run to prevent duplicate delivery", async () => {
+    const items = [1, 2, 3];
+    let itemsDuringRun: number[] = [];
+
+    await drainNextQueueItem(items, async () => {
+      itemsDuringRun = [...items];
+    });
+
+    expect(itemsDuringRun).toEqual([2, 3]);
+    expect(items).toEqual([2, 3]);
+  });
+
+  it("does not re-add item when run throws", async () => {
+    const items = [1, 2];
+
+    await expect(
+      drainNextQueueItem(items, async () => {
+        throw new Error("delivery failed");
+      }),
+    ).rejects.toThrow("delivery failed");
+
+    expect(items).toEqual([2]);
+  });
+
+  it("returns false for empty queue", async () => {
+    const result = await drainNextQueueItem([], async () => {});
+    expect(result).toBe(false);
   });
 });
 

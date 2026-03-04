@@ -152,8 +152,8 @@ export async function drainNextQueueItem<T>(
   if (!next) {
     return false;
   }
-  await run(next);
   items.shift();
+  await run(next);
   return true;
 }
 
