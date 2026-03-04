@@ -143,18 +143,27 @@ export class DiscordMessageListener extends MessageCreateListener {
     // Serialize messages within the same channel to preserve ordering,
     // but allow different channels to proceed in parallel so that
     // channel-bound agents are not blocked by each other.
-    void this.channelQueue.enqueue(channelId, () =>
-      runDiscordListenerWithSlowLog({
-        logger: this.logger,
-        listener: this.constructor.name,
-        event: this.type,
-        run: () => this.handler(data, client),
-        onError: (err) => {
-          const logger = this.logger ?? discordEventQueueLog;
-          logger.error(danger(`discord handler failed: ${String(err)}`));
-        },
-      }),
-    );
+    //
+    // await (not void) so Carbon's event queue tracks when the listener
+    // is truly done — prevents the gateway from disabling the listener
+    // after an API-overload timeout (#33615).
+    try {
+      await this.channelQueue.enqueue(channelId, () =>
+        runDiscordListenerWithSlowLog({
+          logger: this.logger,
+          listener: this.constructor.name,
+          event: this.type,
+          run: () => this.handler(data, client),
+          onError: (err) => {
+            const logger = this.logger ?? discordEventQueueLog;
+            logger.error(danger(`discord handler failed: ${String(err)}`));
+          },
+        }),
+      );
+    } catch {
+      // Swallow unexpected queue errors so Carbon never sees a rejected
+      // listener promise, which would permanently disable the channel.
+    }
   }
 }
 
