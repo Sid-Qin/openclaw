@@ -15,7 +15,7 @@ export type RestartAttempt = {
   tried?: string[];
 };
 
-const SPAWN_TIMEOUT_MS = 2000;
+const SPAWN_TIMEOUT_MS = 15_000;
 const SIGUSR1_AUTH_GRACE_MS = 5000;
 const DEFAULT_DEFERRAL_POLL_MS = 500;
 const DEFAULT_DEFERRAL_MAX_WAIT_MS = 30_000;
@@ -377,12 +377,15 @@ export function triggerOpenClawRestart(): RestartAttempt {
   if (!retry.error && retry.status === 0) {
     return { ok: true, method: "launchctl", tried };
   }
-  return {
-    ok: false,
-    method: "launchctl",
-    detail: formatSpawnDetail(retry),
-    tried,
-  };
+  // bootstrap succeeded → launchd has loaded the service and KeepAlive
+  // will start it. Treat this as a successful supervised restart even
+  // if the follow-up kickstart timed out, to avoid spawning a duplicate
+  // in-process gateway that conflicts with the launchd-managed process.
+  restartLog.warn(
+    `launchctl bootstrap succeeded but kickstart timed out (${formatSpawnDetail(retry)}); ` +
+      `relying on launchd KeepAlive to start the service`,
+  );
+  return { ok: true, method: "launchctl", tried };
 }
 
 export type ScheduledRestart = {
