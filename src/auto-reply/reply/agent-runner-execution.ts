@@ -376,9 +376,13 @@ export async function runAgentTurnWithFallback(params: {
                     await params.opts?.onToolStart?.({ name, phase });
                   }
                 }
-                // Track auto-compaction completion
+                // Keep typing indicator active during auto-compaction so the
+                // user sees feedback instead of silence during long compactions.
                 if (evt.stream === "compaction") {
                   const phase = typeof evt.data.phase === "string" ? evt.data.phase : "";
+                  if (phase === "start") {
+                    await params.typingSignals.signalToolStart();
+                  }
                   if (phase === "end") {
                     autoCompactionCompleted = true;
                   }
