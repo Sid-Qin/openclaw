@@ -28,6 +28,8 @@ export type EmbeddedPiAgentMeta = {
     cacheWrite?: number;
     total?: number;
   };
+  /** Number of LLM API calls made during this run (tool-use loop iterations). */
+  modelCallCount?: number;
 };
 
 export type EmbeddedPiRunMeta = {

@@ -582,6 +582,7 @@ export async function runReplyAgent(params: {
         usage,
         showCost,
         costConfig,
+        modelCallCount: runResult.meta?.agentMeta?.modelCallCount,
       });
       if (formatted && responseUsageMode === "full" && sessionKey) {
         formatted = `${formatted} · session \`${sessionKey}\``;

@@ -90,6 +90,7 @@ export const formatResponseUsageLine = (params: {
     cacheRead: number;
     cacheWrite: number;
   };
+  modelCallCount?: number;
 }): string | null => {
   const usage = params.usage;
   if (!usage) {
@@ -115,8 +116,15 @@ export const formatResponseUsageLine = (params: {
         })
       : undefined;
   const costLabel = params.showCost ? formatUsd(cost) : undefined;
-  const suffix = costLabel ? ` · est ${costLabel}` : "";
-  return `Usage: ${inputLabel} in / ${outputLabel} out${suffix}`;
+  const callCount = params.modelCallCount;
+  const parts = [`Usage: ${inputLabel} in / ${outputLabel} out`];
+  if (typeof callCount === "number" && callCount > 1) {
+    parts.push(`(${callCount} calls)`);
+  }
+  if (costLabel) {
+    parts.push(`· est ${costLabel}`);
+  }
+  return parts.join(" ");
 };
 
 export const appendUsageLine = (payloads: ReplyPayload[], line: string): ReplyPayload[] => {
