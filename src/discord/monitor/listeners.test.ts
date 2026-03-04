@@ -121,4 +121,31 @@ describe("DiscordMessageListener", () => {
       );
     });
   });
+
+  it("unblocks channel queue when handler hangs beyond timeout", async () => {
+    vi.useFakeTimers();
+    try {
+      const handler = vi.fn(async () => {
+        await new Promise(() => {});
+      });
+      const logger = createLogger();
+      const listener = new DiscordMessageListener(handler as never, logger as never);
+
+      await listener.handle(fakeEvent("ch-1"), {} as never);
+      await listener.handle(fakeEvent("ch-1"), {} as never);
+
+      expect(handler).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(120_001);
+
+      await vi.waitFor(() => {
+        expect(handler).toHaveBeenCalledTimes(2);
+      });
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining("discord handler timed out"),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

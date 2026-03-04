@@ -66,6 +66,7 @@ type DiscordReactionRoutingParams = {
 };
 
 const DISCORD_SLOW_LISTENER_THRESHOLD_MS = 30_000;
+const DISCORD_LISTENER_TASK_TIMEOUT_MS = 120_000;
 const discordEventQueueLog = createSubsystemLogger("discord/event-queue");
 
 function logSlowDiscordListener(params: {
@@ -89,6 +90,29 @@ function logSlowDiscordListener(params: {
     durationMs: params.durationMs,
     duration,
     consoleMessage: message,
+  });
+}
+
+function withTaskTimeout<T>(
+  task: () => Promise<T>,
+  timeoutMs: number,
+  onTimeout?: () => void,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      onTimeout?.();
+      reject(new Error(`Task timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+    task().then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
   });
 }
 
@@ -144,16 +168,28 @@ export class DiscordMessageListener extends MessageCreateListener {
     // but allow different channels to proceed in parallel so that
     // channel-bound agents are not blocked by each other.
     void this.channelQueue.enqueue(channelId, () =>
-      runDiscordListenerWithSlowLog({
-        logger: this.logger,
-        listener: this.constructor.name,
-        event: this.type,
-        run: () => this.handler(data, client),
-        onError: (err) => {
+      withTaskTimeout(
+        () =>
+          runDiscordListenerWithSlowLog({
+            logger: this.logger,
+            listener: this.constructor.name,
+            event: this.type,
+            run: () => this.handler(data, client),
+            onError: (err) => {
+              const logger = this.logger ?? discordEventQueueLog;
+              logger.error(danger(`discord handler failed: ${String(err)}`));
+            },
+          }),
+        DISCORD_LISTENER_TASK_TIMEOUT_MS,
+        () => {
           const logger = this.logger ?? discordEventQueueLog;
-          logger.error(danger(`discord handler failed: ${String(err)}`));
+          logger.error(
+            danger(
+              `discord handler timed out after ${DISCORD_LISTENER_TASK_TIMEOUT_MS}ms for channel ${channelId}, unblocking queue`,
+            ),
+          );
         },
-      }),
+      ),
     );
   }
 }
