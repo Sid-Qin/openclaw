@@ -108,9 +108,10 @@ export async function handleSlackMessageAction(params: {
       accountId,
     };
     if (includeReadThreadId) {
-      readAction.threadId = readStringParam(actionParams, "threadId");
+      readAction.threadId =
+        readStringParam(actionParams, "threadId") ?? ctx.toolContext?.currentThreadTs;
     }
-    return await invoke(readAction, cfg);
+    return await invoke(readAction, cfg, ctx.toolContext);
   }
 
   if (action === "edit") {

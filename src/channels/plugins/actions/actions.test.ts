@@ -97,6 +97,7 @@ type SlackActionInput = Parameters<
 async function runSlackAction(
   action: SlackActionInput["action"],
   params: SlackActionInput["params"],
+  options?: { toolContext?: SlackActionInput["toolContext"] },
 ) {
   const { cfg, actions } = slackHarness();
   await actions.handleAction?.({
@@ -104,6 +105,7 @@ async function runSlackAction(
     action,
     cfg,
     params,
+    ...(options?.toolContext ? { toolContext: options.toolContext } : {}),
   });
   return { cfg, actions };
 }
@@ -955,6 +957,42 @@ describe("slack actions adapter", () => {
       channelId: "C1",
       threadId: "171234.567",
     });
+  });
+
+  it("falls back to currentThreadTs for read when threadId is omitted", async () => {
+    await runSlackAction(
+      "read",
+      { channelId: "C1" },
+      { toolContext: { currentThreadTs: "199999.000" } },
+    );
+
+    expectFirstSlackAction({
+      action: "readMessages",
+      channelId: "C1",
+      threadId: "199999.000",
+    });
+  });
+
+  it("prefers explicit threadId over currentThreadTs for read", async () => {
+    await runSlackAction(
+      "read",
+      { channelId: "C1", threadId: "explicit.123" },
+      { toolContext: { currentThreadTs: "context.456" } },
+    );
+
+    expectFirstSlackAction({
+      action: "readMessages",
+      channelId: "C1",
+      threadId: "explicit.123",
+    });
+  });
+
+  it("passes toolContext to invoke for read action", async () => {
+    const toolContext = { currentThreadTs: "199999.000", currentChannelId: "C1" };
+    await runSlackAction("read", { channelId: "C1" }, { toolContext });
+
+    const [, , passedContext] = handleSlackAction.mock.calls[0] ?? [];
+    expect(passedContext).toMatchObject(toolContext);
   });
 
   it("forwards normalized limit for emoji-list", async () => {
