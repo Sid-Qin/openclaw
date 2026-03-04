@@ -93,12 +93,16 @@ async function postSlackMessageBestEffort(params: {
   threadTs?: string;
   identity?: SlackSendIdentity;
   blocks?: (Block | KnownBlock)[];
+  unfurlLinks?: boolean;
+  unfurlMedia?: boolean;
 }) {
   const basePayload = {
     channel: params.channelId,
     text: params.text,
     thread_ts: params.threadTs,
     ...(params.blocks?.length ? { blocks: params.blocks } : {}),
+    ...(params.unfurlLinks !== undefined ? { unfurl_links: params.unfurlLinks } : {}),
+    ...(params.unfurlMedia !== undefined ? { unfurl_media: params.unfurlMedia } : {}),
   };
   try {
     // Slack Web API types model icon_url and icon_emoji as mutually exclusive.
@@ -289,6 +293,8 @@ export async function sendMessageSlack(
       threadTs: opts.threadTs,
       identity: opts.identity,
       blocks,
+      unfurlLinks: account.config.unfurlLinks,
+      unfurlMedia: account.config.unfurlMedia,
     });
     return {
       messageId: response.ts ?? "unknown",
@@ -337,6 +343,8 @@ export async function sendMessageSlack(
         text: chunk,
         threadTs: opts.threadTs,
         identity: opts.identity,
+        unfurlLinks: account.config.unfurlLinks,
+        unfurlMedia: account.config.unfurlMedia,
       });
       lastMessageId = response.ts ?? lastMessageId;
     }
@@ -348,6 +356,8 @@ export async function sendMessageSlack(
         text: chunk,
         threadTs: opts.threadTs,
         identity: opts.identity,
+        unfurlLinks: account.config.unfurlLinks,
+        unfurlMedia: account.config.unfurlMedia,
       });
       lastMessageId = response.ts ?? lastMessageId;
     }

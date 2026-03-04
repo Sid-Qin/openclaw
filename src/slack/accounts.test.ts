@@ -83,3 +83,43 @@ describe("resolveSlackAccount allowFrom precedence", () => {
     expect(resolved.config.dm?.allowFrom).toEqual(["U123"]);
   });
 });
+
+describe("resolveSlackAccount unfurl config", () => {
+  it("resolves unfurlLinks and unfurlMedia from account config", () => {
+    const resolved = resolveSlackAccount({
+      cfg: {
+        channels: {
+          slack: {
+            unfurlLinks: false,
+            unfurlMedia: false,
+            accounts: {
+              default: { botToken: "xoxb-1", appToken: "xapp-1" },
+            },
+          },
+        },
+      },
+      accountId: "default",
+    });
+
+    expect(resolved.config.unfurlLinks).toBe(false);
+    expect(resolved.config.unfurlMedia).toBe(false);
+  });
+
+  it("defaults unfurl to undefined when not configured", () => {
+    const resolved = resolveSlackAccount({
+      cfg: {
+        channels: {
+          slack: {
+            accounts: {
+              default: { botToken: "xoxb-1", appToken: "xapp-1" },
+            },
+          },
+        },
+      },
+      accountId: "default",
+    });
+
+    expect(resolved.config.unfurlLinks).toBeUndefined();
+    expect(resolved.config.unfurlMedia).toBeUndefined();
+  });
+});

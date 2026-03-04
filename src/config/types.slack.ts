@@ -189,6 +189,10 @@ export type SlackAccountConfig = {
   ackReaction?: string;
   /** Reaction emoji added while processing a reply (e.g. "hourglass_flowing_sand"). Removed when done. Useful as a typing indicator fallback when assistant mode is not enabled. */
   typingReaction?: string;
+  /** Disable link previews in outbound messages (Slack `unfurl_links`). */
+  unfurlLinks?: boolean;
+  /** Disable media previews in outbound messages (Slack `unfurl_media`). */
+  unfurlMedia?: boolean;
 };
 
 export type SlackConfig = {
