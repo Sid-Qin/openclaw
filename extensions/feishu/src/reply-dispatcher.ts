@@ -146,6 +146,30 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
   let partialUpdateQueue: Promise<void> = Promise.resolve();
   let streamingStartPromise: Promise<void> | null = null;
 
+  // Debounce block streaming updates to avoid overwhelming the Feishu mobile
+  // client. Rapid Card Kit element updates can appear as duplicate messages on
+  // mobile even though desktop renders them in-place (#33883).
+  const BLOCK_UPDATE_DEBOUNCE_MS = 800;
+  let blockUpdateTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const flushBlockUpdate = () => {
+    if (blockUpdateTimer === null) {
+      return;
+    }
+    clearTimeout(blockUpdateTimer);
+    blockUpdateTimer = null;
+    if (streamText) {
+      queueStreamingUpdate(streamText);
+    }
+  };
+
+  const scheduleBlockUpdate = () => {
+    if (blockUpdateTimer !== null) {
+      clearTimeout(blockUpdateTimer);
+    }
+    blockUpdateTimer = setTimeout(flushBlockUpdate, BLOCK_UPDATE_DEBOUNCE_MS);
+  };
+
   const mergeStreamingText = (nextText: string) => {
     if (!streamText) {
       streamText = nextText;
@@ -218,6 +242,7 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
   };
 
   const closeStreaming = async () => {
+    flushBlockUpdate();
     if (streamingStartPromise) {
       await streamingStartPromise;
     }
@@ -285,11 +310,11 @@ export function createFeishuReplyDispatcher(params: CreateFeishuReplyDispatcherP
 
           if (streaming?.isActive()) {
             if (info?.kind === "block") {
-              // Some runtimes emit block payloads without onPartial/final callbacks.
-              // Mirror block text into streamText so onIdle close still sends content.
-              queueStreamingUpdate(text);
+              mergeStreamingText(text);
+              scheduleBlockUpdate();
             }
             if (info?.kind === "final") {
+              flushBlockUpdate();
               streamText = text;
               await closeStreaming();
             }
