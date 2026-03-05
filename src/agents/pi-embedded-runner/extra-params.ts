@@ -314,6 +314,32 @@ function createOpenAIResponsesContextManagementWrapper(
   };
 }
 
+function createOpenAIResponsesToolChoiceWrapper(baseStreamFn: StreamFn | undefined): StreamFn {
+  const underlying = baseStreamFn ?? streamSimple;
+  return (model, context, options) => {
+    if (typeof model.api !== "string" || !OPENAI_RESPONSES_APIS.has(model.api)) {
+      return underlying(model, context, options);
+    }
+    const originalOnPayload = options?.onPayload;
+    return underlying(model, context, {
+      ...options,
+      onPayload: (payload) => {
+        if (payload && typeof payload === "object") {
+          const payloadObj = payload as Record<string, unknown>;
+          if (
+            Array.isArray(payloadObj.tools) &&
+            payloadObj.tools.length > 0 &&
+            payloadObj.tool_choice == null
+          ) {
+            payloadObj.tool_choice = "auto";
+          }
+        }
+        originalOnPayload?.(payload);
+      },
+    });
+  };
+}
+
 function createCodexDefaultTransportWrapper(baseStreamFn: StreamFn | undefined): StreamFn {
   const underlying = baseStreamFn ?? streamSimple;
   return (model, context, options) =>
@@ -964,4 +990,10 @@ export function applyExtraParamsToAgent(
   // Force `store=true` for direct OpenAI Responses models and auto-enable
   // server-side compaction for compatible OpenAI Responses payloads.
   agent.streamFn = createOpenAIResponsesContextManagementWrapper(agent.streamFn, merged);
+
+  // Ensure tool_choice defaults to "auto" for OpenAI Responses API providers
+  // when tools are present but tool_choice is missing/null.  Custom providers
+  // using `api: openai-responses` route through streamSimple which does not
+  // inject a default tool_choice, causing text-only completions.
+  agent.streamFn = createOpenAIResponsesToolChoiceWrapper(agent.streamFn);
 }
