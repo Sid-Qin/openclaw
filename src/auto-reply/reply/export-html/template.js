@@ -5,8 +5,19 @@
   // DATA LOADING
   // ============================================================
 
-  const base64 = document.getElementById("session-data").textContent;
-  const binary = atob(base64);
+  const sessionEl = document.getElementById("session-data");
+  const base64 = sessionEl ? sessionEl.textContent : null;
+  if (!base64) {
+    document.body.textContent = "Error: session data not found in page.";
+    return;
+  }
+  let binary;
+  try {
+    binary = atob(base64);
+  } catch {
+    document.body.textContent = "Error: corrupted session data (invalid base64).";
+    return;
+  }
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);

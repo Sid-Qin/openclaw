@@ -151,8 +151,7 @@ export class MediaStreamHandler {
             break;
 
           case "media":
-            if (session && message.media?.payload) {
-              // Forward audio to STT
+            if (session && typeof message.media?.payload === "string") {
               const audioBuffer = Buffer.from(message.media.payload, "base64");
               session.sttSession.sendAudio(audioBuffer);
             }
