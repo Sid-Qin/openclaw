@@ -12,6 +12,7 @@ type EmbeddedPiQueueHandle = {
 };
 
 const ACTIVE_EMBEDDED_RUNS = new Map<string, EmbeddedPiQueueHandle>();
+const COMPACTION_PENDING_MESSAGES = new Map<string, string[]>();
 type EmbeddedRunWaiter = {
   resolve: (ended: boolean) => void;
   timer: NodeJS.Timeout;
@@ -29,8 +30,11 @@ export function queueEmbeddedPiMessage(sessionId: string, text: string): boolean
     return false;
   }
   if (handle.isCompacting()) {
-    diag.debug(`queue message failed: sessionId=${sessionId} reason=compacting`);
-    return false;
+    diag.debug(`queue message buffered during compaction: sessionId=${sessionId}`);
+    const pending = COMPACTION_PENDING_MESSAGES.get(sessionId) ?? [];
+    pending.push(text);
+    COMPACTION_PENDING_MESSAGES.set(sessionId, pending);
+    return true;
   }
   logMessageQueued({ sessionId, source: "pi-embedded-runner" });
   void handle.queueMessage(text);
@@ -140,6 +144,7 @@ export function clearActiveEmbeddedRun(
 ) {
   if (ACTIVE_EMBEDDED_RUNS.get(sessionId) === handle) {
     ACTIVE_EMBEDDED_RUNS.delete(sessionId);
+    COMPACTION_PENDING_MESSAGES.delete(sessionId);
     logSessionStateChange({ sessionId, sessionKey, state: "idle", reason: "run_completed" });
     if (!sessionId.startsWith("probe-")) {
       diag.debug(`run cleared: sessionId=${sessionId} totalActive=${ACTIVE_EMBEDDED_RUNS.size}`);
@@ -147,6 +152,25 @@ export function clearActiveEmbeddedRun(
     notifyEmbeddedRunEnded(sessionId);
   } else {
     diag.debug(`run clear skipped: sessionId=${sessionId} reason=handle_mismatch`);
+  }
+}
+
+export function flushCompactionPendingMessages(sessionId: string): void {
+  const pending = COMPACTION_PENDING_MESSAGES.get(sessionId);
+  if (!pending || pending.length === 0) {
+    COMPACTION_PENDING_MESSAGES.delete(sessionId);
+    return;
+  }
+  COMPACTION_PENDING_MESSAGES.delete(sessionId);
+  const handle = ACTIVE_EMBEDDED_RUNS.get(sessionId);
+  if (!handle) {
+    diag.debug(`flush pending messages skipped: sessionId=${sessionId} reason=no_active_run`);
+    return;
+  }
+  diag.debug(`flushing ${pending.length} buffered message(s) after compaction: sessionId=${sessionId}`);
+  for (const text of pending) {
+    logMessageQueued({ sessionId, source: "pi-embedded-runner:compaction-flush" });
+    void handle.queueMessage(text);
   }
 }
 

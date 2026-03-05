@@ -2,6 +2,7 @@ import type { AgentEvent } from "@mariozechner/pi-agent-core";
 import { emitAgentEvent } from "../infra/agent-events.js";
 import { getGlobalHookRunner } from "../plugins/hook-runner-global.js";
 import type { EmbeddedPiSubscribeContext } from "./pi-embedded-subscribe.handlers.types.js";
+import { flushCompactionPendingMessages } from "./pi-embedded-runner/runs.js";
 import { makeZeroUsageSnapshot } from "./usage.js";
 
 export function handleAutoCompactionStart(ctx: EmbeddedPiSubscribeContext) {
@@ -54,6 +55,9 @@ export function handleAutoCompactionEnd(
   } else {
     ctx.maybeResolveCompactionWait();
     clearStaleAssistantUsageOnSessionMessages(ctx);
+    if (ctx.params.sessionId) {
+      flushCompactionPendingMessages(ctx.params.sessionId);
+    }
   }
   emitAgentEvent({
     runId: ctx.params.runId,
