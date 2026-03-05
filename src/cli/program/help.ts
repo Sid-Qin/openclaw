@@ -1,4 +1,5 @@
 import type { Command } from "commander";
+import { resolveCommitHash } from "../../infra/git-commit.js";
 import { formatDocsLink } from "../../terminal/links.js";
 import { isRich, theme } from "../../terminal/theme.js";
 import { escapeRegExp } from "../../utils.js";
@@ -11,6 +12,12 @@ import type { ProgramContext } from "./context.js";
 import { getSubCliCommandsWithSubcommands } from "./register.subclis.js";
 
 const CLI_NAME = resolveCliName();
+
+function formatVersionWithCommit(version: string): string {
+  const commit = resolveCommitHash();
+  return commit ? `${version} (${commit})` : version;
+}
+
 const CLI_NAME_PATTERN = escapeRegExp(CLI_NAME);
 const ROOT_COMMANDS_WITH_SUBCOMMANDS = new Set([
   ...getCoreCliCommandsWithSubcommands(),
@@ -109,7 +116,7 @@ export function configureProgramHelp(program: Command, ctx: ProgramContext) {
     hasFlag(process.argv, "--version") ||
     hasRootVersionAlias(process.argv)
   ) {
-    console.log(ctx.programVersion);
+    console.log(formatVersionWithCommit(ctx.programVersion));
     process.exit(0);
   }
 
