@@ -65,6 +65,7 @@ import { toClientToolDefinitions } from "../../pi-tool-definition-adapter.js";
 import { createOpenClawCodingTools, resolveToolLoopDetectionConfig } from "../../pi-tools.js";
 import { resolveSandboxContext } from "../../sandbox.js";
 import { resolveSandboxRuntimeStatus } from "../../sandbox/runtime-status.js";
+import { isXaiProvider } from "../../schema/clean-for-xai.js";
 import { repairSessionFileIfNeeded } from "../../session-file-repair.js";
 import { guardSessionManager } from "../../session-tool-result-guard-wrapper.js";
 import { sanitizeToolUseResultPairing } from "../../session-transcript-repair.js";
@@ -102,7 +103,6 @@ import {
   type EmbeddedPiQueueHandle,
   setActiveEmbeddedRun,
 } from "../runs.js";
-import { isXaiProvider } from "../../schema/clean-for-xai.js";
 import { buildEmbeddedSandboxInfo } from "../sandbox-info.js";
 import { prewarmSessionFile, trackSessionManagerAccess } from "../session-manager-cache.js";
 import { prepareSessionManagerForRun } from "../session-manager-init.js";
