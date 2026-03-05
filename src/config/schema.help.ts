@@ -97,6 +97,16 @@ export const FIELD_HELP: Record<string, string> = {
     "Explicit gateway-level tool denylist to block risky tools even if lower-level policies allow them. Use deny rules for emergency response and defense-in-depth hardening.",
   "gateway.channelHealthCheckMinutes":
     "Interval in minutes for automatic channel health probing and status updates. Use lower intervals for faster detection, or higher intervals to reduce periodic probe noise.",
+  "gateway.healthMonitor":
+    "Channel health monitor configuration. Controls timing thresholds for stale-socket detection and restart behavior.",
+  "gateway.healthMonitor.timing":
+    "Fine-tune timing thresholds for channel health monitoring. Useful for low-traffic channels (e.g., iMessage) that go idle for hours without actual socket problems.",
+  "gateway.healthMonitor.timing.staleEventThresholdMs":
+    "How long (ms) a connected channel can go without receiving any event before being flagged as stale and restarted. Default: 1800000 (30 min). Increase for low-traffic channels.",
+  "gateway.healthMonitor.timing.monitorStartupGraceMs":
+    "Grace period (ms) after health monitor startup before stale checks apply. Default: 60000 (1 min).",
+  "gateway.healthMonitor.timing.channelConnectGraceMs":
+    "Grace period (ms) after a channel connects before stale checks apply. Default: 120000 (2 min).",
   "gateway.tailscale":
     "Tailscale integration settings for Serve/Funnel exposure and lifecycle handling on gateway start/exit. Keep off unless your deployment intentionally relies on Tailscale ingress.",
   "gateway.tailscale.mode":

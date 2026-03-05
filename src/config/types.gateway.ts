@@ -364,4 +364,15 @@ export type GatewayConfig = {
    * Set to 0 to disable. Default: 5.
    */
   channelHealthCheckMinutes?: number;
+  /** Channel health monitor timing configuration. */
+  healthMonitor?: {
+    timing?: {
+      /** How long (ms) a connected channel can go without events before being flagged stale. Default: 1800000 (30 min). */
+      staleEventThresholdMs?: number;
+      /** Grace period (ms) after monitor startup before stale checks apply. Default: 60000 (1 min). */
+      monitorStartupGraceMs?: number;
+      /** Grace period (ms) after a channel connects before stale checks apply. Default: 120000 (2 min). */
+      channelConnectGraceMs?: number;
+    };
+  };
 };
