@@ -553,7 +553,9 @@ describe("stripDowngradedToolCallText", () => {
 describe("promoteThinkingTagsToBlocks", () => {
   it("does not crash on malformed null content entries", () => {
     const msg = makeAssistantMessage({
+      role: "assistant",
       content: [null as never, { type: "text", text: "<thinking>hello</thinking>ok" }],
+      timestamp: Date.now(),
     });
     expect(() => promoteThinkingTagsToBlocks(msg)).not.toThrow();
     const types = msg.content.map((b: { type?: string }) => b?.type);
@@ -563,14 +565,18 @@ describe("promoteThinkingTagsToBlocks", () => {
 
   it("does not crash on undefined content entries", () => {
     const msg = makeAssistantMessage({
+      role: "assistant",
       content: [undefined as never, { type: "text", text: "no tags here" }],
+      timestamp: Date.now(),
     });
     expect(() => promoteThinkingTagsToBlocks(msg)).not.toThrow();
   });
 
   it("passes through well-formed content unchanged when no thinking tags", () => {
     const msg = makeAssistantMessage({
+      role: "assistant",
       content: [{ type: "text", text: "hello world" }],
+      timestamp: Date.now(),
     });
     promoteThinkingTagsToBlocks(msg);
     expect(msg.content).toEqual([{ type: "text", text: "hello world" }]);
