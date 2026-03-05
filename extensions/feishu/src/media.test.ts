@@ -10,6 +10,7 @@ const resolveReceiveIdTypeMock = vi.hoisted(() => vi.fn());
 const loadWebMediaMock = vi.hoisted(() => vi.fn());
 
 const fileCreateMock = vi.hoisted(() => vi.fn());
+const imageCreateMock = vi.hoisted(() => vi.fn());
 const imageGetMock = vi.hoisted(() => vi.fn());
 const messageCreateMock = vi.hoisted(() => vi.fn());
 const messageResourceGetMock = vi.hoisted(() => vi.fn());
@@ -75,6 +76,7 @@ describe("sendMediaFeishu msg_type routing", () => {
           create: fileCreateMock,
         },
         image: {
+          create: imageCreateMock,
           get: imageGetMock,
         },
         message: {
@@ -85,6 +87,11 @@ describe("sendMediaFeishu msg_type routing", () => {
           get: messageResourceGetMock,
         },
       },
+    });
+
+    imageCreateMock.mockResolvedValue({
+      code: 0,
+      image_key: "img_v3_mock",
     });
 
     fileCreateMock.mockResolvedValue({
@@ -254,6 +261,46 @@ describe("sendMediaFeishu msg_type routing", () => {
         localRoots: roots,
       }),
     );
+  });
+
+  it("uses image path when URL has no extension but contentType is image/* (#35575)", async () => {
+    loadWebMediaMock.mockResolvedValue({
+      buffer: Buffer.from("png-bytes"),
+      fileName: "file",
+      kind: "image",
+      contentType: "image/png",
+    });
+
+    await sendMediaFeishu({
+      cfg: {} as any,
+      to: "user:ou_target",
+      mediaUrl: "https://cdn.example.com/photo?id=123",
+    });
+
+    expect(imageCreateMock).toHaveBeenCalled();
+    expect(messageCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ msg_type: "image" }),
+      }),
+    );
+    expect(fileCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("uses image path for .jpg extension even without contentType", async () => {
+    await sendMediaFeishu({
+      cfg: {} as any,
+      to: "user:ou_target",
+      mediaBuffer: Buffer.from("jpg-bytes"),
+      fileName: "photo.jpg",
+    });
+
+    expect(imageCreateMock).toHaveBeenCalled();
+    expect(messageCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ msg_type: "image" }),
+      }),
+    );
+    expect(fileCreateMock).not.toHaveBeenCalled();
   });
 
   it("fails closed when media URL fetch is blocked", async () => {

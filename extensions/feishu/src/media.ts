@@ -435,6 +435,7 @@ export async function sendMediaFeishu(params: {
 
   let buffer: Buffer;
   let name: string;
+  let contentType: string | undefined;
 
   if (mediaBuffer) {
     buffer = mediaBuffer;
@@ -447,13 +448,15 @@ export async function sendMediaFeishu(params: {
     });
     buffer = loaded.buffer;
     name = fileName ?? loaded.fileName ?? "file";
+    contentType = loaded.contentType;
   } else {
     throw new Error("Either mediaUrl or mediaBuffer must be provided");
   }
 
-  // Determine if it's an image based on extension
   const ext = path.extname(name).toLowerCase();
-  const isImage = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".ico", ".tiff"].includes(ext);
+  const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".ico", ".tiff"]);
+  const isImage =
+    IMAGE_EXTENSIONS.has(ext) || (contentType != null && contentType.startsWith("image/"));
 
   if (isImage) {
     const { imageKey } = await uploadImageFeishu({ cfg, image: buffer, accountId });
