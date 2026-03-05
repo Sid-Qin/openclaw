@@ -30,7 +30,7 @@ describe("resolveGatewayRuntimeConfig", () => {
             controlUi: { allowedOrigins: ["https://control.example.com"] },
           },
         },
-        expectedBindHost: "0.0.0.0",
+        expectedBindHost: "::",
       },
       {
         name: "loopback binding with 127.0.0.1 proxy",
@@ -135,7 +135,7 @@ describe("resolveGatewayRuntimeConfig", () => {
           },
         },
         expectedAuthMode: "token",
-        expectedBindHost: "0.0.0.0",
+        expectedBindHost: "::",
       },
       {
         name: "loopback binding with explicit none auth",
@@ -228,7 +228,7 @@ describe("resolveGatewayRuntimeConfig", () => {
         },
         port: 18789,
       });
-      expect(result.bindHost).toBe("0.0.0.0");
+      expect(result.bindHost).toBe("::");
     });
   });
 
