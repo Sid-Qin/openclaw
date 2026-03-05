@@ -46,7 +46,8 @@ function resolveOllamaApiBase(configuredBaseUrl?: string): string {
 }
 
 function resolveOllamaApiKey(options: EmbeddingProviderOptions): string | undefined {
-  const remoteApiKey = options.remote?.apiKey?.trim();
+  const rawApiKey = options.remote?.apiKey;
+  const remoteApiKey = typeof rawApiKey === "string" ? rawApiKey.trim() : undefined;
   if (remoteApiKey) {
     return remoteApiKey;
   }
