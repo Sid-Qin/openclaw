@@ -151,7 +151,7 @@ export function buildGatewayCronService(params: {
   const cronEnabled = process.env.OPENCLAW_SKIP_CRON !== "1" && params.cfg.cron?.enabled !== false;
 
   const resolveCronAgent = (requested?: string | null) => {
-    const runtimeConfig = loadConfig();
+    const runtimeConfig = params.cfg;
     const normalized =
       typeof requested === "string" && requested.trim() ? normalizeAgentId(requested) : undefined;
     const hasAgent =
@@ -200,7 +200,7 @@ export function buildGatewayCronService(params: {
   };
 
   const resolveCronWakeTarget = (opts?: { agentId?: string; sessionKey?: string | null }) => {
-    const runtimeConfig = loadConfig();
+    const runtimeConfig = params.cfg;
     const requestedAgentId = opts?.agentId ? resolveCronAgent(opts.agentId).agentId : undefined;
     const derivedAgentId =
       requestedAgentId ??
