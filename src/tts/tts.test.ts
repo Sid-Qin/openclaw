@@ -151,6 +151,50 @@ describe("tts", () => {
         expect(isValidOpenAIModel(testCase.model), testCase.model).toBe(testCase.expected);
       }
     });
+
+    it("accepts any model when custom baseUrl is provided", () => {
+      expect(isValidOpenAIModel("custom-tts-model", "https://api.murmr.dev")).toBe(true);
+      expect(isValidOpenAIModel("kokoro-v1", "http://localhost:8880/v1")).toBe(true);
+    });
+  });
+
+  describe("isValidOpenAIVoice with custom baseUrl", () => {
+    it("accepts any voice when custom baseUrl is provided", () => {
+      expect(isValidOpenAIVoice("voice_18ca42aa688b", "https://api.murmr.dev")).toBe(true);
+      expect(isValidOpenAIVoice("zh-CN-female", "http://localhost:8880/v1")).toBe(true);
+    });
+  });
+
+  describe("resolveTtsConfig openai.baseUrl", () => {
+    it("defaults to undefined when not configured (env fallback handled at runtime)", () => {
+      const cfg = { messages: { tts: {} } } as OpenClawConfig;
+      const config = resolveTtsConfig(cfg);
+      expect(config.openai.baseUrl).toBeUndefined();
+    });
+
+    it("uses configured baseUrl when provided", () => {
+      const cfg = {
+        messages: {
+          tts: {
+            openai: { baseUrl: "https://api.murmr.dev" },
+          },
+        },
+      } as OpenClawConfig;
+      const config = resolveTtsConfig(cfg);
+      expect(config.openai.baseUrl).toBe("https://api.murmr.dev");
+    });
+
+    it("trims whitespace from baseUrl", () => {
+      const cfg = {
+        messages: {
+          tts: {
+            openai: { baseUrl: "  https://api.murmr.dev  " },
+          },
+        },
+      } as OpenClawConfig;
+      const config = resolveTtsConfig(cfg);
+      expect(config.openai.baseUrl).toBe("https://api.murmr.dev");
+    });
   });
 
   describe("resolveOutputFormat", () => {
