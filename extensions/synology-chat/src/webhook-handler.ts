@@ -109,7 +109,12 @@ function parseFormBody(body: string): Record<string, unknown> {
 
 function parseJsonBody(body: string): Record<string, unknown> {
   if (!body.trim()) return {};
-  const parsed = JSON.parse(body);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    throw new Error("Invalid JSON body");
+  }
   if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
     throw new Error("Invalid JSON body");
   }
