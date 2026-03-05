@@ -463,6 +463,8 @@ const MessageToolSchema = buildMessageToolSchemaFromActions(AllMessageActions, {
 type MessageToolOptions = {
   agentAccountId?: string;
   agentSessionKey?: string;
+  /** Explicit agent ID — used to resolve agent-scoped media roots when agentSessionKey is unavailable. */
+  agentId?: string;
   config?: OpenClawConfig;
   currentChannelId?: string;
   currentChannelProvider?: string;
@@ -740,7 +742,7 @@ export function createMessageTool(options?: MessageToolOptions): AnyAgentTool {
         sessionKey: options?.agentSessionKey,
         agentId: options?.agentSessionKey
           ? resolveSessionAgentId({ sessionKey: options.agentSessionKey, config: cfg })
-          : undefined,
+          : options?.agentId,
         sandboxRoot: options?.sandboxRoot,
         abortSignal: signal,
       });
