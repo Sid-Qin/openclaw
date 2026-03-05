@@ -100,4 +100,46 @@ describe("checkBrowserOrigin", () => {
     });
     expect(result.ok).toBe(true);
   });
+
+  it("accepts non-standard protocol origins like app://localhost (regression: #35035)", () => {
+    const result = checkBrowserOrigin({
+      requestHost: "host.tail1234.ts.net",
+      origin: "app://localhost",
+      allowedOrigins: ["app://localhost"],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.matchedBy).toBe("allowlist");
+    }
+  });
+
+  it("accepts tauri://localhost via allowlist", () => {
+    const result = checkBrowserOrigin({
+      requestHost: "gateway.example.com:18789",
+      origin: "tauri://localhost",
+      allowedOrigins: ["tauri://localhost"],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.matchedBy).toBe("allowlist");
+    }
+  });
+
+  it("rejects non-standard protocol origin when not in allowlist", () => {
+    const result = checkBrowserOrigin({
+      requestHost: "gateway.example.com:18789",
+      origin: "app://localhost",
+      allowedOrigins: ["https://control.example.com"],
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it("accepts non-standard protocol origin with wildcard allowedOrigins", () => {
+    const result = checkBrowserOrigin({
+      requestHost: "gateway.example.com:18789",
+      origin: "app://localhost",
+      allowedOrigins: ["*"],
+    });
+    expect(result.ok).toBe(true);
+  });
 });

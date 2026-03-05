@@ -16,8 +16,15 @@ function parseOrigin(
   }
   try {
     const url = new URL(trimmed);
+    // Non-standard protocols (app://, tauri://, etc.) return "null" from
+    // URL.origin. Reconstruct the origin from protocol + host so that
+    // allowlist matching works for desktop-app origins like app://localhost.
+    const origin =
+      url.origin === "null"
+        ? `${url.protocol}//${url.host}`.toLowerCase()
+        : url.origin.toLowerCase();
     return {
-      origin: url.origin.toLowerCase(),
+      origin,
       host: url.host.toLowerCase(),
       hostname: url.hostname.toLowerCase(),
     };
