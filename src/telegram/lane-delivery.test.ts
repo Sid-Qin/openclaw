@@ -162,9 +162,41 @@ describe("createLaneTextDeliverer", () => {
     expect(harness.sendPayload).toHaveBeenCalledWith(
       expect.objectContaining({ text: "Hello final" }),
     );
+    expect(harness.deletePreviewMessage).toHaveBeenCalledWith(999);
   });
 
-  it("falls back to normal delivery when stop-created preview has no message id", async () => {
+  it("does not leave stale preview when fallback send succeeds", async () => {
+    const harness = createHarness({ answerMessageId: 888 });
+    harness.editPreview.mockRejectedValue(new Error("400: message not modified"));
+
+    await harness.deliverLaneText({
+      laneName: "answer",
+      text: "Final text",
+      payload: { text: "Final text" },
+      infoKind: "final",
+    });
+
+    expect(harness.sendPayload).toHaveBeenCalledTimes(1);
+    expect(harness.deletePreviewMessage).toHaveBeenCalledWith(888);
+  });
+
+  it("skips stale preview cleanup when fallback send fails", async () => {
+    const harness = createHarness({ answerMessageId: 888 });
+    harness.editPreview.mockRejectedValue(new Error("edit failed"));
+    harness.sendPayload.mockResolvedValue(false);
+
+    const result = await harness.deliverLaneText({
+      laneName: "answer",
+      text: "Final text",
+      payload: { text: "Final text" },
+      infoKind: "final",
+    });
+
+    expect(result).toBe("skipped");
+    expect(harness.deletePreviewMessage).not.toHaveBeenCalled();
+  });
+
+  it("does not attempt preview cleanup when no preview existed", async () => {
     const harness = createHarness();
 
     const result = await harness.deliverLaneText({

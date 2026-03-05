@@ -427,8 +427,20 @@ export function createLaneTextDeliverer(params: CreateLaneTextDelivererParams) {
           `telegram: preview final too long for edit (${text.length} > ${params.draftMaxChars}); falling back to standard send`,
         );
       }
+      // Capture the preview message ID before stopping the draft lane,
+      // so we can delete the stale preview after sending the replacement.
+      const stalePreviewMessageId = lane.stream?.messageId();
       await params.stopDraftLane(lane);
       const delivered = await params.sendPayload(params.applyTextToPayload(payload, text));
+      if (delivered && typeof stalePreviewMessageId === "number") {
+        try {
+          await params.deletePreviewMessage(stalePreviewMessageId);
+        } catch (err) {
+          params.log(
+            `telegram: stale preview cleanup failed (${stalePreviewMessageId}): ${String(err)}`,
+          );
+        }
+      }
       return delivered ? "sent" : "skipped";
     }
 
