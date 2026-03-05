@@ -47,7 +47,7 @@ export function createGatewayReloadHandlers(params: {
   logChannels: { info: (msg: string) => void; error: (msg: string) => void };
   logCron: { error: (msg: string) => void };
   logReload: { info: (msg: string) => void; warn: (msg: string) => void };
-  createHealthMonitor: (checkIntervalMs: number) => ChannelHealthMonitor;
+  createHealthMonitor: (checkIntervalMs: number, opts?: { staleEventThresholdMs?: number }) => ChannelHealthMonitor;
 }) {
   const applyHotReload = async (
     plan: GatewayReloadPlan,
@@ -97,8 +97,14 @@ export function createGatewayReloadHandlers(params: {
     if (plan.restartHealthMonitor) {
       state.channelHealthMonitor?.stop();
       const minutes = nextConfig.gateway?.channelHealthCheckMinutes;
+      const staleMinutes = nextConfig.gateway?.channelStaleEventThresholdMinutes;
       nextState.channelHealthMonitor =
-        minutes === 0 ? null : params.createHealthMonitor((minutes ?? 5) * 60_000);
+        minutes === 0
+          ? null
+          : params.createHealthMonitor((minutes ?? 5) * 60_000, {
+              staleEventThresholdMs:
+                staleMinutes != null ? staleMinutes * 60_000 : undefined,
+            });
     }
 
     if (plan.restartGmailWatcher) {

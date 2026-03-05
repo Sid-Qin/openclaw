@@ -692,11 +692,15 @@ export async function startGatewayServer(
 
   const healthCheckMinutes = cfgAtStart.gateway?.channelHealthCheckMinutes;
   const healthCheckDisabled = healthCheckMinutes === 0;
+  const staleThresholdMinutes = cfgAtStart.gateway?.channelStaleEventThresholdMinutes;
   let channelHealthMonitor = healthCheckDisabled
     ? null
     : startChannelHealthMonitor({
         channelManager,
         checkIntervalMs: (healthCheckMinutes ?? 5) * 60_000,
+        ...(staleThresholdMinutes != null
+          ? { staleEventThresholdMs: staleThresholdMinutes * 60_000 }
+          : {}),
       });
 
   if (!minimalTestGateway) {
@@ -906,8 +910,14 @@ export async function startGatewayServer(
           logChannels,
           logCron,
           logReload,
-          createHealthMonitor: (checkIntervalMs: number) =>
-            startChannelHealthMonitor({ channelManager, checkIntervalMs }),
+          createHealthMonitor: (checkIntervalMs: number, opts?: { staleEventThresholdMs?: number }) =>
+            startChannelHealthMonitor({
+              channelManager,
+              checkIntervalMs,
+              ...(opts?.staleEventThresholdMs != null
+                ? { staleEventThresholdMs: opts.staleEventThresholdMs }
+                : {}),
+            }),
         });
 
         return startGatewayConfigReloader({

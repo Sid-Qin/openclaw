@@ -364,4 +364,11 @@ export type GatewayConfig = {
    * Set to 0 to disable. Default: 5.
    */
   channelHealthCheckMinutes?: number;
+  /**
+   * How long (in minutes) a channel may go without events before the health
+   * monitor considers it stale and restarts the provider.
+   * Low-traffic channels (e.g. iMessage) can be legitimately quiet for hours;
+   * increase this to avoid unnecessary restarts.  Default: 30.
+   */
+  channelStaleEventThresholdMinutes?: number;
 };
