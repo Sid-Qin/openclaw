@@ -1,4 +1,4 @@
-import { missingTargetError } from "../infra/outbound/target-errors.js";
+import { missingTargetError, unknownTargetError } from "../infra/outbound/target-errors.js";
 import { isWhatsAppGroupJid, normalizeWhatsAppTarget } from "./normalize.js";
 
 export type WhatsAppOutboundTargetResolution =
@@ -41,7 +41,11 @@ export function resolveWhatsAppOutboundTarget(params: {
     }
     return {
       ok: false,
-      error: missingTargetError("WhatsApp", "<E.164|group JID>"),
+      error: unknownTargetError(
+        "WhatsApp",
+        normalizedTo,
+        "target not in allowFrom; add to channels.whatsapp.allowFrom or use * to allow all",
+      ),
     };
   }
 

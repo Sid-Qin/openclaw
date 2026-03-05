@@ -5,6 +5,8 @@ import { resolveWhatsAppOutboundTarget } from "./resolve-outbound-target.js";
 vi.mock("./normalize.js");
 vi.mock("../infra/outbound/target-errors.js", () => ({
   missingTargetError: (platform: string, format: string) => new Error(`${platform}: ${format}`),
+  unknownTargetError: (platform: string, raw: string, hint?: string) =>
+    new Error(`Unknown target "${raw}" for ${platform}.${hint ? ` Hint: ${hint}` : ""}`),
 }));
 
 type ResolveParams = Parameters<typeof resolveWhatsAppOutboundTarget>[0];
@@ -134,9 +136,18 @@ describe("resolveWhatsAppOutboundTarget", () => {
       expectAllowedForTarget({ allowFrom: [PRIMARY_TARGET], mode: "implicit" });
     });
 
-    it("denies message when target is not in allowList", () => {
+    it("denies message when target is not in allowList with allowFrom hint", () => {
       mockNormalizedDirectMessage(PRIMARY_TARGET, SECONDARY_TARGET);
-      expectDeniedForTarget({ allowFrom: [SECONDARY_TARGET], mode: "implicit" });
+      const result = resolveWhatsAppOutboundTarget({
+        to: PRIMARY_TARGET,
+        allowFrom: [SECONDARY_TARGET],
+        mode: "implicit",
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toContain("allowFrom");
+        expect(result.error.message).not.toContain("E.164");
+      }
     });
 
     it("handles mixed numeric and string allowList entries", () => {
