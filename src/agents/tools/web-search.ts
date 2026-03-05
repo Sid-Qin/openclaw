@@ -26,7 +26,7 @@ const DEFAULT_SEARCH_COUNT = 5;
 const MAX_SEARCH_COUNT = 10;
 
 const BRAVE_SEARCH_ENDPOINT = "https://api.search.brave.com/res/v1/web/search";
-const PERPLEXITY_SEARCH_ENDPOINT = "https://api.perplexity.ai/search";
+const DEFAULT_PERPLEXITY_BASE_URL = "https://api.perplexity.ai";
 
 const XAI_API_ENDPOINT = "https://api.x.ai/v1/responses";
 const DEFAULT_GROK_MODEL = "grok-4-1-fast";
@@ -189,6 +189,8 @@ type BraveSearchResponse = {
 
 type PerplexityConfig = {
   apiKey?: string;
+  baseUrl?: string;
+  model?: string;
 };
 
 type PerplexityApiKeySource = "config" | "perplexity_env" | "none";
@@ -516,6 +518,22 @@ function resolvePerplexityApiKey(perplexity?: PerplexityConfig): {
   }
 
   return { apiKey: undefined, source: "none" };
+}
+
+function resolvePerplexityBaseUrl(perplexity?: PerplexityConfig): string {
+  const fromConfig =
+    perplexity && "baseUrl" in perplexity && typeof perplexity.baseUrl === "string"
+      ? perplexity.baseUrl.trim()
+      : "";
+  return fromConfig || DEFAULT_PERPLEXITY_BASE_URL;
+}
+
+function resolvePerplexityModel(perplexity?: PerplexityConfig): string | undefined {
+  const fromConfig =
+    perplexity && "model" in perplexity && typeof perplexity.model === "string"
+      ? perplexity.model.trim()
+      : "";
+  return fromConfig || undefined;
 }
 
 function normalizeApiKey(key: unknown): string {
@@ -858,6 +876,8 @@ async function throwWebSearchApiError(res: Response, providerLabel: string): Pro
 async function runPerplexitySearchApi(params: {
   query: string;
   apiKey: string;
+  baseUrl: string;
+  model?: string;
   count: number;
   timeoutSeconds: number;
   country?: string;
@@ -871,11 +891,17 @@ async function runPerplexitySearchApi(params: {
 }): Promise<
   Array<{ title: string; url: string; description: string; published?: string; siteName?: string }>
 > {
+  const baseUrl = params.baseUrl.trim().replace(/\/$/, "");
+  const endpoint = `${baseUrl}/search`;
+
   const body: Record<string, unknown> = {
     query: params.query,
     max_results: params.count,
   };
 
+  if (params.model) {
+    body.model = params.model;
+  }
   if (params.country) {
     body.country = params.country;
   }
@@ -903,7 +929,7 @@ async function runPerplexitySearchApi(params: {
 
   return withTrustedWebSearchEndpoint(
     {
-      url: PERPLEXITY_SEARCH_ENDPOINT,
+      url: endpoint,
       timeoutSeconds: params.timeoutSeconds,
       init: {
         method: "POST",
@@ -1171,6 +1197,8 @@ async function runWebSearch(params: {
   geminiModel?: string;
   kimiBaseUrl?: string;
   kimiModel?: string;
+  perplexityBaseUrl?: string;
+  perplexityModel?: string;
 }): Promise<Record<string, unknown>> {
   const providerSpecificKey =
     params.provider === "grok"
@@ -1179,7 +1207,9 @@ async function runWebSearch(params: {
         ? (params.geminiModel ?? DEFAULT_GEMINI_MODEL)
         : params.provider === "kimi"
           ? `${params.kimiBaseUrl ?? DEFAULT_KIMI_BASE_URL}:${params.kimiModel ?? DEFAULT_KIMI_MODEL}`
-          : "";
+          : params.provider === "perplexity"
+            ? `${params.perplexityBaseUrl ?? DEFAULT_PERPLEXITY_BASE_URL}:${params.perplexityModel ?? ""}`
+            : "";
   const cacheKey = normalizeCacheKey(
     `${params.provider}:${params.query}:${params.count}:${params.country || "default"}:${params.search_lang || params.language || "default"}:${params.ui_lang || "default"}:${params.freshness || "default"}:${params.dateAfter || "default"}:${params.dateBefore || "default"}:${params.searchDomainFilter?.join(",") || "default"}:${params.maxTokens || "default"}:${params.maxTokensPerPage || "default"}:${providerSpecificKey}`,
   );
@@ -1194,6 +1224,8 @@ async function runWebSearch(params: {
     const results = await runPerplexitySearchApi({
       query: params.query,
       apiKey: params.apiKey,
+      baseUrl: params.perplexityBaseUrl ?? DEFAULT_PERPLEXITY_BASE_URL,
+      model: params.perplexityModel,
       count: params.count,
       timeoutSeconds: params.timeoutSeconds,
       country: params.country,
@@ -1596,6 +1628,8 @@ export function createWebSearchTool(options?: {
         geminiModel: resolveGeminiModel(geminiConfig),
         kimiBaseUrl: resolveKimiBaseUrl(kimiConfig),
         kimiModel: resolveKimiModel(kimiConfig),
+        perplexityBaseUrl: resolvePerplexityBaseUrl(perplexityConfig),
+        perplexityModel: resolvePerplexityModel(perplexityConfig),
       });
       return jsonResult(result);
     },
@@ -1619,5 +1653,7 @@ export const __testing = {
   resolveKimiModel,
   resolveKimiBaseUrl,
   extractKimiCitations,
+  resolvePerplexityBaseUrl,
+  resolvePerplexityModel,
   resolveRedirectUrl: resolveCitationRedirectUrl,
 } as const;
