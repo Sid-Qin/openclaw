@@ -62,4 +62,25 @@ describe("sendReactionSignal", () => {
     expect(params.targetAuthor).toBe("+15551230000");
     expect(params.remove).toBe(true);
   });
+
+  it("does not crash when normalizeSignalId receives a non-string at runtime", async () => {
+    await expect(
+      sendReactionSignal(
+        // @ts-expect-error — simulate runtime non-string (e.g. numeric value from JSON)
+        12345,
+        100,
+        "👍",
+      ),
+    ).rejects.toThrow(/Recipient or groupId is required/i);
+  });
+
+  it("skips non-string targetAuthor candidates without crashing", async () => {
+    await sendReactionSignal("+15550001111", 100, "👍", {
+      // @ts-expect-error — simulate numeric value from config
+      targetAuthor: 42,
+    });
+
+    const params = rpcMock.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(params.targetAuthor).toBe("+15550001111");
+  });
 });

@@ -32,6 +32,9 @@ type SignalReactionErrorMessages = {
 };
 
 function normalizeSignalId(raw: string): string {
+  if (typeof raw !== "string") {
+    return "";
+  }
   const trimmed = raw.trim();
   if (!trimmed) {
     return "";
@@ -57,7 +60,10 @@ function resolveTargetAuthorParams(params: {
 }): { targetAuthor?: string } {
   const candidates = [params.targetAuthor, params.targetAuthorUuid, params.fallback];
   for (const candidate of candidates) {
-    const raw = candidate?.trim();
+    if (typeof candidate !== "string") {
+      continue;
+    }
+    const raw = candidate.trim();
     if (!raw) {
       continue;
     }

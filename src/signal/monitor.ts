@@ -132,11 +132,12 @@ function normalizeAllowList(raw?: Array<string | number>): string[] {
 
 function resolveSignalReactionTargets(reaction: SignalReactionMessage): SignalReactionTarget[] {
   const targets: SignalReactionTarget[] = [];
-  const uuid = reaction.targetAuthorUuid?.trim();
+  const uuid =
+    typeof reaction.targetAuthorUuid === "string" ? reaction.targetAuthorUuid.trim() : "";
   if (uuid) {
     targets.push({ kind: "uuid", id: uuid, display: `uuid:${uuid}` });
   }
-  const author = reaction.targetAuthor?.trim();
+  const author = typeof reaction.targetAuthor === "string" ? reaction.targetAuthor.trim() : "";
   if (author) {
     const normalized = normalizeE164(author);
     targets.push({ kind: "phone", id: normalized, display: normalized });
@@ -150,9 +151,12 @@ function isSignalReactionMessage(
   if (!reaction) {
     return false;
   }
-  const emoji = reaction.emoji?.trim();
+  const emoji = typeof reaction.emoji === "string" ? reaction.emoji.trim() : "";
   const timestamp = reaction.targetSentTimestamp;
-  const hasTarget = Boolean(reaction.targetAuthor?.trim() || reaction.targetAuthorUuid?.trim());
+  const hasTarget = Boolean(
+    (typeof reaction.targetAuthor === "string" && reaction.targetAuthor.trim()) ||
+    (typeof reaction.targetAuthorUuid === "string" && reaction.targetAuthorUuid.trim()),
+  );
   return Boolean(emoji && typeof timestamp === "number" && timestamp > 0 && hasTarget);
 }
 
@@ -169,7 +173,7 @@ function shouldEmitSignalReactionNotification(params: {
     return false;
   }
   if (effectiveMode === "own") {
-    const accountId = account?.trim();
+    const accountId = typeof account === "string" ? account.trim() : "";
     if (!accountId || !targets || targets.length === 0) {
       return false;
     }
@@ -340,8 +344,11 @@ export async function monitorSignalProvider(opts: MonitorSignalOpts = {}): Promi
   const groupHistories = new Map<string, HistoryEntry[]>();
   const textLimit = resolveTextChunkLimit(cfg, "signal", accountInfo.accountId);
   const chunkMode = resolveChunkMode(cfg, "signal", accountInfo.accountId);
-  const baseUrl = opts.baseUrl?.trim() || accountInfo.baseUrl;
-  const account = opts.account?.trim() || accountInfo.config.account?.trim();
+  const baseUrl =
+    (typeof opts.baseUrl === "string" ? opts.baseUrl.trim() : "") || accountInfo.baseUrl;
+  const account =
+    (typeof opts.account === "string" ? opts.account.trim() : "") ||
+    (typeof accountInfo.config.account === "string" ? accountInfo.config.account.trim() : "");
   const dmPolicy = accountInfo.config.dmPolicy ?? "pairing";
   const allowFrom = normalizeAllowList(opts.allowFrom ?? accountInfo.config.allowFrom);
   const groupAllowFrom = normalizeAllowList(
