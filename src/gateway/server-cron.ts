@@ -18,7 +18,7 @@ import {
 } from "../cron/run-log.js";
 import { CronService } from "../cron/service.js";
 import { resolveCronStorePath } from "../cron/store.js";
-import { normalizeHttpWebhookUrl } from "../cron/webhook-url.js";
+import { normalizeHttpWebhookUrl, validateHttpWebhookUrl } from "../cron/webhook-url.js";
 import { formatErrorMessage } from "../infra/errors.js";
 import { runHeartbeatOnce } from "../infra/heartbeat-runner.js";
 import { requestHeartbeatNow } from "../infra/heartbeat-wake.js";
@@ -64,21 +64,24 @@ function resolveCronWebhookTarget(params: {
   delivery?: { mode?: string; to?: string };
   legacyNotify?: boolean;
   legacyWebhook?: string;
-}): CronWebhookTarget | null {
+}): { target: CronWebhookTarget; rejectionReason?: undefined } | { target: null; rejectionReason?: string } {
   const mode = params.delivery?.mode?.trim().toLowerCase();
   if (mode === "webhook") {
-    const url = normalizeHttpWebhookUrl(params.delivery?.to);
-    return url ? { url, source: "delivery" } : null;
+    const validation = validateHttpWebhookUrl(params.delivery?.to);
+    if (validation.url) {
+      return { target: { url: validation.url, source: "delivery" } };
+    }
+    return { target: null, rejectionReason: validation.reason };
   }
 
   if (params.legacyNotify) {
     const legacyUrl = normalizeHttpWebhookUrl(params.legacyWebhook);
     if (legacyUrl) {
-      return { url: legacyUrl, source: "legacy" };
+      return { target: { url: legacyUrl, source: "legacy" } };
     }
   }
 
-  return null;
+  return { target: null };
 }
 
 function buildCronWebhookHeaders(webhookToken?: string): Record<string, string> {
@@ -309,10 +312,10 @@ export function buildGatewayCronService(params: {
       }
 
       if (mode === "webhook" && to) {
-        const webhookUrl = normalizeHttpWebhookUrl(to);
-        if (webhookUrl) {
+        const validation = validateHttpWebhookUrl(to);
+        if (validation.url) {
           await postCronWebhook({
-            webhookUrl,
+            webhookUrl: validation.url,
             webhookToken,
             payload: {
               jobId: job.id,
@@ -329,8 +332,9 @@ export function buildGatewayCronService(params: {
             {
               jobId: job.id,
               webhookUrl: redactWebhookUrl(to),
+              rejectionReason: validation.reason,
             },
-            "cron: failure alert webhook URL is invalid, skipping",
+            "cron: failure alert webhook URL rejected, delivery disabled for this run",
           );
         }
         return;
@@ -362,22 +366,24 @@ export function buildGatewayCronService(params: {
         const legacyWebhook = trimToOptionalString(params.cfg.cron?.webhook);
         const job = cron.getJob(evt.jobId);
         const legacyNotify = (job as { notify?: unknown } | undefined)?.notify === true;
-        const webhookTarget = resolveCronWebhookTarget({
-          delivery:
-            job?.delivery && typeof job.delivery.mode === "string"
-              ? { mode: job.delivery.mode, to: job.delivery.to }
-              : undefined,
-          legacyNotify,
-          legacyWebhook,
-        });
+        const { target: webhookTarget, rejectionReason: webhookRejection } =
+          resolveCronWebhookTarget({
+            delivery:
+              job?.delivery && typeof job.delivery.mode === "string"
+                ? { mode: job.delivery.mode, to: job.delivery.to }
+                : undefined,
+            legacyNotify,
+            legacyWebhook,
+          });
 
         if (!webhookTarget && job?.delivery?.mode === "webhook") {
           cronLogger.warn(
             {
               jobId: evt.jobId,
               deliveryTo: job.delivery.to,
+              rejectionReason: webhookRejection,
             },
-            "cron: skipped webhook delivery, delivery.to must be a valid http(s) URL",
+            "cron: webhook delivery rejected, delivery.to must be a valid http(s) URL",
           );
         }
 
@@ -427,11 +433,11 @@ export function buildGatewayCronService(params: {
               };
 
               if (failureDest.mode === "webhook" && failureDest.to) {
-                const webhookUrl = normalizeHttpWebhookUrl(failureDest.to);
-                if (webhookUrl) {
+                const failureValidation = validateHttpWebhookUrl(failureDest.to);
+                if (failureValidation.url) {
                   void (async () => {
                     await postCronWebhook({
-                      webhookUrl,
+                      webhookUrl: failureValidation.url,
                       webhookToken,
                       payload: failurePayload,
                       logContext: { jobId: evt.jobId },
@@ -445,8 +451,9 @@ export function buildGatewayCronService(params: {
                     {
                       jobId: evt.jobId,
                       webhookUrl: redactWebhookUrl(failureDest.to),
+                      rejectionReason: failureValidation.reason,
                     },
-                    "cron: failure destination webhook URL is invalid, skipping",
+                    "cron: failure destination webhook URL rejected, delivery disabled for this run",
                   );
                 }
               } else if (failureDest.mode === "announce") {
