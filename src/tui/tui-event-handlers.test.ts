@@ -323,7 +323,7 @@ describe("tui-event-handlers: handleAgentEvent", () => {
     );
   });
 
-  it("refreshes history after a non-local chat final", () => {
+  it("skips history reload when non-local chat final has renderable content", () => {
     const { state, loadHistory, handleChatEvent } = createHandlersHarness({
       state: { activeChatRunId: null },
     });
@@ -333,6 +333,21 @@ describe("tui-event-handlers: handleAgentEvent", () => {
       sessionKey: state.currentSessionKey,
       state: "final",
       message: { content: [{ type: "text", text: "done" }] },
+    });
+
+    expect(loadHistory).not.toHaveBeenCalled();
+  });
+
+  it("refreshes history when non-local chat final has no renderable content", () => {
+    const { state, loadHistory, handleChatEvent } = createHandlersHarness({
+      state: { activeChatRunId: null },
+    });
+
+    handleChatEvent({
+      runId: "external-run",
+      sessionKey: state.currentSessionKey,
+      state: "final",
+      message: { content: [] },
     });
 
     expect(loadHistory).toHaveBeenCalledTimes(1);
