@@ -139,6 +139,19 @@ describe("resolveWhatsAppOutboundTarget", () => {
       expectDeniedForTarget({ allowFrom: [SECONDARY_TARGET], mode: "implicit" });
     });
 
+    it("returns allowFrom-specific error when target is valid but not in allowList", () => {
+      mockNormalizedDirectMessage(PRIMARY_TARGET, SECONDARY_TARGET);
+      const result = resolveWhatsAppOutboundTarget({
+        to: PRIMARY_TARGET,
+        allowFrom: [SECONDARY_TARGET],
+        mode: "implicit",
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toContain("allowFrom");
+      }
+    });
+
     it("handles mixed numeric and string allowList entries", () => {
       vi.mocked(normalize.normalizeWhatsAppTarget)
         .mockReturnValueOnce("+11234567890") // for 'to' param
