@@ -1816,4 +1816,42 @@ describe("dispatchTelegramMessage draft streaming", () => {
     expect(draftA.clear).toHaveBeenCalledTimes(1);
     expect(draftB.clear).toHaveBeenCalledTimes(1);
   });
+
+  it("suppresses error payloads in group chats", async () => {
+    const draftStream = createDraftStream(999);
+    createTelegramDraftStream.mockReturnValue(draftStream);
+    dispatchReplyWithBufferedBlockDispatcher.mockImplementation(async ({ dispatcherOptions }) => {
+      await dispatcherOptions.deliver(
+        { text: "⚠️ ✉️ Message: 2201 failed", isError: true },
+        { kind: "final" },
+      );
+      return { queuedFinal: true };
+    });
+    deliverReplies.mockResolvedValue({ delivered: true });
+
+    await dispatchWithContext({
+      context: createContext({ isGroup: true }),
+    });
+
+    expect(deliverReplies).not.toHaveBeenCalled();
+  });
+
+  it("delivers error payloads in DM chats", async () => {
+    const draftStream = createDraftStream(999);
+    createTelegramDraftStream.mockReturnValue(draftStream);
+    dispatchReplyWithBufferedBlockDispatcher.mockImplementation(async ({ dispatcherOptions }) => {
+      await dispatcherOptions.deliver(
+        { text: "⚠️ ✉️ Message: 2201 failed", isError: true },
+        { kind: "final" },
+      );
+      return { queuedFinal: true };
+    });
+    deliverReplies.mockResolvedValue({ delivered: true });
+
+    await dispatchWithContext({
+      context: createContext({ isGroup: false }),
+    });
+
+    expect(deliverReplies).toHaveBeenCalled();
+  });
 });
