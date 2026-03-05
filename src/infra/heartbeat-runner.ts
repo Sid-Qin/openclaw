@@ -24,6 +24,7 @@ import type { ChannelHeartbeatDeps } from "../channels/plugins/types.js";
 import { parseDurationMs } from "../cli/parse-duration.js";
 import type { OpenClawConfig } from "../config/config.js";
 import { loadConfig } from "../config/config.js";
+import { runCommandWithTimeout } from "../process/exec.js";
 import {
   canonicalizeMainSessionAlias,
   loadSessionStore,
@@ -475,7 +476,7 @@ type HeartbeatReasonFlags = {
   isWakeReason: boolean;
 };
 
-type HeartbeatSkipReason = "empty-heartbeat-file";
+type HeartbeatSkipReason = "empty-heartbeat-file" | "preflight-command-ok";
 
 type HeartbeatPreflight = HeartbeatReasonFlags & {
   session: ReturnType<typeof resolveHeartbeatSession>;
@@ -635,6 +636,34 @@ export async function runHeartbeatOnce(opts: {
     });
     return { status: "skipped", reason: preflight.skipReason };
   }
+
+  const preFlightCommand = heartbeat?.preFlightCommand?.trim();
+  if (preFlightCommand) {
+    const workspaceDir = resolveAgentWorkspaceDir(cfg, agentId);
+    try {
+      const argv =
+        process.platform === "win32"
+          ? ["cmd.exe", "/d", "/s", "/c", preFlightCommand]
+          : ["sh", "-c", preFlightCommand];
+      const result = await runCommandWithTimeout(argv, {
+        cwd: workspaceDir,
+        timeoutMs: 30_000,
+      });
+      const stdout = typeof result.stdout === "string" ? result.stdout : "";
+      if (stdout.includes("HEARTBEAT_OK")) {
+        log.info("heartbeat: pre-flight command returned HEARTBEAT_OK, skipping agent turn");
+        emitHeartbeatEvent({
+          status: "skipped",
+          reason: "preflight-command-ok",
+          durationMs: Date.now() - startedAt,
+        });
+        return { status: "skipped", reason: "preflight-command-ok" };
+      }
+    } catch (err) {
+      log.warn(`heartbeat: pre-flight command failed, proceeding with agent turn: ${String(err)}`);
+    }
+  }
+
   const { entry, sessionKey, storePath } = preflight.session;
   const previousUpdatedAt = entry?.updatedAt;
   const delivery = resolveHeartbeatDeliveryTarget({ cfg, entry, heartbeat });

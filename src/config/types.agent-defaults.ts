@@ -260,6 +260,17 @@ export type AgentDefaultsConfig = {
      * Default: false (only the final heartbeat payload is delivered).
      */
     includeReasoning?: boolean;
+    /**
+     * Shell command run before each heartbeat agent turn.  If the command's
+     * stdout contains `HEARTBEAT_OK`, the agent session is skipped entirely,
+     * saving tokens.  Any other output (or a non-zero exit code) lets the
+     * heartbeat proceed normally — the script's stdout is **not** passed to
+     * the agent.
+     *
+     * The command runs with the agent workspace directory as its cwd.
+     * Maximum execution time: 30 seconds.
+     */
+    preFlightCommand?: string;
   };
   /** Max concurrent agent runs across all conversations. Default: 1 (sequential). */
   maxConcurrent?: number;

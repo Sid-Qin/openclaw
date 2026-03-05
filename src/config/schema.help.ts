@@ -208,6 +208,8 @@ export const FIELD_HELP: Record<string, string> = {
     "Avatar image path (relative to the agent workspace only) or a remote URL/data URL.",
   "agents.defaults.heartbeat.suppressToolErrorWarnings":
     "Suppress tool error warning payloads during heartbeat runs.",
+  "agents.defaults.heartbeat.preFlightCommand":
+    "Shell command run before each heartbeat agent turn. If stdout contains HEARTBEAT_OK the turn is skipped entirely, saving tokens. Useful for lightweight external checks (API probes, file watchers) that determine whether the agent needs to act.",
   "agents.list[].heartbeat.suppressToolErrorWarnings":
     "Suppress tool error warning payloads during heartbeat runs.",
   browser:
