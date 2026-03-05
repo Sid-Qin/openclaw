@@ -322,7 +322,9 @@ export class TwilioProvider implements VoiceCallProvider {
         type: "call.speech",
         transcript: speechResult,
         isFinal: true,
-        confidence: parseFloat(params.get("Confidence") || "0.9"),
+        confidence: Number.isFinite(parseFloat(params.get("Confidence") ?? ""))
+          ? parseFloat(params.get("Confidence")!)
+          : 0.9,
       };
     }
 

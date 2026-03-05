@@ -28,7 +28,17 @@ export function loadActiveCallsFromStore(storePath: string): {
     };
   }
 
-  const content = fs.readFileSync(logPath, "utf-8");
+  let content: string;
+  try {
+    content = fs.readFileSync(logPath, "utf-8");
+  } catch {
+    return {
+      activeCalls: new Map(),
+      providerCallIdMap: new Map(),
+      processedEventIds: new Set(),
+      rejectedProviderCallIds: new Set(),
+    };
+  }
   const lines = content.split("\n");
 
   const callMap = new Map<CallId, CallRecord>();

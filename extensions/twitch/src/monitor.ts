@@ -231,8 +231,9 @@ export async function monitorTwitchProvider(
     }
 
     // Access control check
-    const botUsername = account.username.toLowerCase();
-    if (message.username.toLowerCase() === botUsername) {
+    const botUsername = (account.username ?? "").toLowerCase();
+    const msgUsername = (message.username ?? "").toLowerCase();
+    if (!botUsername || msgUsername === botUsername) {
       return; // Ignore own messages
     }
 
