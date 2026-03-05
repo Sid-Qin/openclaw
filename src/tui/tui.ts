@@ -422,6 +422,7 @@ export async function runTui(opts: TuiOptions) {
     set showThinking(value) {
       showThinking = value;
     },
+    deliver: deliverDefault,
     get connectionStatus() {
       return connectionStatus;
     },
@@ -805,7 +806,6 @@ export async function runTui(opts: TuiOptions) {
       tui,
       opts,
       state,
-      deliverDefault,
       openOverlay,
       closeOverlay,
       refreshSessionInfo,

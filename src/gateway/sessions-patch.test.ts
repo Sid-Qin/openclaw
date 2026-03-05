@@ -335,3 +335,51 @@ describe("gateway sessions patch", () => {
     expect(entry.modelOverride).toBe("hf:moonshotai/Kimi-K2.5");
   });
 });
+
+describe("clearDelivery (#35589)", () => {
+  test("clearDelivery removes delivery routing fields from session", async () => {
+    const store: Record<string, SessionEntry> = {
+      [MAIN_SESSION_KEY]: {
+        sessionId: "s1",
+        updatedAt: Date.now(),
+        deliveryContext: { channel: "imessage", to: "+1234567890", accountId: "default" },
+        lastChannel: "imessage",
+        lastTo: "+1234567890",
+        lastAccountId: "default",
+        lastThreadId: "t1",
+      },
+    };
+    const entry = expectPatchOk(
+      await runPatch({
+        store,
+        patch: { key: MAIN_SESSION_KEY, clearDelivery: true },
+      }),
+    );
+    expect(entry.deliveryContext).toBeUndefined();
+    expect(entry.lastChannel).toBeUndefined();
+    expect(entry.lastTo).toBeUndefined();
+    expect(entry.lastAccountId).toBeUndefined();
+    expect(entry.lastThreadId).toBeUndefined();
+  });
+
+  test("clearDelivery=false is a no-op", async () => {
+    const store: Record<string, SessionEntry> = {
+      [MAIN_SESSION_KEY]: {
+        sessionId: "s1",
+        updatedAt: Date.now(),
+        deliveryContext: { channel: "imessage", to: "+1234567890" },
+        lastChannel: "imessage",
+        lastTo: "+1234567890",
+      },
+    };
+    const entry = expectPatchOk(
+      await runPatch({
+        store,
+        patch: { key: MAIN_SESSION_KEY, clearDelivery: false },
+      }),
+    );
+    expect(entry.deliveryContext).toEqual({ channel: "imessage", to: "+1234567890" });
+    expect(entry.lastChannel).toBe("imessage");
+    expect(entry.lastTo).toBe("+1234567890");
+  });
+});

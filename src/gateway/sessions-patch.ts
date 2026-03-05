@@ -359,6 +359,14 @@ export async function applySessionsPatchToStore(params: {
     }
   }
 
+  if (patch.clearDelivery === true) {
+    delete next.deliveryContext;
+    delete next.lastChannel;
+    delete next.lastTo;
+    delete next.lastAccountId;
+    delete next.lastThreadId;
+  }
+
   store[storeKey] = next;
   return { ok: true, entry: next };
 }

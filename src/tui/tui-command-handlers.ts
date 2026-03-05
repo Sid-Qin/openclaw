@@ -30,7 +30,6 @@ type CommandHandlerContext = {
   tui: TUI;
   opts: TuiOptions;
   state: TuiStateAccess;
-  deliverDefault: boolean;
   openOverlay: (component: Component) => void;
   closeOverlay: () => void;
   refreshSessionInfo: () => Promise<void>;
@@ -53,7 +52,6 @@ export function createCommandHandlers(context: CommandHandlerContext) {
     tui,
     opts,
     state,
-    deliverDefault,
     openOverlay,
     closeOverlay,
     refreshSessionInfo,
@@ -438,6 +436,24 @@ export function createCommandHandlers(context: CommandHandlerContext) {
           chatLog.addSystem(`reset failed: ${String(err)}`);
         }
         break;
+      case "deliver":
+        if (!args || (args !== "on" && args !== "off")) {
+          chatLog.addSystem("usage: /deliver <on|off>");
+          break;
+        }
+        state.deliver = args === "on";
+        if (!state.deliver) {
+          try {
+            await client.patchSession({
+              key: state.currentSessionKey,
+              clearDelivery: true,
+            });
+          } catch {
+            // best-effort; delivery flag still toggled locally
+          }
+        }
+        chatLog.addSystem(`delivery ${state.deliver ? "on" : "off"}`);
+        break;
       case "abort":
         await abortActive();
         break;
@@ -474,7 +490,7 @@ export function createCommandHandlers(context: CommandHandlerContext) {
         sessionKey: state.currentSessionKey,
         message: text,
         thinking: opts.thinking,
-        deliver: deliverDefault,
+        deliver: state.deliver,
         timeoutMs: opts.timeoutMs,
         runId,
       });
