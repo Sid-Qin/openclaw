@@ -1185,3 +1185,61 @@ describe("releaseWsSession / hasWsSession", () => {
     expect(() => releaseWsSession("nonexistent-session")).not.toThrow();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("malformed content entry guards", () => {
+  it("convertMessagesToInputItems does not crash on null entries in assistant content", () => {
+    const msg = {
+      role: "assistant" as const,
+      content: [null, { type: "text", text: "ok" }],
+      stopReason: "stop",
+      api: "openai-responses",
+      provider: "openai",
+      model: "gpt-5.2",
+      usage: {},
+      timestamp: 0,
+    };
+    expect(() =>
+      convertMessagesToInputItems([msg] as Parameters<typeof convertMessagesToInputItems>[0]),
+    ).not.toThrow();
+  });
+
+  it("convertMessagesToInputItems does not crash on null entries in user content array", () => {
+    const msg = {
+      role: "user" as const,
+      content: [null, { type: "text", text: "hello" }],
+      timestamp: 0,
+    };
+    expect(() =>
+      convertMessagesToInputItems([msg] as Parameters<typeof convertMessagesToInputItems>[0]),
+    ).not.toThrow();
+  });
+
+  it("buildAssistantMessageFromResponse does not crash on null entries in message content", () => {
+    const modelInfo = { api: "openai-responses", provider: "openai", id: "gpt-5.2" };
+    const response: ResponseObject = {
+      id: "resp_malformed",
+      object: "response",
+      created_at: Date.now(),
+      status: "completed",
+      model: "gpt-5.2",
+      output: [
+        {
+          type: "message",
+          id: "item_1",
+          role: "assistant",
+          content: [
+            null,
+            { type: "output_text", text: "ok" },
+          ] as unknown as ResponseObject["output"][0] extends { content?: infer C } ? C : never,
+        } as ResponseObject["output"][0],
+      ],
+      usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 },
+    };
+    expect(() => buildAssistantMessageFromResponse(response, modelInfo)).not.toThrow();
+    const msg = buildAssistantMessageFromResponse(response, modelInfo);
+    expect(msg.content).toHaveLength(1);
+    expect((msg.content[0] as { text: string }).text).toBe("ok");
+  });
+});
