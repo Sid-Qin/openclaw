@@ -9,6 +9,8 @@ import {
   isCompactionFailureError,
   isContextOverflowError,
   isLikelyContextOverflowError,
+  isOverloadedErrorMessage,
+  isRateLimitErrorMessage,
   isTransientHttpError,
   sanitizeUserFacingText,
 } from "../../agents/pi-embedded-helpers.js";
@@ -609,20 +611,38 @@ export async function runAgentTurnWithFallback(params: {
     }
   }
 
-  // If the run completed but with an embedded context overflow error that
-  // wasn't recovered from (e.g. compaction reset already attempted), surface
-  // the error to the user instead of silently returning an empty response.
-  // See #26905: Slack DM sessions silently swallowed messages when context
-  // overflow errors were returned as embedded error payloads.
+  // If the run completed but with an embedded error that wasn't recovered
+  // from and no payload text was generated, surface the error to the user
+  // instead of silently returning an empty response.
+  // See #26905 (context overflow) and #36142 (rate limit / overload mid-turn).
   const finalEmbeddedError = runResult?.meta?.error;
   const hasPayloadText = runResult?.payloads?.some((p) => p.text?.trim());
-  if (finalEmbeddedError && isContextOverflowError(finalEmbeddedError.message) && !hasPayloadText) {
-    return {
-      kind: "final",
-      payload: {
-        text: "⚠️ Context overflow — this conversation is too large for the model. Use /new to start a fresh session.",
-      },
-    };
+  if (finalEmbeddedError && !hasPayloadText) {
+    const errMsg = finalEmbeddedError.message ?? "";
+    if (isContextOverflowError(errMsg)) {
+      return {
+        kind: "final",
+        payload: {
+          text: "⚠️ Context overflow — this conversation is too large for the model. Use /new to start a fresh session.",
+        },
+      };
+    }
+    if (isRateLimitErrorMessage(errMsg)) {
+      return {
+        kind: "final",
+        payload: {
+          text: "⚠️ API rate limit reached mid-turn — the model couldn't generate a response after tool calls completed. Please try again in a moment.",
+        },
+      };
+    }
+    if (isOverloadedErrorMessage(errMsg)) {
+      return {
+        kind: "final",
+        payload: {
+          text: "⚠️ The AI service is temporarily overloaded. Please try again in a moment.",
+        },
+      };
+    }
   }
 
   return {
