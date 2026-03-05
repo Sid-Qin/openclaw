@@ -3,7 +3,7 @@ import { normalizeChatType } from "../../channels/chat-type.js";
 import { resolveConversationLabel } from "../../channels/conversation-label.js";
 import { getChannelDock } from "../../channels/dock.js";
 import { normalizeChannelId } from "../../channels/plugins/index.js";
-import { normalizeMessageChannel } from "../../utils/message-channel.js";
+import { INTERNAL_MESSAGE_CHANNEL, normalizeMessageChannel } from "../../utils/message-channel.js";
 import { buildGroupDisplayName, resolveGroupSessionKey } from "./group.js";
 import type { GroupKeyResolution, SessionEntry, SessionOrigin } from "./types.js";
 
@@ -43,12 +43,18 @@ const mergeOrigin = (
 };
 
 export function deriveSessionOrigin(ctx: MsgContext): SessionOrigin | undefined {
-  const label = resolveConversationLabel(ctx)?.trim();
   const providerRaw =
     (typeof ctx.OriginatingChannel === "string" && ctx.OriginatingChannel) ||
     ctx.Surface ||
     ctx.Provider;
   const provider = normalizeMessageChannel(providerRaw);
+
+  // When the message originates from an internal channel (webchat/TUI),
+  // the conversation label resolves to the client's displayName (e.g.
+  // "openclaw-tui").  Using that as origin.label would overwrite the
+  // session's real channel-based identity (e.g. "John" from Telegram).
+  const label =
+    provider === INTERNAL_MESSAGE_CHANNEL ? undefined : resolveConversationLabel(ctx)?.trim();
   const surface = ctx.Surface?.trim().toLowerCase();
   const chatType = normalizeChatType(ctx.ChatType) ?? undefined;
   const from = ctx.From?.trim();
