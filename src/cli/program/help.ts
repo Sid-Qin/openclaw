@@ -9,6 +9,7 @@ import { CLI_LOG_LEVEL_VALUES, parseCliLogLevelOption } from "../log-level-optio
 import { getCoreCliCommandsWithSubcommands } from "./command-registry.js";
 import type { ProgramContext } from "./context.js";
 import { getSubCliCommandsWithSubcommands } from "./register.subclis.js";
+import { resolveCommitHash } from "../../infra/git-commit.js";
 
 const CLI_NAME = resolveCliName();
 const CLI_NAME_PATTERN = escapeRegExp(CLI_NAME);
@@ -109,7 +110,11 @@ export function configureProgramHelp(program: Command, ctx: ProgramContext) {
     hasFlag(process.argv, "--version") ||
     hasRootVersionAlias(process.argv)
   ) {
-    console.log(ctx.programVersion);
+    const commit = resolveCommitHash();
+    const versionStr = commit
+      ? `${ctx.programVersion} (${commit})`
+      : ctx.programVersion;
+    console.log(versionStr);
     process.exit(0);
   }
 

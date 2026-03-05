@@ -39,6 +39,11 @@ vi.mock("./register.subclis.js", () => ({
   getSubCliCommandsWithSubcommands: () => ["gateway"],
 }));
 
+const resolveCommitHashMock = vi.fn(() => "abc1234");
+vi.mock("../../infra/git-commit.js", () => ({
+  resolveCommitHash: (...args: unknown[]) => resolveCommitHashMock(...args),
+}));
+
 const { configureProgramHelp } = await import("./help.js");
 
 const testProgramContext: ProgramContext = {
@@ -108,6 +113,23 @@ describe("configureProgramHelp", () => {
   });
 
   it("prints version and exits immediately when version flags are present", () => {
+    process.argv = ["node", "openclaw", "--version"];
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+      throw new Error(`exit:${code ?? ""}`);
+    }) as typeof process.exit);
+
+    const program = makeProgramWithCommands();
+    expect(() => configureProgramHelp(program, testProgramContext)).toThrow("exit:0");
+    expect(logSpy).toHaveBeenCalledWith("9.9.9-test (abc1234)");
+    expect(exitSpy).toHaveBeenCalledWith(0);
+
+    logSpy.mockRestore();
+    exitSpy.mockRestore();
+  });
+
+  it("prints version without commit hash when resolveCommitHash returns null", () => {
+    resolveCommitHashMock.mockReturnValueOnce(null);
     process.argv = ["node", "openclaw", "--version"];
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
