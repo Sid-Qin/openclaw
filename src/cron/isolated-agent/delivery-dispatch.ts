@@ -96,7 +96,7 @@ async function resolveCronAnnounceSessionKey(params: {
       threadId: params.delivery.threadId,
     });
     const resolved = route?.sessionKey?.trim();
-    if (resolved) {
+    if (route && resolved) {
       // Ensure the session entry exists so downstream announce / queue delivery
       // can look up channel metadata (lastChannel, to, sessionId).  Named agents
       // may not have a session entry for this target yet, causing announce
