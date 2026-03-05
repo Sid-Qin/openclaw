@@ -20,6 +20,23 @@ import {
 } from "../../pi-embedded-utils.js";
 import { isLikelyMutatingToolName } from "../../tool-mutation.js";
 
+const DEFAULT_ATTRIBUTION_TEMPLATE = "⚡ via {provider}/{model}";
+
+export function resolveModelAttributionSuffix(
+  config: OpenClawConfig | undefined,
+  provider: string | undefined,
+  model: string | undefined,
+): string | undefined {
+  const setting = config?.agents?.defaults?.modelAttribution;
+  if (!setting) {
+    return undefined;
+  }
+  const p = provider ?? "unknown";
+  const m = model ?? "unknown";
+  const template = typeof setting === "string" ? setting : DEFAULT_ATTRIBUTION_TEMPLATE;
+  return template.replace(/\{provider\}/g, p).replace(/\{model\}/g, m);
+}
+
 type ToolMetaEntry = { toolName: string; meta?: string };
 type LastToolError = {
   toolName: string;
@@ -316,8 +333,10 @@ export function buildEmbeddedRunPayloads(params: {
     }
   }
 
+  const attribution = resolveModelAttributionSuffix(params.config, params.provider, params.model);
+
   const hasAudioAsVoiceTag = replyItems.some((item) => item.audioAsVoice);
-  return replyItems
+  const mapped = replyItems
     .map((item) => ({
       text: item.text?.trim() ? item.text.trim() : undefined,
       mediaUrls: item.media?.length ? item.media : undefined,
@@ -337,4 +356,15 @@ export function buildEmbeddedRunPayloads(params: {
       }
       return true;
     });
+
+  if (attribution) {
+    for (let i = mapped.length - 1; i >= 0; i -= 1) {
+      if (mapped[i].text && !mapped[i].isError) {
+        mapped[i] = { ...mapped[i], text: `${mapped[i].text}\n\n${attribution}` };
+        break;
+      }
+    }
+  }
+
+  return mapped;
 }

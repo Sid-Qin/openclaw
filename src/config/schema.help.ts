@@ -701,6 +701,8 @@ export const FIELD_HELP: Record<string, string> = {
   "auth.cooldowns.failureWindowHours": "Failure window (hours) for backoff counters (default: 24).",
   "agents.defaults.workspace":
     "Default workspace path exposed to agent runtime tools for filesystem context and repo-aware behavior. Set this explicitly when running from wrappers so path resolution stays deterministic.",
+  "agents.defaults.modelAttribution":
+    "Append model attribution to assistant responses so users know which model generated each reply. Set to `true` for the default format or provide a custom template string with `{provider}` and `{model}` placeholders.",
   "agents.defaults.bootstrapMaxChars":
     "Max characters of each workspace bootstrap file injected into the system prompt before truncation (default: 20000).",
   "agents.defaults.bootstrapTotalMaxChars":

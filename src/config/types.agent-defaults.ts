@@ -120,6 +120,13 @@ export type CliBackendConfig = {
 export type AgentDefaultsConfig = {
   /** Primary model and fallbacks (provider/model). Accepts string or {primary,fallbacks}. */
   model?: AgentModelConfig;
+  /**
+   * Append model attribution to assistant responses so users know which model
+   * generated each reply. When `true`, appends e.g. "⚡ via openai/gpt-5.2".
+   * When a string, uses that as a custom template — `{provider}` and `{model}`
+   * placeholders are replaced. Default: `false` (no attribution).
+   */
+  modelAttribution?: boolean | string;
   /** Optional image-capable model and fallbacks (provider/model). Accepts string or {primary,fallbacks}. */
   imageModel?: AgentModelConfig;
   /** Optional PDF-capable model and fallbacks (provider/model). Accepts string or {primary,fallbacks}. */
