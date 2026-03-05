@@ -297,3 +297,46 @@ describe("listSkillCommandsForAgents", () => {
     expect(commands.map((entry) => entry.skillName)).toContain("demo-skill");
   });
 });
+
+describe("dedupeSkillCommands", () => {
+  it("removes duplicate skill commands by skillName", async () => {
+    const { dedupeSkillCommands } = await import("./skill-commands.js");
+    const commands = [
+      { name: "weather", skillName: "weather", description: "d1" },
+      { name: "weather_2", skillName: "weather", description: "d2" },
+      { name: "weather_3", skillName: "weather", description: "d3" },
+      { name: "github", skillName: "github", description: "d4" },
+    ] as Parameters<typeof dedupeSkillCommands>[0];
+
+    const result = dedupeSkillCommands(commands);
+    expect(result.map((c) => c.name)).toEqual(["weather", "github"]);
+  });
+
+  it("preserves commands with empty skillName", async () => {
+    const { dedupeSkillCommands } = await import("./skill-commands.js");
+    const commands = [
+      { name: "cmd1", skillName: "", description: "d1" },
+      { name: "cmd2", skillName: "", description: "d2" },
+    ] as Parameters<typeof dedupeSkillCommands>[0];
+
+    const result = dedupeSkillCommands(commands);
+    expect(result).toHaveLength(2);
+  });
+
+  it("deduplicates case-insensitively", async () => {
+    const { dedupeSkillCommands } = await import("./skill-commands.js");
+    const commands = [
+      { name: "Weather", skillName: "Weather", description: "d1" },
+      { name: "weather_2", skillName: "weather", description: "d2" },
+    ] as Parameters<typeof dedupeSkillCommands>[0];
+
+    const result = dedupeSkillCommands(commands);
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe("Weather");
+  });
+
+  it("returns empty array for empty input", async () => {
+    const { dedupeSkillCommands } = await import("./skill-commands.js");
+    expect(dedupeSkillCommands([])).toEqual([]);
+  });
+});

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { __testing } from "./provider.js";
 
-describe("dedupeSkillCommandsForDiscord", () => {
+describe("dedupeSkillCommands", () => {
   it("keeps first command per skillName and drops suffix duplicates", () => {
     const input = [
       { name: "github", skillName: "github", description: "GitHub" },
@@ -10,7 +10,7 @@ describe("dedupeSkillCommandsForDiscord", () => {
       { name: "weather_2", skillName: "weather", description: "Weather" },
     ];
 
-    const output = __testing.dedupeSkillCommandsForDiscord(input);
+    const output = __testing.dedupeSkillCommands(input);
     expect(output.map((entry) => entry.name)).toEqual(["github", "weather"]);
   });
 
@@ -19,7 +19,7 @@ describe("dedupeSkillCommandsForDiscord", () => {
       { name: "ClawHub", skillName: "ClawHub", description: "ClawHub" },
       { name: "clawhub_2", skillName: "clawhub", description: "ClawHub" },
     ];
-    const output = __testing.dedupeSkillCommandsForDiscord(input);
+    const output = __testing.dedupeSkillCommands(input);
     expect(output).toHaveLength(1);
     expect(output[0]?.name).toBe("ClawHub");
   });

@@ -46,6 +46,26 @@ export function listSkillCommandsForWorkspace(params: {
   });
 }
 
+export function dedupeSkillCommands(
+  skillCommands: SkillCommandSpec[],
+): SkillCommandSpec[] {
+  const seen = new Set<string>();
+  const deduped: SkillCommandSpec[] = [];
+  for (const command of skillCommands) {
+    const key = command.skillName.trim().toLowerCase();
+    if (!key) {
+      deduped.push(command);
+      continue;
+    }
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    deduped.push(command);
+  }
+  return deduped;
+}
+
 export function listSkillCommandsForAgents(params: {
   cfg: OpenClawConfig;
   agentIds?: string[];
