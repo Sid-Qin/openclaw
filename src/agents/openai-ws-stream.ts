@@ -170,6 +170,16 @@ export function convertTools(tools: Context["tools"]): FunctionToolDefinition[] 
 }
 
 /**
+ * Strip the pipe-delimited `|fc_*` suffix from compound tool call IDs.
+ * The OpenAI Responses API produces compound IDs (e.g. `call_xxx|fc_xxx`)
+ * but the Codex API strictly requires `[a-zA-Z0-9_-]+`.
+ */
+function sanitizeToolCallId(id: string): string {
+  const pipeIdx = id.indexOf("|");
+  return pipeIdx > 0 ? id.slice(0, pipeIdx) : id;
+}
+
+/**
  * Convert the full pi-ai message history to an OpenAI `input` array.
  * Handles user messages, assistant text+tool-call messages, and tool results.
  */
@@ -219,15 +229,14 @@ export function convertMessagesToInputItems(messages: Message[]): InputItem[] {
               });
               textParts.length = 0;
             }
-            const callId = toNonEmptyString(block.id);
+            const rawCallId = toNonEmptyString(block.id);
             const toolName = toNonEmptyString(block.name);
-            if (!callId || !toolName) {
+            if (!rawCallId || !toolName) {
               continue;
             }
-            // Push function_call item
             items.push({
               type: "function_call",
-              call_id: callId,
+              call_id: sanitizeToolCallId(rawCallId),
               name: toolName,
               arguments:
                 typeof block.arguments === "string"
@@ -263,14 +272,14 @@ export function convertMessagesToInputItems(messages: Message[]): InputItem[] {
         content: unknown;
         isError: boolean;
       };
-      const callId = toNonEmptyString(tr.toolCallId) ?? toNonEmptyString(tr.toolUseId);
-      if (!callId) {
+      const rawCallId = toNonEmptyString(tr.toolCallId) ?? toNonEmptyString(tr.toolUseId);
+      if (!rawCallId) {
         continue;
       }
       const outputText = contentToText(tr.content);
       items.push({
         type: "function_call_output",
-        call_id: callId,
+        call_id: sanitizeToolCallId(rawCallId),
         output: outputText,
       });
       continue;
