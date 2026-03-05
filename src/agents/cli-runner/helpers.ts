@@ -335,7 +335,12 @@ export async function writeCliImages(
     const image = images[i];
     const ext = resolveImageExtension(image.mimeType);
     const filePath = path.join(tempDir, `image-${i + 1}.${ext}`);
-    const buffer = Buffer.from(image.data, "base64");
+    let buffer: Buffer;
+    try {
+      buffer = Buffer.from(image.data, "base64");
+    } catch {
+      continue;
+    }
     await fs.writeFile(filePath, buffer, { mode: 0o600 });
     paths.push(filePath);
   }

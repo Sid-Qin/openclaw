@@ -23,7 +23,12 @@ export function decodeDataUrl(dataUrl: string): {
     throw new Error(`Unsupported data URL type: ${mimeType || "unknown"}`);
   }
   const b64 = (match[2] ?? "").trim();
-  const buffer = Buffer.from(b64, "base64");
+  let buffer: Buffer;
+  try {
+    buffer = Buffer.from(b64, "base64");
+  } catch {
+    throw new Error("Invalid data URL: malformed base64 payload.");
+  }
   if (buffer.length === 0) {
     throw new Error("Invalid data URL: empty payload.");
   }
