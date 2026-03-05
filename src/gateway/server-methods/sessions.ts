@@ -4,6 +4,7 @@ import { getAcpSessionManager } from "../../acp/control-plane/manager.js";
 import { resolveDefaultAgentId } from "../../agents/agent-scope.js";
 import { clearBootstrapSnapshot } from "../../agents/bootstrap-cache.js";
 import { abortEmbeddedPiRun, waitForEmbeddedPiRunEnd } from "../../agents/pi-embedded.js";
+import { resolveEmbeddedPiTimeoutMs } from "../../agents/timeout.js";
 import { stopSubagentsForRequester } from "../../auto-reply/reply/abort.js";
 import { clearSessionQueues } from "../../auto-reply/reply/queue.js";
 import { loadConfig } from "../../config/config.js";
@@ -198,7 +199,7 @@ async function ensureSessionRuntimeCleanup(params: {
     return undefined;
   }
   abortEmbeddedPiRun(params.sessionId);
-  const ended = await waitForEmbeddedPiRunEnd(params.sessionId, 15_000);
+  const ended = await waitForEmbeddedPiRunEnd(params.sessionId, resolveEmbeddedPiTimeoutMs(params.cfg));
   if (ended) {
     return undefined;
   }

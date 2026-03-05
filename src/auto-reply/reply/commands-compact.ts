@@ -4,6 +4,7 @@ import {
   isEmbeddedPiRunActive,
   waitForEmbeddedPiRunEnd,
 } from "../../agents/pi-embedded.js";
+import { resolveEmbeddedPiTimeoutMs } from "../../agents/timeout.js";
 import type { OpenClawConfig } from "../../config/config.js";
 import {
   resolveFreshSessionTotalTokens,
@@ -66,7 +67,7 @@ export const handleCompactCommand: CommandHandler = async (params) => {
   const sessionId = params.sessionEntry.sessionId;
   if (isEmbeddedPiRunActive(sessionId)) {
     abortEmbeddedPiRun(sessionId);
-    await waitForEmbeddedPiRunEnd(sessionId, 15_000);
+    await waitForEmbeddedPiRunEnd(sessionId, resolveEmbeddedPiTimeoutMs(params.cfg));
   }
   const customInstructions = extractCompactInstructions({
     rawBody: params.ctx.CommandBody ?? params.ctx.RawBody ?? params.ctx.Body,

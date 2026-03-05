@@ -180,6 +180,8 @@ export type AgentDefaultsConfig = {
      * - trusted: trust project settings as-is
      */
     projectSettingsPolicy?: "trusted" | "sanitize" | "ignore";
+    /** Timeout in milliseconds for embedded Pi LLM requests (default: 15000). */
+    timeoutMs?: number;
   };
   /** Vector memory search configuration (per-agent overrides supported). */
   memorySearch?: MemorySearchConfig;
