@@ -722,7 +722,7 @@ export async function listZaloGroupsMatching(
   }
   return groups.filter((group) => {
     const id = group.groupId.toLowerCase();
-    const name = group.name.toLowerCase();
+    const name = (group.name ?? "").toLowerCase();
     return id.includes(q) || name.includes(q);
   });
 }
@@ -1326,7 +1326,7 @@ export async function resolveZaloGroupsByEntries(params: {
   const groups = await listZaloGroups(params.profile);
   const byName = new Map<string, ZaloGroup[]>();
   for (const group of groups) {
-    const key = group.name.trim().toLowerCase();
+    const key = (group.name ?? "").trim().toLowerCase();
     if (!key) {
       continue;
     }
@@ -1356,7 +1356,7 @@ export async function resolveZaloAllowFromEntries(params: {
   const friends = await listZaloFriends(params.profile);
   const byName = new Map<string, ZcaFriend[]>();
   for (const friend of friends) {
-    const key = friend.displayName.trim().toLowerCase();
+    const key = (friend.displayName ?? "").trim().toLowerCase();
     if (!key) {
       continue;
     }

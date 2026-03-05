@@ -489,7 +489,7 @@ export const zalouserPlugin: ChannelPlugin<ResolvedZalouserAccount> = {
           } else {
             const groups = await listZaloGroupsMatching(account.profile, trimmed);
             const best =
-              groups.find((group) => group.name.toLowerCase() === trimmed.toLowerCase()) ??
+              groups.find((group) => (group.name ?? "").toLowerCase() === trimmed.toLowerCase()) ??
               groups[0];
             results.push({
               input,
