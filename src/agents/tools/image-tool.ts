@@ -231,6 +231,9 @@ async function runImagePrompt(params: {
       // MiniMax VLM only supports a single image; use the first one.
       if (model.provider === "minimax") {
         const first = params.images[0];
+        if (!first) {
+          throw new Error("minimax image tool requires at least one image");
+        }
         const imageDataUrl = `data:${first.mimeType};base64,${first.base64}`;
         const text = await minimaxUnderstandImage({
           apiKey,

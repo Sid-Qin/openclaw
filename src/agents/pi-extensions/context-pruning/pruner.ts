@@ -115,10 +115,16 @@ function estimateMessageChars(message: AgentMessage): number {
     if (typeof content === "string") {
       return content.length;
     }
+    if (!Array.isArray(content)) {
+      return 0;
+    }
     return estimateTextAndImageChars(content);
   }
 
   if (message.role === "assistant") {
+    if (!Array.isArray(message.content)) {
+      return typeof message.content === "string" ? (message.content as string).length : 0;
+    }
     let chars = 0;
     for (const b of message.content) {
       if (b.type === "text") {
@@ -139,6 +145,9 @@ function estimateMessageChars(message: AgentMessage): number {
   }
 
   if (message.role === "toolResult") {
+    if (!Array.isArray(message.content)) {
+      return 0;
+    }
     return estimateTextAndImageChars(message.content);
   }
 
