@@ -168,9 +168,53 @@ function resolveAnthropicSonnet46ForwardCompatModel(
   });
 }
 
-// gemini-3.1-pro-preview / gemini-3.1-flash-preview are not present in pi-ai's built-in
-// google-gemini-cli catalog yet. Clone the nearest gemini-3 template so users don't get
-// "Unknown model" errors when Google Gemini CLI gains new minor-version models.
+const GOOGLE_GENAI_ELIGIBLE_PROVIDERS = new Set(["google", "google-vertex"]);
+
+function resolveGoogleGenai31ForwardCompatModel(
+  provider: string,
+  modelId: string,
+  modelRegistry: ModelRegistry,
+): Model<Api> | undefined {
+  const normalizedProvider = normalizeProviderId(provider);
+  if (!GOOGLE_GENAI_ELIGIBLE_PROVIDERS.has(normalizedProvider)) {
+    return undefined;
+  }
+  const trimmed = modelId.trim();
+  const lower = trimmed.toLowerCase();
+
+  let templateIds: readonly string[];
+  if (lower.startsWith(GEMINI_3_1_PRO_PREFIX)) {
+    templateIds = GEMINI_3_1_PRO_TEMPLATE_IDS;
+  } else if (lower.startsWith(GEMINI_3_1_FLASH_PREFIX)) {
+    templateIds = GEMINI_3_1_FLASH_TEMPLATE_IDS;
+  } else {
+    return undefined;
+  }
+
+  const cloned = cloneFirstTemplateModel({
+    normalizedProvider,
+    trimmedModelId: trimmed,
+    templateIds: [...templateIds],
+    modelRegistry,
+    patch: { reasoning: true },
+  });
+  if (cloned) {
+    return cloned;
+  }
+
+  return normalizeModelCompat({
+    id: trimmed,
+    name: trimmed,
+    api: "google-generative-ai",
+    provider: normalizedProvider,
+    reasoning: true,
+    input: ["text", "image"],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: DEFAULT_CONTEXT_TOKENS,
+    maxTokens: DEFAULT_CONTEXT_TOKENS,
+  } as Model<Api>);
+}
+
 function resolveGoogleGeminiCli31ForwardCompatModel(
   provider: string,
   modelId: string,
@@ -252,6 +296,7 @@ export function resolveForwardCompatModel(
     resolveAnthropicOpus46ForwardCompatModel(provider, modelId, modelRegistry) ??
     resolveAnthropicSonnet46ForwardCompatModel(provider, modelId, modelRegistry) ??
     resolveZaiGlm5ForwardCompatModel(provider, modelId, modelRegistry) ??
+    resolveGoogleGenai31ForwardCompatModel(provider, modelId, modelRegistry) ??
     resolveGoogleGeminiCli31ForwardCompatModel(provider, modelId, modelRegistry)
   );
 }

@@ -10,9 +10,13 @@ import {
   buildOpenAICodexForwardCompatExpectation,
   GOOGLE_GEMINI_CLI_FLASH_TEMPLATE_MODEL,
   GOOGLE_GEMINI_CLI_PRO_TEMPLATE_MODEL,
+  GOOGLE_GENAI_FLASH_TEMPLATE_MODEL,
+  GOOGLE_GENAI_PRO_TEMPLATE_MODEL,
   makeModel,
   mockGoogleGeminiCliFlashTemplateModel,
   mockGoogleGeminiCliProTemplateModel,
+  mockGoogleGenaiFlashTemplateModel,
+  mockGoogleGenaiProTemplateModel,
   mockOpenAICodexTemplateModel,
   resetMockDiscoverModels,
 } from "./model.test-harness.js";
@@ -85,5 +89,71 @@ describe("pi embedded model e2e smoke", () => {
     const result = resolveModel("google-gemini-cli", "gemini-4-unknown", "/tmp/agent");
     expect(result.model).toBeUndefined();
     expect(result.error).toBe("Unknown model: google-gemini-cli/gemini-4-unknown");
+  });
+
+  it("builds a google forward-compat fallback for gemini-3.1-pro-preview", () => {
+    mockGoogleGenaiProTemplateModel();
+
+    const result = resolveModel("google", "gemini-3.1-pro-preview", "/tmp/agent");
+    expect(result.error).toBeUndefined();
+    expect(result.model).toMatchObject({
+      ...GOOGLE_GENAI_PRO_TEMPLATE_MODEL,
+      id: "gemini-3.1-pro-preview",
+      name: "gemini-3.1-pro-preview",
+      reasoning: true,
+    });
+  });
+
+  it("builds a google forward-compat fallback for gemini-3.1-flash-preview", () => {
+    mockGoogleGenaiFlashTemplateModel();
+
+    const result = resolveModel("google", "gemini-3.1-flash-preview", "/tmp/agent");
+    expect(result.error).toBeUndefined();
+    expect(result.model).toMatchObject({
+      ...GOOGLE_GENAI_FLASH_TEMPLATE_MODEL,
+      id: "gemini-3.1-flash-preview",
+      name: "gemini-3.1-flash-preview",
+      reasoning: true,
+    });
+  });
+
+  it("builds a google forward-compat fallback for gemini-3.1-flash-lite-preview", () => {
+    mockGoogleGenaiFlashTemplateModel();
+
+    const result = resolveModel("google", "gemini-3.1-flash-lite-preview", "/tmp/agent");
+    expect(result.error).toBeUndefined();
+    expect(result.model).toMatchObject({
+      id: "gemini-3.1-flash-lite-preview",
+      name: "gemini-3.1-flash-lite-preview",
+      reasoning: true,
+    });
+  });
+
+  it("synthesizes google gemini-3.1 model when no template exists in registry", () => {
+    const result = resolveModel("google", "gemini-3.1-pro-preview", "/tmp/agent");
+    expect(result.error).toBeUndefined();
+    expect(result.model).toMatchObject({
+      id: "gemini-3.1-pro-preview",
+      name: "gemini-3.1-pro-preview",
+      api: "google-generative-ai",
+      provider: "google",
+      reasoning: true,
+    });
+  });
+
+  it("resolves google-vertex gemini-3.1 models via the same forward-compat path", () => {
+    const result = resolveModel("google-vertex", "gemini-3.1-flash-preview", "/tmp/agent");
+    expect(result.error).toBeUndefined();
+    expect(result.model).toMatchObject({
+      id: "gemini-3.1-flash-preview",
+      provider: "google-vertex",
+      reasoning: true,
+    });
+  });
+
+  it("does not match google provider for non-3.1 gemini models", () => {
+    const result = resolveModel("google", "gemini-4-unknown", "/tmp/agent");
+    expect(result.model).toBeUndefined();
+    expect(result.error).toBe("Unknown model: google/gemini-4-unknown");
   });
 });
