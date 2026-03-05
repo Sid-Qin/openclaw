@@ -70,7 +70,20 @@ export function handleMessageStart(
   // Start-of-message is a safer reset point than message_end: some providers
   // may deliver late text_end updates after message_end, which would otherwise
   // re-trigger block replies.
+  const hadPriorAssistantText = ctx.state.assistantTexts.length > 0;
+
   ctx.resetAssistantMessageState(ctx.state.assistantTexts.length);
+
+  if (hadPriorAssistantText) {
+    const separator = "\n\n";
+    ctx.state.deltaBuffer = separator;
+    if (ctx.blockChunker) {
+      ctx.blockChunker.append(separator);
+    } else {
+      ctx.state.blockBuffer = separator;
+    }
+  }
+
   // Use assistant message_start as the earliest "writing" signal for typing.
   void ctx.params.onAssistantMessageStart?.();
 }
