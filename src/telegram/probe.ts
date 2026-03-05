@@ -55,6 +55,12 @@ export async function probeTelegram(
       throw fetchError;
     }
 
+    if (!meRes.ok) {
+      result.status = meRes.status;
+      const text = await meRes.text().catch(() => "");
+      result.error = text || `getMe failed (${meRes.status})`;
+      return { ...result, elapsedMs: Date.now() - started };
+    }
     const meJson = (await meRes.json()) as {
       ok?: boolean;
       description?: string;
@@ -66,7 +72,7 @@ export async function probeTelegram(
         supports_inline_queries?: boolean;
       };
     };
-    if (!meRes.ok || !meJson?.ok) {
+    if (!meJson?.ok) {
       result.status = meRes.status;
       result.error = meJson?.description ?? `getMe failed (${meRes.status})`;
       return { ...result, elapsedMs: Date.now() - started };
@@ -90,15 +96,17 @@ export async function probeTelegram(
     // Try to fetch webhook info, but don't fail health if it errors.
     try {
       const webhookRes = await fetchWithTimeout(`${base}/getWebhookInfo`, {}, timeoutMs, fetcher);
-      const webhookJson = (await webhookRes.json()) as {
-        ok?: boolean;
-        result?: { url?: string; has_custom_certificate?: boolean };
-      };
-      if (webhookRes.ok && webhookJson?.ok) {
-        result.webhook = {
-          url: webhookJson.result?.url ?? null,
-          hasCustomCert: webhookJson.result?.has_custom_certificate ?? null,
+      if (webhookRes.ok) {
+        const webhookJson = (await webhookRes.json()) as {
+          ok?: boolean;
+          result?: { url?: string; has_custom_certificate?: boolean };
         };
+        if (webhookJson?.ok) {
+          result.webhook = {
+            url: webhookJson.result?.url ?? null,
+            hasCustomCert: webhookJson.result?.has_custom_certificate ?? null,
+          };
+        }
       }
     } catch {
       // ignore webhook errors for probe

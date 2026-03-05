@@ -100,10 +100,7 @@ describe("probeTelegram retry logic", () => {
     const mockResponse = {
       ok: false,
       status: 401,
-      json: vi.fn().mockResolvedValue({
-        ok: false,
-        description: "Unauthorized",
-      }),
+      text: vi.fn().mockResolvedValue("Unauthorized"),
     };
     fetchMock.mockResolvedValueOnce(mockResponse);
 

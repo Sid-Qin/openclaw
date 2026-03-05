@@ -24,8 +24,20 @@ export async function auditTelegramGroupMembershipImpl(
     try {
       const url = `${base}/getChatMember?chat_id=${encodeURIComponent(chatId)}&user_id=${encodeURIComponent(String(params.botId))}`;
       const res = await fetchWithTimeout(url, {}, params.timeoutMs, fetcher);
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        groups.push({
+          chatId,
+          ok: false,
+          status: null,
+          error: text || `getChatMember failed (${res.status})`,
+          matchKey: chatId,
+          matchSource: "id",
+        });
+        continue;
+      }
       const json = (await res.json()) as TelegramApiOk<{ status?: string }> | TelegramApiErr;
-      if (!res.ok || !isRecord(json) || !json.ok) {
+      if (!isRecord(json) || !json.ok) {
         const desc =
           isRecord(json) && !json.ok && typeof json.description === "string"
             ? json.description
