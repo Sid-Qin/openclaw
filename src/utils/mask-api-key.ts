@@ -9,5 +9,5 @@ export const maskApiKey = (value: string): string => {
   if (trimmed.length <= 16) {
     return `${trimmed.slice(0, 2)}...${trimmed.slice(-2)}`;
   }
-  return `${trimmed.slice(0, 8)}...${trimmed.slice(-8)}`;
+  return `${trimmed.slice(0, 4)}...${trimmed.slice(-4)}`;
 };
