@@ -241,7 +241,9 @@ function emitFailureAlert(
   },
 ) {
   const safeJobName = params.job.name || params.job.id;
-  const truncatedError = (params.error?.trim() || "unknown error").slice(0, 200);
+  const truncatedError = (
+    typeof params.error === "string" ? params.error.trim() : "unknown error"
+  ).slice(0, 200);
   const text = [
     `Cron job "${safeJobName}" failed ${params.consecutiveErrors} times`,
     `Last error: ${truncatedError}`,

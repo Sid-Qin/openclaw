@@ -46,8 +46,9 @@ export function matchesMessagingToolDeliveryTarget(
   if (!delivery.channel || !delivery.to || !target.to) {
     return false;
   }
-  const channel = delivery.channel.trim().toLowerCase();
-  const provider = target.provider?.trim().toLowerCase();
+  const channel = typeof delivery.channel === "string" ? delivery.channel.trim().toLowerCase() : "";
+  const provider =
+    typeof target.provider === "string" ? target.provider.trim().toLowerCase() : undefined;
   if (provider && provider !== "message" && provider !== channel) {
     return false;
   }

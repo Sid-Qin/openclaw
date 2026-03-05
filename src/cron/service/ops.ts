@@ -194,7 +194,7 @@ function sortJobs(jobs: CronJob[], sortBy: CronJobsSortBy, sortDir: CronSortDir)
 export async function listPage(state: CronServiceState, opts?: CronListPageOptions) {
   return await locked(state, async () => {
     await ensureLoadedForRead(state);
-    const query = opts?.query?.trim().toLowerCase() ?? "";
+    const query = typeof opts?.query === "string" ? opts.query.trim().toLowerCase() : "";
     const enabledFilter = resolveEnabledFilter(opts);
     const sortBy = opts?.sortBy ?? "nextRunAtMs";
     const sortDir = opts?.sortDir ?? "asc";

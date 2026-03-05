@@ -81,7 +81,9 @@ export function inferLegacyName(job: {
 
 export function normalizePayloadToSystemText(payload: CronPayload) {
   if (payload.kind === "systemEvent") {
-    return payload.text.trim();
+    return typeof payload.text === "string" ? payload.text.trim() : String(payload.text ?? "");
   }
-  return payload.message.trim();
+  return typeof payload.message === "string"
+    ? payload.message.trim()
+    : String(payload.message ?? "");
 }
