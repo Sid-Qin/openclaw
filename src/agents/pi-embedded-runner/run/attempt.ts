@@ -29,6 +29,7 @@ import { isReasoningTagProvider } from "../../../utils/provider-utils.js";
 import { resolveOpenClawAgentDir } from "../../agent-paths.js";
 import { resolveSessionAgentIds } from "../../agent-scope.js";
 import { createAnthropicPayloadLogger } from "../../anthropic-payload-log.js";
+import { wrapStreamFnWithModelApiLogging } from "../../model-api-logging.js";
 import {
   analyzeBootstrapBudget,
   buildBootstrapPromptWarning,
@@ -1163,6 +1164,15 @@ export async function runEmbeddedAttempt(
           activeSession.agent.streamFn,
         );
       }
+
+      activeSession.agent.streamFn = wrapStreamFnWithModelApiLogging(
+        activeSession.agent.streamFn,
+        {
+          modelId: params.modelId,
+          provider: params.provider,
+          sessionId: params.sessionId,
+        },
+      );
 
       try {
         const prior = await sanitizeSessionHistory({
