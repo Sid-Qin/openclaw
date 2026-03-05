@@ -70,6 +70,29 @@ function resolveBrowserExecutable(resolved: ResolvedBrowserConfig): BrowserExecu
   return resolveBrowserExecutableForPlatform(resolved, process.platform);
 }
 
+/**
+ * Detect proxy env vars and return a `--proxy-server=<url>` Chrome arg,
+ * or undefined when no proxy is configured or the user already supplied one.
+ *
+ * @internal Exported for testing.
+ */
+export function resolveProxyArg(
+  extraArgs: string[],
+  env: Record<string, string | undefined> = process.env,
+): string | undefined {
+  if (extraArgs.some((a) => a.startsWith("--proxy-server"))) {
+    return undefined;
+  }
+  const proxyUrl =
+    env.HTTPS_PROXY ||
+    env.https_proxy ||
+    env.HTTP_PROXY ||
+    env.http_proxy ||
+    env.ALL_PROXY ||
+    env.all_proxy;
+  return proxyUrl ? `--proxy-server=${proxyUrl}` : undefined;
+}
+
 export function resolveOpenClawUserDataDir(profileName = DEFAULT_OPENCLAW_BROWSER_PROFILE_NAME) {
   return path.join(CONFIG_DIR, "browser", profileName, "user-data");
 }
@@ -268,6 +291,14 @@ export async function launchOpenClawChrome(
 
     // Stealth: hide navigator.webdriver from automation detection (#80)
     args.push("--disable-blink-features=AutomationControlled");
+
+    // Chromium does not honor HTTP_PROXY/HTTPS_PROXY env vars; it needs
+    // an explicit --proxy-server flag. Auto-inject it unless the user
+    // already specified one via extraArgs.
+    const proxyArg = resolveProxyArg(resolved.extraArgs);
+    if (proxyArg) {
+      args.push(proxyArg);
+    }
 
     // Append user-configured extra arguments (e.g., stealth flags, window size)
     if (resolved.extraArgs.length > 0) {
