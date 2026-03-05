@@ -94,10 +94,12 @@ export function removeAckReactionAfterReply(params: {
   if (!params.ackReactionValue) {
     return;
   }
-  void params.ackReactionPromise.then((didAck) => {
-    if (!didAck) {
-      return;
-    }
-    params.remove().catch((err) => params.onError?.(err));
-  });
+  void params.ackReactionPromise
+    .then((didAck) => {
+      if (!didAck) {
+        return;
+      }
+      params.remove().catch((err) => params.onError?.(err));
+    })
+    .catch((err) => params.onError?.(err));
 }

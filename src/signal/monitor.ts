@@ -106,15 +106,17 @@ function createSignalDaemonLifecycle(params: { abortSignal?: AbortSignal }) {
   };
   const attach = (handle: SignalDaemonHandle) => {
     daemonHandle = handle;
-    void handle.exited.then((exit) => {
-      if (daemonStopRequested || params.abortSignal?.aborted) {
-        return;
-      }
-      daemonExitError = new Error(formatSignalDaemonExit(exit));
-      if (!daemonAbortController.signal.aborted) {
-        daemonAbortController.abort(daemonExitError);
-      }
-    });
+    void handle.exited
+      .then((exit) => {
+        if (daemonStopRequested || params.abortSignal?.aborted) {
+          return;
+        }
+        daemonExitError = new Error(formatSignalDaemonExit(exit));
+        if (!daemonAbortController.signal.aborted) {
+          daemonAbortController.abort(daemonExitError);
+        }
+      })
+      .catch(() => {});
   };
   const getExitError = () => daemonExitError;
   return {
