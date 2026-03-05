@@ -30,6 +30,7 @@ export type ChannelHealthPolicy = {
   now: number;
   staleEventThresholdMs: number;
   channelConnectGraceMs: number;
+  busyActivityStaleThresholdMs: number;
 };
 
 export type ChannelRestartReason = "gave-up" | "stopped" | "stale-socket" | "stuck";
@@ -38,7 +39,7 @@ function isManagedAccount(snapshot: ChannelHealthSnapshot): boolean {
   return snapshot.enabled !== false && snapshot.configured !== false;
 }
 
-const BUSY_ACTIVITY_STALE_THRESHOLD_MS = 25 * 60_000;
+export const DEFAULT_BUSY_ACTIVITY_STALE_THRESHOLD_MS = 45 * 60_000;
 
 export function evaluateChannelHealth(
   snapshot: ChannelHealthSnapshot,
@@ -77,7 +78,7 @@ export function evaluateChannelHealth(
         lastRunActivityAt == null
           ? Number.POSITIVE_INFINITY
           : Math.max(0, policy.now - lastRunActivityAt);
-      if (runActivityAge < BUSY_ACTIVITY_STALE_THRESHOLD_MS) {
+      if (runActivityAge < policy.busyActivityStaleThresholdMs) {
         return { healthy: true, reason: "busy" };
       }
       return { healthy: false, reason: "stuck" };

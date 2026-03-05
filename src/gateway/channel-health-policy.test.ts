@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { evaluateChannelHealth, resolveChannelRestartReason } from "./channel-health-policy.js";
+import {
+  DEFAULT_BUSY_ACTIVITY_STALE_THRESHOLD_MS,
+  evaluateChannelHealth,
+  resolveChannelRestartReason,
+} from "./channel-health-policy.js";
+
+const BUSY_STALE_MS = DEFAULT_BUSY_ACTIVITY_STALE_THRESHOLD_MS;
 
 describe("evaluateChannelHealth", () => {
   it("treats disabled accounts as healthy unmanaged", () => {
@@ -13,6 +19,7 @@ describe("evaluateChannelHealth", () => {
         now: 100_000,
         channelConnectGraceMs: 10_000,
         staleEventThresholdMs: 30_000,
+        busyActivityStaleThresholdMs: BUSY_STALE_MS,
       },
     );
     expect(evaluation).toEqual({ healthy: true, reason: "unmanaged" });
@@ -31,6 +38,7 @@ describe("evaluateChannelHealth", () => {
         now: 100_000,
         channelConnectGraceMs: 10_000,
         staleEventThresholdMs: 30_000,
+        busyActivityStaleThresholdMs: BUSY_STALE_MS,
       },
     );
     expect(evaluation).toEqual({ healthy: true, reason: "startup-connect-grace" });
@@ -51,12 +59,13 @@ describe("evaluateChannelHealth", () => {
         now,
         channelConnectGraceMs: 10_000,
         staleEventThresholdMs: 30_000,
+        busyActivityStaleThresholdMs: BUSY_STALE_MS,
       },
     );
     expect(evaluation).toEqual({ healthy: true, reason: "busy" });
   });
 
-  it("flags stale busy channels as stuck when run activity is too old", () => {
+  it("flags stale busy channels as stuck when run activity exceeds threshold", () => {
     const now = 100_000;
     const evaluation = evaluateChannelHealth(
       {
@@ -65,12 +74,13 @@ describe("evaluateChannelHealth", () => {
         enabled: true,
         configured: true,
         activeRuns: 1,
-        lastRunActivityAt: now - 26 * 60_000,
+        lastRunActivityAt: now - BUSY_STALE_MS - 1,
       },
       {
         now,
         channelConnectGraceMs: 10_000,
         staleEventThresholdMs: 30_000,
+        busyActivityStaleThresholdMs: BUSY_STALE_MS,
       },
     );
     expect(evaluation).toEqual({ healthy: false, reason: "stuck" });
@@ -93,6 +103,7 @@ describe("evaluateChannelHealth", () => {
         now,
         channelConnectGraceMs: 10_000,
         staleEventThresholdMs: 30_000,
+        busyActivityStaleThresholdMs: BUSY_STALE_MS,
       },
     );
     expect(evaluation).toEqual({ healthy: false, reason: "disconnected" });
@@ -112,9 +123,32 @@ describe("evaluateChannelHealth", () => {
         now: 100_000,
         channelConnectGraceMs: 10_000,
         staleEventThresholdMs: 30_000,
+        busyActivityStaleThresholdMs: BUSY_STALE_MS,
       },
     );
     expect(evaluation).toEqual({ healthy: false, reason: "stale-socket" });
+  });
+
+  it("allows custom busyActivityStaleThresholdMs to extend tolerance (#36017)", () => {
+    const now = 100_000;
+    const customThreshold = 60 * 60_000;
+    const evaluation = evaluateChannelHealth(
+      {
+        running: true,
+        connected: true,
+        enabled: true,
+        configured: true,
+        activeRuns: 1,
+        lastRunActivityAt: now - 50 * 60_000,
+      },
+      {
+        now,
+        channelConnectGraceMs: 10_000,
+        staleEventThresholdMs: 30_000,
+        busyActivityStaleThresholdMs: customThreshold,
+      },
+    );
+    expect(evaluation).toEqual({ healthy: true, reason: "busy" });
   });
 });
 
