@@ -2,6 +2,8 @@ import * as Lark from "@larksuiteoapi/node-sdk";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import type { FeishuDomain, ResolvedFeishuAccount } from "./types.js";
 
+const FEISHU_HTTP_TIMEOUT_MS = 30_000;
+
 function getWsProxyAgent(): HttpsProxyAgent<string> | undefined {
   const proxyUrl =
     process.env.https_proxy ||
@@ -64,13 +66,15 @@ export function createFeishuClient(creds: FeishuClientCredentials): Lark.Client 
     return cached.client;
   }
 
-  // Create new client
+  // Create new client with HTTP timeout to prevent per-chat queue deadlocks
+  // when the Feishu API hangs (#36412).
   const client = new Lark.Client({
     appId,
     appSecret,
     appType: Lark.AppType.SelfBuild,
     domain: resolveDomain(domain),
   });
+  applyDefaultTimeout(client);
 
   // Cache it
   clientCache.set(accountId, {
@@ -127,5 +131,21 @@ export function clearClientCache(accountId?: string): void {
     clientCache.delete(accountId);
   } else {
     clientCache.clear();
+  }
+}
+
+function applyDefaultTimeout(client: Lark.Client): void {
+  const http = (client as unknown as { httpInstance: Record<string, unknown> }).httpInstance;
+  if (!http) return;
+  for (const method of ["request", "get", "post", "put", "patch", "delete"] as const) {
+    const original = http[method];
+    if (typeof original !== "function") continue;
+    http[method] = function (this: unknown, ...args: unknown[]) {
+      const opts = typeof args[0] === "object" && args[0] !== null ? args[0] : args[1];
+      if (opts && typeof opts === "object" && !("timeout" in (opts as Record<string, unknown>))) {
+        (opts as Record<string, unknown>).timeout = FEISHU_HTTP_TIMEOUT_MS;
+      }
+      return (original as (...a: unknown[]) => unknown).apply(this, args);
+    };
   }
 }

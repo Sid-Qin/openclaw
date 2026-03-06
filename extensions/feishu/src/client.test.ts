@@ -12,11 +12,22 @@ const httpsProxyAgentCtorMock = vi.hoisted(() =>
   }),
 );
 
+const mockHttpInstance = vi.hoisted(() => ({
+  request: vi.fn(async () => ({})),
+  get: vi.fn(async () => ({})),
+  post: vi.fn(async () => ({})),
+  put: vi.fn(async () => ({})),
+  patch: vi.fn(async () => ({})),
+  delete: vi.fn(async () => ({})),
+}));
+
 vi.mock("@larksuiteoapi/node-sdk", () => ({
   AppType: { SelfBuild: "self" },
   Domain: { Feishu: "https://open.feishu.cn", Lark: "https://open.larksuite.com" },
   LoggerLevel: { info: "info" },
-  Client: vi.fn(),
+  Client: vi.fn().mockImplementation(function (this: { httpInstance: typeof mockHttpInstance }) {
+    this.httpInstance = mockHttpInstance;
+  }),
   WSClient: wsClientCtorMock,
   EventDispatcher: vi.fn(),
 }));
@@ -25,7 +36,7 @@ vi.mock("https-proxy-agent", () => ({
   HttpsProxyAgent: httpsProxyAgentCtorMock,
 }));
 
-import { createFeishuWSClient } from "./client.js";
+import { createFeishuClient, createFeishuWSClient, clearClientCache } from "./client.js";
 
 const proxyEnvKeys = ["https_proxy", "HTTPS_PROXY", "http_proxy", "HTTP_PROXY"] as const;
 type ProxyEnvKey = (typeof proxyEnvKeys)[number];
@@ -132,5 +143,23 @@ describe("createFeishuWSClient proxy handling", () => {
     expect(httpsProxyAgentCtorMock).toHaveBeenCalledWith("http://upper-http:8999");
     const options = firstWsClientOptions();
     expect(options.agent).toEqual({ proxyUrl: "http://upper-http:8999" });
+  });
+});
+
+describe("createFeishuClient HTTP timeout", () => {
+  it("injects default timeout when opts lack one", async () => {
+    clearClientCache();
+    createFeishuClient({ accountId: "timeout-a", appId: "a", appSecret: "s" });
+    const opts: Record<string, unknown> = { data: { msg_type: "text" } };
+    await mockHttpInstance.post(opts);
+    expect(opts.timeout).toBe(30_000);
+  });
+
+  it("preserves caller-specified timeout", async () => {
+    clearClientCache();
+    createFeishuClient({ accountId: "timeout-b", appId: "b", appSecret: "s" });
+    const opts = { data: {}, timeout: 5_000 };
+    await mockHttpInstance.post(opts);
+    expect(opts.timeout).toBe(5_000);
   });
 });
