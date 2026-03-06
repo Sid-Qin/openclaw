@@ -467,4 +467,29 @@ describe("handleControlUiHttpRequest", () => {
       },
     });
   });
+
+  it("serves hardlinked files (pnpm installs)", async () => {
+    await withControlUiRoot({
+      fn: async (tmp) => {
+        const srcPath = path.join(tmp, "index.html");
+        const linkPath = path.join(tmp, "linked.html");
+        try {
+          await fs.link(srcPath, linkPath);
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === "EPERM") {
+            return;
+          }
+          throw error;
+        }
+
+        const { res, handled } = runControlUiRequest({
+          url: "/linked.html",
+          method: "GET",
+          rootPath: tmp,
+        });
+        expect(handled).toBe(true);
+        expect(res.statusCode).not.toBe(404);
+      },
+    });
+  });
 });
