@@ -488,3 +488,29 @@ describe("stripToolResultDetails", () => {
     expect(out).toBe(input);
   });
 });
+
+describe("sanitizeToolUseResultPairing – orphaned tool_result after session rebuild", () => {
+  it("drops tool_result whose matching tool_use assistant message was removed during session rebuild", () => {
+    const messages = castAgentMessages([
+      { role: "user", content: "hello" },
+      { role: "assistant", content: [{ type: "text", text: "sure" }] },
+      {
+        role: "toolResult",
+        toolCallId: "callfunction91b6mt5824h61",
+        toolName: "bash",
+        content: [{ type: "text", text: "done" }],
+      },
+      { role: "user", content: "thanks" },
+    ]);
+
+    const repaired = sanitizeToolUseResultPairing(messages);
+
+    const hasOrphanedResult = repaired.some(
+      (m) =>
+        (m as { role: string }).role === "toolResult" &&
+        (m as { toolCallId?: string }).toolCallId === "callfunction91b6mt5824h61",
+    );
+    expect(hasOrphanedResult).toBe(false);
+    expect(repaired).toHaveLength(3);
+  });
+});
