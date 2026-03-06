@@ -469,8 +469,11 @@ export async function runCronIsolatedAgentTurn(params: {
         fallbacksOverride:
           payloadFallbacks ?? resolveAgentModelFallbacksOverride(params.cfg, agentId),
         run: async (providerOverride, modelOverride, runOptions) => {
-          if (abortSignal?.aborted) {
-            throw new Error(abortReason());
+          const attemptController = new AbortController();
+          const attemptSignal = attemptController.signal;
+          const forwardAbort = () => attemptController.abort(abortSignal?.reason);
+          if (abortSignal && !abortSignal.aborted) {
+            abortSignal.addEventListener("abort", forwardAbort, { once: true });
           }
           const bootstrapPromptWarningSignature =
             bootstrapPromptWarningSignaturesSeen[bootstrapPromptWarningSignaturesSeen.length - 1];
@@ -535,13 +538,14 @@ export async function runCronIsolatedAgentTurn(params: {
             requireExplicitMessageTarget: deliveryRequested && resolvedDelivery.ok,
             disableMessageTool: deliveryRequested || deliveryPlan.mode === "none",
             allowRateLimitCooldownProbe: runOptions?.allowRateLimitCooldownProbe,
-            abortSignal,
+            abortSignal: attemptSignal,
             bootstrapPromptWarningSignaturesSeen,
             bootstrapPromptWarningSignature,
           });
           bootstrapPromptWarningSignaturesSeen = resolveBootstrapWarningSignaturesSeen(
             result.meta?.systemPromptReport,
           );
+          abortSignal?.removeEventListener("abort", forwardAbort);
           return result;
         },
       });
