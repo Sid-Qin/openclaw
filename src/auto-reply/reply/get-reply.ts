@@ -280,24 +280,40 @@ export async function getReplyFromConfig(
   model = resolvedModel;
 
   const maybeEmitMissingResetHooks = async () => {
-    if (!resetTriggered || !command.isAuthorizedSender || command.resetHookTriggered) {
+    if (command.resetHookTriggered) {
       return;
     }
-    const resetMatch = command.commandBodyNormalized.match(/^\/(new|reset)(?:\s|$)/);
-    if (!resetMatch) {
+    if (resetTriggered && command.isAuthorizedSender) {
+      const resetMatch = command.commandBodyNormalized.match(/^\/(new|reset)(?:\s|$)/);
+      if (resetMatch) {
+        const action: ResetCommandAction = resetMatch[1] === "reset" ? "reset" : "new";
+        await emitResetCommandHooks({
+          action,
+          ctx,
+          cfg,
+          command,
+          sessionKey,
+          sessionEntry,
+          previousSessionEntry,
+          workspaceDir,
+        });
+      }
       return;
     }
-    const action: ResetCommandAction = resetMatch[1] === "reset" ? "reset" : "new";
-    await emitResetCommandHooks({
-      action,
-      ctx,
-      cfg,
-      command,
-      sessionKey,
-      sessionEntry,
-      previousSessionEntry,
-      workspaceDir,
-    });
+    // Emit hooks for auto-resets (idle timeout or daily reset) so lifecycle
+    // hooks like session-memory can capture context before it is lost.
+    if (isNewSession && !resetTriggered && previousSessionEntry) {
+      await emitResetCommandHooks({
+        action: "new",
+        ctx,
+        cfg,
+        command,
+        sessionKey,
+        sessionEntry,
+        previousSessionEntry,
+        workspaceDir,
+      });
+    }
   };
 
   const inlineActionResult = await handleInlineActions({

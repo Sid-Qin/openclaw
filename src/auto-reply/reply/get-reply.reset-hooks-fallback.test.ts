@@ -206,4 +206,120 @@ describe("getReplyFromConfig reset-hook fallback", () => {
 
     expect(mocks.emitResetCommandHooks).not.toHaveBeenCalled();
   });
+
+  it("emits reset hooks on auto-reset (idle/daily rollover) even without explicit /new command", async () => {
+    const ctx: MsgContext = {
+      Provider: "telegram",
+      Surface: "telegram",
+      ChatType: "direct",
+      Body: "hello",
+      RawBody: "hello",
+      From: "telegram:456",
+      To: "bot:1",
+      SessionKey: "agent:main:telegram:direct:456",
+    };
+
+    mocks.initSessionState.mockResolvedValue({
+      sessionCtx: ctx,
+      sessionEntry: { sessionId: "new-session" },
+      previousSessionEntry: { sessionId: "old-session", sessionFile: "/tmp/old.jsonl" },
+      sessionStore: {},
+      sessionKey: "agent:main:telegram:direct:456",
+      sessionId: "new-session",
+      isNewSession: true,
+      resetTriggered: false,
+      systemSent: false,
+      abortedLastRun: false,
+      storePath: "/tmp/sessions.json",
+      sessionScope: "per-sender" as const,
+      groupResolution: undefined,
+      isGroup: false,
+      triggerBodyNormalized: "hello",
+      bodyStripped: "hello",
+    });
+
+    const autoResetDirectives = {
+      kind: "continue" as const,
+      result: {
+        ...createContinueDirectivesResult(false).result,
+        commandSource: "hello",
+        command: {
+          ...createContinueDirectivesResult(false).result.command,
+          rawBodyNormalized: "hello",
+          commandBodyNormalized: "hello",
+          senderId: "456",
+          from: "telegram:456",
+          to: "bot:1",
+          resetHookTriggered: false,
+        },
+        cleanedBody: "hello",
+      },
+    };
+    mocks.resolveReplyDirectives.mockResolvedValue(autoResetDirectives);
+    mocks.handleInlineActions.mockResolvedValue({ kind: "reply", reply: undefined });
+
+    await getReplyFromConfig(ctx, undefined, {});
+
+    expect(mocks.emitResetCommandHooks).toHaveBeenCalledTimes(1);
+    expect(mocks.emitResetCommandHooks).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "new",
+        sessionKey: "agent:main:telegram:direct:456",
+        previousSessionEntry: expect.objectContaining({ sessionId: "old-session" }),
+      }),
+    );
+  });
+
+  it("does not emit auto-reset hooks when session is not new", async () => {
+    const ctx: MsgContext = {
+      Provider: "telegram",
+      Surface: "telegram",
+      ChatType: "direct",
+      Body: "hello",
+      RawBody: "hello",
+      From: "telegram:456",
+      To: "bot:1",
+      SessionKey: "agent:main:telegram:direct:456",
+    };
+
+    mocks.initSessionState.mockResolvedValue({
+      sessionCtx: ctx,
+      sessionEntry: { sessionId: "existing-session" },
+      previousSessionEntry: undefined,
+      sessionStore: {},
+      sessionKey: "agent:main:telegram:direct:456",
+      sessionId: "existing-session",
+      isNewSession: false,
+      resetTriggered: false,
+      systemSent: false,
+      abortedLastRun: false,
+      storePath: "/tmp/sessions.json",
+      sessionScope: "per-sender" as const,
+      groupResolution: undefined,
+      isGroup: false,
+      triggerBodyNormalized: "hello",
+      bodyStripped: "hello",
+    });
+
+    const directives = {
+      kind: "continue" as const,
+      result: {
+        ...createContinueDirectivesResult(false).result,
+        commandSource: "hello",
+        command: {
+          ...createContinueDirectivesResult(false).result.command,
+          rawBodyNormalized: "hello",
+          commandBodyNormalized: "hello",
+          resetHookTriggered: false,
+        },
+        cleanedBody: "hello",
+      },
+    };
+    mocks.resolveReplyDirectives.mockResolvedValue(directives);
+    mocks.handleInlineActions.mockResolvedValue({ kind: "reply", reply: undefined });
+
+    await getReplyFromConfig(ctx, undefined, {});
+
+    expect(mocks.emitResetCommandHooks).not.toHaveBeenCalled();
+  });
 });
