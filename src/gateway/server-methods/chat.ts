@@ -7,7 +7,7 @@ import { resolveAgentTimeoutMs } from "../../agents/timeout.js";
 import { dispatchInboundMessage } from "../../auto-reply/dispatch.js";
 import { createReplyDispatcher } from "../../auto-reply/reply/reply-dispatcher.js";
 import type { MsgContext } from "../../auto-reply/templating.js";
-import { isSilentReplyText, SILENT_REPLY_TOKEN } from "../../auto-reply/tokens.js";
+import { HEARTBEAT_TOKEN, isSilentReplyText, SILENT_REPLY_TOKEN } from "../../auto-reply/tokens.js";
 import { createReplyPrefixOptions } from "../../channels/reply-prefix.js";
 import { resolveSessionFilePath } from "../../config/sessions.js";
 import { jsonUtf8Bytes } from "../../infra/json-utf8-bytes.js";
@@ -249,18 +249,54 @@ function extractAssistantTextForSilentCheck(message: unknown): string | undefine
   return texts.length > 0 ? texts.join("\n") : undefined;
 }
 
+function extractUserTextForHeartbeatCheck(message: unknown): string | undefined {
+  if (!message || typeof message !== "object") {
+    return undefined;
+  }
+  const entry = message as Record<string, unknown>;
+  if (entry.role !== "user") {
+    return undefined;
+  }
+  if (typeof entry.text === "string") {
+    return entry.text;
+  }
+  if (typeof entry.content === "string") {
+    return entry.content;
+  }
+  return undefined;
+}
+
+function isHeartbeatUserPrompt(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return false;
+  }
+  return trimmed.startsWith("Read HEARTBEAT.md");
+}
+
 function sanitizeChatHistoryMessages(messages: unknown[]): unknown[] {
   if (messages.length === 0) {
     return messages;
   }
   let changed = false;
   const next: unknown[] = [];
-  for (const message of messages) {
-    const res = sanitizeChatHistoryMessage(message);
+  for (let i = 0; i < messages.length; i++) {
+    const res = sanitizeChatHistoryMessage(messages[i]);
     changed ||= res.changed;
     // Drop assistant messages whose entire visible text is the silent reply token.
     const text = extractAssistantTextForSilentCheck(res.message);
     if (text !== undefined && isSilentReplyText(text, SILENT_REPLY_TOKEN)) {
+      changed = true;
+      continue;
+    }
+    // Drop assistant messages whose entire visible text is HEARTBEAT_OK.
+    if (text !== undefined && isSilentReplyText(text, HEARTBEAT_TOKEN)) {
+      changed = true;
+      continue;
+    }
+    // Drop user messages that are heartbeat prompts.
+    const userText = extractUserTextForHeartbeatCheck(res.message);
+    if (userText !== undefined && isHeartbeatUserPrompt(userText)) {
       changed = true;
       continue;
     }

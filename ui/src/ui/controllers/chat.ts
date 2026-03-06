@@ -4,6 +4,8 @@ import type { ChatAttachment } from "../ui-types.ts";
 import { generateUUID } from "../uuid.ts";
 
 const SILENT_REPLY_PATTERN = /^\s*NO_REPLY\s*$/;
+const HEARTBEAT_OK_PATTERN = /^\s*HEARTBEAT_OK\s*$/;
+const HEARTBEAT_PROMPT_PREFIX = "Read HEARTBEAT.md";
 
 function isSilentReplyStream(text: string): boolean {
   return SILENT_REPLY_PATTERN.test(text);
@@ -24,6 +26,32 @@ function isAssistantSilentReply(message: unknown): boolean {
   }
   const text = extractText(message);
   return typeof text === "string" && isSilentReplyStream(text);
+}
+
+function isHeartbeatMessage(message: unknown): boolean {
+  if (!message || typeof message !== "object") {
+    return false;
+  }
+  const entry = message as Record<string, unknown>;
+  const role = typeof entry.role === "string" ? entry.role.toLowerCase() : "";
+
+  if (role === "assistant") {
+    const text =
+      typeof entry.text === "string" ? entry.text : extractText(message);
+    return typeof text === "string" && HEARTBEAT_OK_PATTERN.test(text);
+  }
+
+  if (role === "user") {
+    const text =
+      typeof entry.text === "string"
+        ? entry.text
+        : typeof entry.content === "string"
+          ? entry.content
+          : extractText(message);
+    return typeof text === "string" && text.trimStart().startsWith(HEARTBEAT_PROMPT_PREFIX);
+  }
+
+  return false;
 }
 
 export type ChatState = {
@@ -65,7 +93,9 @@ export async function loadChatHistory(state: ChatState) {
       },
     );
     const messages = Array.isArray(res.messages) ? res.messages : [];
-    state.chatMessages = messages.filter((message) => !isAssistantSilentReply(message));
+    state.chatMessages = messages.filter(
+      (message) => !isAssistantSilentReply(message) && !isHeartbeatMessage(message),
+    );
     state.chatThinkingLevel = res.thinkingLevel ?? null;
   } catch (err) {
     state.lastError = String(err);
