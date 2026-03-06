@@ -151,4 +151,36 @@ describe("cacheRetention default behavior", () => {
     // Verify streamFn was set (override was applied)
     expect(agent.streamFn).toBeDefined();
   });
+
+  it("honors explicit cacheRetention for LiteLLM-proxied Anthropic", () => {
+    const agent: { streamFn?: StreamFn } = {};
+    const cfg = {
+      agents: {
+        defaults: {
+          models: {
+            "litellm/claude-opus-4-6": {
+              params: {
+                cacheRetention: "long" as const,
+              },
+            },
+          },
+        },
+      },
+    };
+    const provider = "litellm";
+    const modelId = "claude-opus-4-6";
+
+    applyExtraParamsToAgent(agent, cfg, provider, modelId);
+
+    expect(agent.streamFn).toBeDefined();
+  });
+
+  it("does not crash for LiteLLM without explicit cacheRetention config", () => {
+    const agent: { streamFn?: StreamFn } = {};
+    const cfg = undefined;
+    const provider = "litellm";
+    const modelId = "claude-opus-4-6";
+
+    expect(() => applyExtraParamsToAgent(agent, cfg, provider, modelId)).not.toThrow();
+  });
 });

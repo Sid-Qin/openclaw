@@ -70,11 +70,13 @@ function resolveCacheRetention(
   provider: string,
 ): CacheRetention | undefined {
   const isAnthropicDirect = provider === "anthropic";
-  const hasBedrockOverride =
+  const hasExplicitOverride =
     extraParams?.cacheRetention !== undefined || extraParams?.cacheControlTtl !== undefined;
-  const isAnthropicBedrock = provider === "amazon-bedrock" && hasBedrockOverride;
+  const isAnthropicBedrock = provider === "amazon-bedrock" && hasExplicitOverride;
 
-  if (!isAnthropicDirect && !isAnthropicBedrock) {
+  // Honor explicit cacheRetention/cacheControlTtl for any provider (e.g.
+  // LiteLLM proxying to Anthropic).  Only auto-default for direct Anthropic.
+  if (!isAnthropicDirect && !isAnthropicBedrock && !hasExplicitOverride) {
     return undefined;
   }
 
@@ -94,7 +96,7 @@ function resolveCacheRetention(
   }
 
   // Default to "short" only for direct Anthropic when not explicitly configured.
-  // Bedrock retains upstream provider defaults unless explicitly set.
+  // Other providers (including Bedrock, LiteLLM) retain upstream defaults.
   if (!isAnthropicDirect) {
     return undefined;
   }
