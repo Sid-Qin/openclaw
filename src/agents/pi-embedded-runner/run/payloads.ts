@@ -58,6 +58,7 @@ function resolveToolErrorWarningPolicy(params: {
   suppressToolErrors: boolean;
   suppressToolErrorWarnings?: boolean;
   verboseLevel?: VerboseLevel;
+  recoveredBySameToolInTurn?: boolean;
 }): ToolErrorWarningPolicy {
   const includeDetails = isVerboseToolDetailEnabled(params.verboseLevel);
   if (params.suppressToolErrorWarnings) {
@@ -76,6 +77,11 @@ function resolveToolErrorWarningPolicy(params: {
   const isMutatingToolError =
     params.lastToolError.mutatingAction ?? isLikelyMutatingToolName(params.lastToolError.toolName);
   if (isMutatingToolError) {
+    // Suppress warning when the same tool+target succeeded later in the turn,
+    // indicating the agent recovered from the initial failure (#37907).
+    if (params.recoveredBySameToolInTurn) {
+      return { showWarning: false, includeDetails };
+    }
     return { showWarning: true, includeDetails };
   }
   if (params.suppressToolErrors) {
@@ -276,12 +282,20 @@ export function buildEmbeddedRunPayloads(params: {
   }
 
   if (params.lastToolError) {
+    const errorToolName = params.lastToolError.toolName.trim().toLowerCase();
+    const errorMeta = (params.lastToolError.meta ?? "").trim();
+    const recoveredBySameToolInTurn = params.toolMetas.some((m) => {
+      const mName = m.toolName.trim().toLowerCase();
+      const mMeta = (m.meta ?? "").trim();
+      return mName === errorToolName && mMeta === errorMeta;
+    });
     const warningPolicy = resolveToolErrorWarningPolicy({
       lastToolError: params.lastToolError,
       hasUserFacingReply: hasUserFacingAssistantReply,
       suppressToolErrors: Boolean(params.config?.messages?.suppressToolErrors),
       suppressToolErrorWarnings: params.suppressToolErrorWarnings,
       verboseLevel: params.verboseLevel,
+      recoveredBySameToolInTurn,
     });
 
     // Always surface mutating tool failures so we do not silently confirm actions that did not happen.

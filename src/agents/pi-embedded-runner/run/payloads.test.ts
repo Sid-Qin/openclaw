@@ -82,4 +82,41 @@ describe("buildEmbeddedRunPayloads tool-error warnings", () => {
 
     expect(payloads).toHaveLength(0);
   });
+
+  it("suppresses mutating tool warning when same tool+meta succeeded later in turn", () => {
+    const payloads = buildPayloads({
+      lastToolError: {
+        toolName: "edit",
+        meta: "src/app.ts",
+        error: "Found 2 occurrences, must be unique",
+        mutatingAction: true,
+      },
+      toolMetas: [
+        { toolName: "read", meta: "src/app.ts" },
+        { toolName: "edit", meta: "src/app.ts" },
+      ],
+    });
+
+    expect(payloads).toHaveLength(0);
+  });
+
+  it("still shows mutating tool warning when no matching success in turn", () => {
+    const payloads = buildPayloads({
+      lastToolError: {
+        toolName: "edit",
+        meta: "src/app.ts",
+        error: "permission denied",
+        mutatingAction: true,
+      },
+      toolMetas: [
+        { toolName: "read", meta: "src/app.ts" },
+        { toolName: "edit", meta: "src/other.ts" },
+      ],
+    });
+
+    expectSingleToolErrorPayload(payloads, {
+      title: "Edit",
+      absentDetail: "permission denied",
+    });
+  });
 });
