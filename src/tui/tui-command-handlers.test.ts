@@ -7,12 +7,14 @@ type SetActivityStatusMock = ReturnType<typeof vi.fn> & ((text: string) => void)
 function createHarness(params?: {
   sendChat?: ReturnType<typeof vi.fn>;
   resetSession?: ReturnType<typeof vi.fn>;
+  patchSession?: ReturnType<typeof vi.fn>;
   loadHistory?: LoadHistoryMock;
   setActivityStatus?: SetActivityStatusMock;
   isConnected?: boolean;
 }) {
   const sendChat = params?.sendChat ?? vi.fn().mockResolvedValue({ runId: "r1" });
   const resetSession = params?.resetSession ?? vi.fn().mockResolvedValue({ ok: true });
+  const patchSession = params?.patchSession ?? vi.fn().mockResolvedValue({ ok: true });
   const addUser = vi.fn();
   const addSystem = vi.fn();
   const requestRender = vi.fn();
@@ -21,7 +23,7 @@ function createHarness(params?: {
   const setActivityStatus = params?.setActivityStatus ?? (vi.fn() as SetActivityStatusMock);
 
   const { handleCommand } = createCommandHandlers({
-    client: { sendChat, resetSession } as never,
+    client: { sendChat, resetSession, patchSession } as never,
     chatLog: { addUser, addSystem } as never,
     tui: { requestRender } as never,
     opts: {},
@@ -51,6 +53,7 @@ function createHarness(params?: {
     handleCommand,
     sendChat,
     resetSession,
+    patchSession,
     addUser,
     addSystem,
     requestRender,
@@ -140,5 +143,52 @@ describe("tui command handlers", () => {
     expect(addUser).not.toHaveBeenCalled();
     expect(addSystem).toHaveBeenCalledWith("not connected to gateway — message not sent");
     expect(setActivityStatus).toHaveBeenLastCalledWith("disconnected");
+  });
+
+  it("/deliver off calls patchSession with clearDelivery and reports success", async () => {
+    const patchSession = vi.fn().mockResolvedValue({ ok: true });
+    const { handleCommand, addSystem } = createHarness({ patchSession });
+
+    await handleCommand("/deliver off");
+
+    expect(patchSession).toHaveBeenCalledWith({
+      key: "agent:main:main",
+      clearDelivery: true,
+    });
+    expect(addSystem).toHaveBeenCalledWith("delivery off");
+  });
+
+  it("/deliver off reports failure when patchSession rejects", async () => {
+    const patchSession = vi.fn().mockRejectedValue(new Error("network error"));
+    const { handleCommand, addSystem } = createHarness({ patchSession });
+
+    await handleCommand("/deliver off");
+
+    expect(patchSession).toHaveBeenCalledWith({
+      key: "agent:main:main",
+      clearDelivery: true,
+    });
+    expect(addSystem).toHaveBeenCalledWith(
+      expect.stringContaining("local only — failed to clear server route"),
+    );
+  });
+
+  it("/deliver on does not call patchSession", async () => {
+    const patchSession = vi.fn().mockResolvedValue({ ok: true });
+    const { handleCommand, addSystem } = createHarness({ patchSession });
+
+    await handleCommand("/deliver on");
+
+    expect(patchSession).not.toHaveBeenCalled();
+    expect(addSystem).toHaveBeenCalledWith("delivery on");
+  });
+
+  it("/deliver with no args shows usage", async () => {
+    const { handleCommand, addSystem, patchSession } = createHarness();
+
+    await handleCommand("/deliver");
+
+    expect(patchSession).not.toHaveBeenCalled();
+    expect(addSystem).toHaveBeenCalledWith("usage: /deliver <on|off>");
   });
 });

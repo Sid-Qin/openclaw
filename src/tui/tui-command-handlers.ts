@@ -448,11 +448,15 @@ export function createCommandHandlers(context: CommandHandlerContext) {
               key: state.currentSessionKey,
               clearDelivery: true,
             });
-          } catch {
-            // best-effort; delivery flag still toggled locally
+            chatLog.addSystem("delivery off");
+          } catch (err) {
+            chatLog.addSystem(
+              `delivery off (local only — failed to clear server route: ${String(err)})`,
+            );
           }
+        } else {
+          chatLog.addSystem("delivery on");
         }
-        chatLog.addSystem(`delivery ${state.deliver ? "on" : "off"}`);
         break;
       case "abort":
         await abortActive();
