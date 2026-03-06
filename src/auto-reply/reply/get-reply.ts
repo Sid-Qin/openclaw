@@ -1,4 +1,5 @@
 import {
+  resolveAgentConfig,
   resolveAgentDir,
   resolveAgentWorkspaceDir,
   resolveSessionAgentId,
@@ -73,7 +74,10 @@ export async function getReplyFromConfig(
   );
   const resolvedOpts =
     mergedSkillFilter !== undefined ? { ...opts, skillFilter: mergedSkillFilter } : opts;
-  const agentCfg = cfg.agents?.defaults;
+  const resolvedAgent = resolveAgentConfig(cfg, agentId);
+  const agentCfg = resolvedAgent?.thinkingDefault
+    ? { ...cfg.agents?.defaults, thinkingDefault: resolvedAgent.thinkingDefault }
+    : cfg.agents?.defaults;
   const sessionCfg = cfg.session;
   const { defaultProvider, defaultModel, aliasIndex } = resolveDefaultModel({
     cfg,

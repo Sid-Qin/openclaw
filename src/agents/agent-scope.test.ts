@@ -61,7 +61,18 @@ describe("resolveAgentConfig", () => {
       subagents: undefined,
       sandbox: undefined,
       tools: undefined,
+      thinkingDefault: undefined,
     });
+  });
+
+  it("returns per-agent thinkingDefault when configured", () => {
+    const cfg: OpenClawConfig = {
+      agents: {
+        list: [{ id: "coder", thinkingDefault: "high" }],
+      },
+    };
+    const result = resolveAgentConfig(cfg, "coder");
+    expect(result?.thinkingDefault).toBe("high");
   });
 
   it("resolves explicit and effective model primary separately", () => {
