@@ -26,4 +26,19 @@ describe("splitTelegramReasoningText", () => {
   it("does not emit partial reasoning tag prefixes", () => {
     expect(splitTelegramReasoningText("  <thi")).toEqual({});
   });
+
+  it("suppresses bare 'Reasoning:\\n' prefix chunk", () => {
+    expect(splitTelegramReasoningText("Reasoning:\n")).toEqual({});
+  });
+
+  it("suppresses bare 'Reasoning:' without newline", () => {
+    expect(splitTelegramReasoningText("Reasoning:")).toEqual({});
+  });
+
+  it("keeps full reasoning message with content after prefix", () => {
+    const text = "Reasoning:\nThis is the reasoning content";
+    expect(splitTelegramReasoningText(text)).toEqual({
+      reasoningText: text,
+    });
+  });
 });

@@ -68,6 +68,12 @@ export function splitTelegramReasoningText(text?: string): TelegramReasoningSpli
   if (isPartialReasoningTagPrefix(trimmed)) {
     return {};
   }
+  // Suppress bare "Reasoning:" / "Reasoning:\n" prefix chunks that arrive
+  // before actual reasoning content — trim() strips the trailing newline so
+  // the startsWith(REASONING_MESSAGE_PREFIX) check below would miss them.
+  if (trimmed === REASONING_MESSAGE_PREFIX.trim()) {
+    return {};
+  }
   if (
     trimmed.startsWith(REASONING_MESSAGE_PREFIX) &&
     trimmed.length > REASONING_MESSAGE_PREFIX.length
