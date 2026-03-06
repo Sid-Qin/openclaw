@@ -32,6 +32,7 @@ describe("resolveMatrixConfig", () => {
       deviceName: "CfgDevice",
       initialSyncLimit: 5,
       encryption: false,
+      allowPrivateNetwork: false,
     });
   });
 
@@ -52,5 +53,20 @@ describe("resolveMatrixConfig", () => {
     expect(resolved.deviceName).toBe("EnvDevice");
     expect(resolved.initialSyncLimit).toBeUndefined();
     expect(resolved.encryption).toBe(false);
+    expect(resolved.allowPrivateNetwork).toBe(false);
+  });
+
+  it("returns allowPrivateNetwork when configured", () => {
+    const cfg = {
+      channels: {
+        matrix: {
+          homeserver: "https://matrix.internal.local",
+          userId: "@bot:internal.local",
+          allowPrivateNetwork: true,
+        },
+      },
+    } as CoreConfig;
+    const resolved = resolveMatrixConfig(cfg, {} as NodeJS.ProcessEnv);
+    expect(resolved.allowPrivateNetwork).toBe(true);
   });
 });

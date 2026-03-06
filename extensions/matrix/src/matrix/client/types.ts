@@ -6,6 +6,7 @@ export type MatrixResolvedConfig = {
   deviceName?: string;
   initialSyncLimit?: number;
   encryption?: boolean;
+  allowPrivateNetwork?: boolean;
 };
 
 /**

@@ -23,4 +23,15 @@ describe("MatrixConfigSchema SecretInput", () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it("accepts allowPrivateNetwork boolean", () => {
+    const result = MatrixConfigSchema.safeParse({
+      homeserver: "https://matrix.internal.local",
+      allowPrivateNetwork: true,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.allowPrivateNetwork).toBe(true);
+    }
+  });
 });

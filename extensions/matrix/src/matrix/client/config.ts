@@ -79,6 +79,7 @@ export function resolveMatrixConfigForAccount(
       ? Math.max(0, Math.floor(matrix.initialSyncLimit))
       : undefined;
   const encryption = matrix.encryption ?? false;
+  const allowPrivateNetwork = matrix.allowPrivateNetwork ?? false;
   return {
     homeserver,
     userId,
@@ -87,6 +88,7 @@ export function resolveMatrixConfigForAccount(
     deviceName,
     initialSyncLimit,
     encryption,
+    allowPrivateNetwork,
   };
 }
 
@@ -186,6 +188,7 @@ export async function resolveMatrixAuth(params?: {
   }
 
   // Login with password using HTTP API.
+  const ssrfPolicy = resolved.allowPrivateNetwork ? { allowPrivateNetwork: true } : undefined;
   const { response: loginResponse, release: releaseLoginResponse } = await fetchWithSsrFGuard({
     url: `${resolved.homeserver}/_matrix/client/v3/login`,
     init: {
@@ -198,6 +201,7 @@ export async function resolveMatrixAuth(params?: {
         initial_device_display_name: resolved.deviceName ?? "OpenClaw Gateway",
       }),
     },
+    policy: ssrfPolicy,
     auditContext: "matrix.login",
   });
   const login = await (async () => {
