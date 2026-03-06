@@ -162,7 +162,11 @@ function mergeWithExistingProviderSecrets(params: {
     if (typeof existing.apiKey === "string" && existing.apiKey) {
       preserved.apiKey = existing.apiKey;
     }
-    if (typeof existing.baseUrl === "string" && existing.baseUrl) {
+    if (
+      typeof existing.baseUrl === "string" &&
+      existing.baseUrl &&
+      !(typeof newEntry.baseUrl === "string" && newEntry.baseUrl.trim())
+    ) {
       preserved.baseUrl = existing.baseUrl;
     }
     mergedProviders[key] = { ...newEntry, ...preserved };

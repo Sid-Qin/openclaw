@@ -207,7 +207,7 @@ describe("models-config", () => {
     });
   });
 
-  it("preserves non-empty agent apiKey/baseUrl for matching providers in merge mode", async () => {
+  it("preserves non-empty agent apiKey but prefers config baseUrl in merge mode", async () => {
     await withTempHome(async () => {
       const parsed = await runCustomProviderMergeTest({
         baseUrl: "https://agent.example/v1",
@@ -215,6 +215,37 @@ describe("models-config", () => {
         api: "openai-responses",
         models: [{ id: "agent-model", name: "Agent model", input: ["text"] }],
       });
+      expect(parsed.providers.custom?.apiKey).toBe("AGENT_KEY");
+      expect(parsed.providers.custom?.baseUrl).toBe("https://config.example/v1");
+    });
+  });
+
+  it("falls back to agent baseUrl when config baseUrl is empty", async () => {
+    await withTempHome(async () => {
+      await writeAgentModelsJson({
+        providers: {
+          custom: {
+            baseUrl: "https://agent.example/v1",
+            apiKey: "AGENT_KEY",
+            api: "openai-responses",
+            models: [{ id: "agent-model", name: "Agent model", input: ["text"] }],
+          },
+        },
+      });
+      await ensureOpenClawModelsJson({
+        models: {
+          mode: "merge",
+          providers: {
+            custom: {
+              ...createMergeConfigProvider(),
+              baseUrl: "",
+            },
+          },
+        },
+      });
+      const parsed = await readGeneratedModelsJson<{
+        providers: Record<string, { apiKey?: string; baseUrl?: string }>;
+      }>();
       expect(parsed.providers.custom?.apiKey).toBe("AGENT_KEY");
       expect(parsed.providers.custom?.baseUrl).toBe("https://agent.example/v1");
     });
