@@ -219,7 +219,7 @@ export async function runCronIsolatedAgentTurn(params: {
   const modelOverrideRaw =
     params.job.payload.kind === "agentTurn" ? params.job.payload.model : undefined;
   const modelOverride = typeof modelOverrideRaw === "string" ? modelOverrideRaw.trim() : undefined;
-  if (modelOverride !== undefined && modelOverride.length > 0) {
+  if (modelOverride !== undefined && modelOverride.length > 0 && modelOverride !== "default") {
     const resolvedOverride = resolveAllowedModelRef({
       cfg: cfgWithAgentDefaults,
       catalog: await loadCatalog(),

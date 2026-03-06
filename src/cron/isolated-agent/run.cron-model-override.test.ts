@@ -234,6 +234,24 @@ describe("runCronIsolatedAgentTurn — cron model override (#21057)", () => {
     );
   });
 
+  it("treats payload model 'default' as no-override, uses agent default model", async () => {
+    const jobWithDefaultModel = makeJob({
+      payload: { kind: "agentTurn", message: "run daily digest", model: "default" },
+    });
+
+    runWithModelFallbackMock.mockResolvedValueOnce(makeSuccessfulRunResult());
+
+    const result = await runCronIsolatedAgentTurn(makeParams({ job: jobWithDefaultModel }));
+
+    expect(result.status).toBe("ok");
+    // "default" should be treated as "use agent defaults" — the resolved
+    // default model (Opus) should be used, not "default" passed to
+    // resolveAllowedModelRef.
+    expect(resolveAllowedModelRefMock).not.toHaveBeenCalled();
+    expect(cronSession.sessionEntry.model).toBe("claude-opus-4-6");
+    expect(cronSession.sessionEntry.modelProvider).toBe("anthropic");
+  });
+
   it("persists default model pre-run when no payload override is present", async () => {
     // No cron payload model override
     const jobWithoutModel = makeJob({
