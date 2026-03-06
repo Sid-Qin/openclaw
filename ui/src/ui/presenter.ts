@@ -53,6 +53,9 @@ export function formatCronState(job: CronJob) {
 
 export function formatCronSchedule(job: CronJob) {
   const s = job.schedule;
+  if (!s?.kind) {
+    return "Unknown";
+  }
   if (s.kind === "at") {
     const atMs = Date.parse(s.at);
     return Number.isFinite(atMs) ? `At ${formatMs(atMs)}` : `At ${s.at}`;
@@ -65,6 +68,9 @@ export function formatCronSchedule(job: CronJob) {
 
 export function formatCronPayload(job: CronJob) {
   const p = job.payload;
+  if (!p?.kind) {
+    return "Unknown";
+  }
   if (p.kind === "systemEvent") {
     return `System: ${p.text}`;
   }

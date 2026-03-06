@@ -166,4 +166,18 @@ describe("printCronList", () => {
     printCronList([job], runtime);
     expect(logs.some((line) => line.includes("(exact)"))).toBe(true);
   });
+
+  it("handles jobs with undefined schedule and payload without TypeError", () => {
+    const { logs, runtime } = createRuntimeLogCapture();
+    const job = createBaseJob({
+      id: "broken-job",
+      name: "Broken",
+      schedule: undefined as never,
+      payload: undefined as never,
+      state: {},
+    });
+
+    expect(() => printCronList([job], runtime)).not.toThrow();
+    expect(logs.length).toBeGreaterThan(0);
+  });
 });
