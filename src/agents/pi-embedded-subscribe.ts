@@ -78,6 +78,7 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
     pendingMessagingTargets: new Map(),
     successfulCronAdds: 0,
     pendingMessagingMediaUrls: new Map(),
+    deliveredTextHashes: [] as Array<{ hash: string; ts: number }>,
   };
   const usageTotals = {
     input: 0,
@@ -128,15 +129,42 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
     state.assistantTextBaseline = nextAssistantTextBaseline;
   };
 
+  const CROSS_TURN_DEDUP_MAX = 20;
+  const CROSS_TURN_DEDUP_TTL_MS = 3_600_000;
+  const CROSS_TURN_DEDUP_MIN_LEN = 40;
+
+  const addToDeliveredCache = (normalized: string) => {
+    if (!normalized || normalized.length < CROSS_TURN_DEDUP_MIN_LEN) return;
+    const now = Date.now();
+    state.deliveredTextHashes.push({ hash: normalized, ts: now });
+    const cutoff = now - CROSS_TURN_DEDUP_TTL_MS;
+    state.deliveredTextHashes = state.deliveredTextHashes
+      .filter((e) => e.ts > cutoff)
+      .slice(-CROSS_TURN_DEDUP_MAX);
+  };
+
+  const isInDeliveredCache = (normalized: string): boolean => {
+    if (!normalized || normalized.length < CROSS_TURN_DEDUP_MIN_LEN) return false;
+    const cutoff = Date.now() - CROSS_TURN_DEDUP_TTL_MS;
+    return state.deliveredTextHashes.some((e) => e.ts > cutoff && e.hash === normalized);
+  };
+
   const rememberAssistantText = (text: string) => {
     state.lastAssistantTextMessageIndex = state.assistantMessageIndex;
     state.lastAssistantTextTrimmed = text.trimEnd();
     const normalized = normalizeTextForComparison(text);
     state.lastAssistantTextNormalized = normalized.length > 0 ? normalized : undefined;
+    if (normalized) {
+      addToDeliveredCache(normalized);
+    }
   };
 
   const shouldSkipAssistantText = (text: string) => {
     if (state.lastAssistantTextMessageIndex !== state.assistantMessageIndex) {
+      const normalized = normalizeTextForComparison(text);
+      if (normalized.length > 0 && isInDeliveredCache(normalized)) {
+        return true;
+      }
       return false;
     }
     const trimmed = text.trimEnd();
