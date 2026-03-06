@@ -109,3 +109,32 @@ export function mockDiscoveredModel(params: {
     }),
   } as unknown as ReturnType<typeof discoverModels>);
 }
+
+export function mockMultipleDiscoveredModels(
+  entries: Array<{ provider: string; modelId: string; templateModel: unknown }>,
+): void {
+  vi.mocked(discoverModels).mockReturnValue({
+    find: vi.fn((provider: string, modelId: string) => {
+      for (const entry of entries) {
+        if (provider === entry.provider && modelId === entry.modelId) {
+          return entry.templateModel;
+        }
+      }
+      return null;
+    }),
+  } as unknown as ReturnType<typeof discoverModels>);
+}
+
+export const GOOGLE_PRO_TEMPLATE_MODEL = {
+  ...GOOGLE_GEMINI_CLI_PRO_TEMPLATE_MODEL,
+  provider: "google",
+  api: "google",
+  baseUrl: "https://generativelanguage.googleapis.com",
+};
+
+export const GOOGLE_FLASH_TEMPLATE_MODEL = {
+  ...GOOGLE_GEMINI_CLI_FLASH_TEMPLATE_MODEL,
+  provider: "google",
+  api: "google",
+  baseUrl: "https://generativelanguage.googleapis.com",
+};
