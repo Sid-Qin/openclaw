@@ -516,4 +516,26 @@ describe("createDiscordMessageHandler queue behavior", () => {
       );
     });
   });
+
+  it("deduplicates messages with the same message ID", async () => {
+    preflightDiscordMessageMock.mockReset();
+    processDiscordMessageMock.mockReset();
+
+    const ctx = createPreflightContext("ch-dedup");
+    preflightDiscordMessageMock.mockResolvedValue(ctx);
+    processDiscordMessageMock.mockResolvedValue(undefined);
+    eventualReplyDeliveredMock.mockResolvedValue(undefined);
+
+    const handler = createDiscordMessageHandler(createHandlerParams());
+
+    const data = createMessageData("msg-same-id", "ch-dedup");
+    const client = {} as never;
+
+    await handler(data as never, client);
+    await handler(data as never, client);
+
+    await vi.waitFor(() => {
+      expect(preflightDiscordMessageMock).toHaveBeenCalledTimes(1);
+    });
+  });
 });

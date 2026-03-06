@@ -5,6 +5,7 @@ import {
 } from "../../channels/inbound-debounce-policy.js";
 import { resolveOpenProviderRuntimeGroupPolicy } from "../../config/runtime-group-policy.js";
 import { danger } from "../../globals.js";
+import { createDedupeCache } from "../../infra/dedupe.js";
 import { buildDiscordInboundJob } from "./inbound-job.js";
 import { createDiscordInboundWorker } from "./inbound-worker.js";
 import type { DiscordMessageEvent, DiscordMessageHandler } from "./listeners.js";
@@ -159,18 +160,20 @@ export function createDiscordMessageHandler(
     },
   });
 
+  const seenMessageIds = createDedupeCache({ ttlMs: 120_000, maxSize: 2000 });
+
   const handler: DiscordMessageHandlerWithLifecycle = async (data, client, options) => {
     try {
       if (options?.abortSignal?.aborted) {
         return;
       }
-      // Filter bot-own messages before they enter the debounce queue.
-      // The same check exists in preflightDiscordMessage(), but by that point
-      // the message has already consumed debounce capacity and blocked
-      // legitimate user messages. On active servers this causes cumulative
-      // slowdown (see #15874).
       const msgAuthorId = data.message?.author?.id ?? data.author?.id;
       if (params.botUserId && msgAuthorId === params.botUserId) {
+        return;
+      }
+
+      const msgId = data.message?.id;
+      if (typeof msgId === "string" && msgId && seenMessageIds.check(msgId)) {
         return;
       }
 
