@@ -17,6 +17,7 @@ export const VENICE_DEFAULT_COST = {
   cacheWrite: 0,
 };
 
+const VENICE_DEFAULT_MAX_TOKENS = 4096;
 const VENICE_DISCOVERY_TIMEOUT_MS = 10_000;
 const VENICE_DISCOVERY_RETRYABLE_HTTP_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 const VENICE_DISCOVERY_RETRYABLE_NETWORK_CODES = new Set([
@@ -60,7 +61,7 @@ export const VENICE_MODEL_CATALOG = [
     reasoning: false,
     input: ["text"],
     contextWindow: 131072,
-    maxTokens: 8192,
+    maxTokens: 4096,
     privacy: "private",
   },
   {
@@ -69,7 +70,7 @@ export const VENICE_MODEL_CATALOG = [
     reasoning: false,
     input: ["text"],
     contextWindow: 131072,
-    maxTokens: 8192,
+    maxTokens: 4096,
     privacy: "private",
   },
   {
@@ -78,7 +79,7 @@ export const VENICE_MODEL_CATALOG = [
     reasoning: false,
     input: ["text"],
     contextWindow: 131072,
-    maxTokens: 8192,
+    maxTokens: 4096,
     privacy: "private",
   },
 
@@ -156,7 +157,7 @@ export const VENICE_MODEL_CATALOG = [
     reasoning: false,
     input: ["text"],
     contextWindow: 32768,
-    maxTokens: 8192,
+    maxTokens: 4096,
     privacy: "private",
   },
   {
@@ -165,7 +166,7 @@ export const VENICE_MODEL_CATALOG = [
     reasoning: false,
     input: ["text", "image"],
     contextWindow: 131072,
-    maxTokens: 8192,
+    maxTokens: 4096,
     privacy: "private",
   },
 
@@ -176,7 +177,7 @@ export const VENICE_MODEL_CATALOG = [
     reasoning: false,
     input: ["text", "image"],
     contextWindow: 202752,
-    maxTokens: 8192,
+    maxTokens: 4096,
     privacy: "private",
   },
   {
@@ -335,6 +336,7 @@ interface VeniceModelSpec {
   name: string;
   privacy: "private" | "anonymized";
   availableContextTokens: number;
+  maxCompletionTokens?: number;
   capabilities: {
     supportsReasoning: boolean;
     supportsVision: boolean;
@@ -412,6 +414,14 @@ function isRetryableVeniceDiscoveryError(err: unknown): boolean {
   return hasRetryableNetworkCode(err);
 }
 
+function resolveApiMaxCompletionTokens(apiModel: VeniceModel): number | undefined {
+  const raw = apiModel.model_spec.maxCompletionTokens;
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
+    return raw;
+  }
+  return undefined;
+}
+
 /**
  * Discover models from Venice API with fallback to static catalog.
  * The /models endpoint is public and doesn't require authentication.
@@ -468,11 +478,14 @@ export async function discoverVeniceModels(): Promise<ModelDefinitionConfig[]> {
 
     for (const apiModel of data.data) {
       const catalogEntry = catalogById.get(apiModel.id);
+      const apiMaxTokens = resolveApiMaxCompletionTokens(apiModel);
       if (catalogEntry) {
-        // Use catalog metadata for known models
-        models.push(buildVeniceModelDefinition(catalogEntry));
+        const def = buildVeniceModelDefinition(catalogEntry);
+        if (apiMaxTokens !== undefined) {
+          def.maxTokens = apiMaxTokens;
+        }
+        models.push(def);
       } else {
-        // Create definition for newly discovered models not in catalog
         const isReasoning =
           apiModel.model_spec.capabilities.supportsReasoning ||
           apiModel.id.toLowerCase().includes("thinking") ||
@@ -488,8 +501,7 @@ export async function discoverVeniceModels(): Promise<ModelDefinitionConfig[]> {
           input: hasVision ? ["text", "image"] : ["text"],
           cost: VENICE_DEFAULT_COST,
           contextWindow: apiModel.model_spec.availableContextTokens || 128000,
-          maxTokens: 8192,
-          // Avoid usage-only streaming chunks that can break OpenAI-compatible parsers.
+          maxTokens: apiMaxTokens ?? VENICE_DEFAULT_MAX_TOKENS,
           compat: {
             supportsUsageInStreaming: false,
           },
@@ -507,3 +519,8 @@ export async function discoverVeniceModels(): Promise<ModelDefinitionConfig[]> {
     return staticVeniceModelDefinitions();
   }
 }
+
+export const __testing = {
+  resolveApiMaxCompletionTokens,
+  VENICE_DEFAULT_MAX_TOKENS,
+} as const;
