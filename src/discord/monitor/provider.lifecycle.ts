@@ -98,7 +98,12 @@ export async function runDiscordGatewayLifecycle(params: {
     }
     gatewayEmitter?.once("error", () => {});
     gateway.options.reconnect = { maxAttempts: 0 };
-    gateway.disconnect();
+    try {
+      gateway.disconnect();
+    } catch {
+      // Swallow "Max reconnect attempts (0) reached" thrown synchronously
+      // when the gateway processes a pending close code during disconnect.
+    }
   };
 
   if (params.abortSignal?.aborted) {

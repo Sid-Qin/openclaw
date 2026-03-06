@@ -446,4 +446,37 @@ describe("runDiscordGatewayLifecycle", () => {
     const connectedTrue = statusUpdates.find((s) => s.connected === true);
     expect(connectedTrue).toBeUndefined();
   });
+
+  it("does not throw when gateway.disconnect raises Max reconnect attempts", async () => {
+    vi.useFakeTimers();
+    try {
+      const { runDiscordGatewayLifecycle } = await import("./provider.lifecycle.js");
+      const { emitter, gateway } = createGatewayHarness();
+      gateway.disconnect.mockImplementation(() => {
+        throw new Error("Max reconnect attempts (0) reached after code 1006");
+      });
+      getDiscordGatewayEmitterMock.mockReturnValue(emitter);
+
+      const ac = new AbortController();
+      const { lifecycleParams } = createLifecycleHarness({ gateway });
+      lifecycleParams.abortSignal = ac.signal;
+
+      waitForDiscordGatewayStopMock.mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            emitter.once("disconnect", () => resolve());
+          }),
+      );
+
+      const lifecyclePromise = runDiscordGatewayLifecycle(lifecycleParams);
+      ac.abort();
+      await vi.advanceTimersByTimeAsync(100);
+      emitter.emit("disconnect", new Error("Max reconnect attempts (0) reached"));
+      await vi.advanceTimersByTimeAsync(100);
+
+      await expect(lifecyclePromise).resolves.not.toThrow();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
