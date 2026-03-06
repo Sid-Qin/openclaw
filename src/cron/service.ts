@@ -14,6 +14,10 @@ export class CronService {
     await ops.start(this.state);
   }
 
+  async flush() {
+    await ops.flush(this.state);
+  }
+
   stop() {
     ops.stop(this.state);
   }

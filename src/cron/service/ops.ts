@@ -127,6 +127,12 @@ export async function start(state: CronServiceState) {
   });
 }
 
+export async function flush(state: CronServiceState) {
+  await locked(state, async () => {
+    await persist(state);
+  });
+}
+
 export function stop(state: CronServiceState) {
   stopTimer(state);
 }

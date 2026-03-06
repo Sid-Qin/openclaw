@@ -69,6 +69,11 @@ export function createGatewayCloseHandler(params: {
       await params.pluginServices.stop().catch(() => {});
     }
     await stopGmailWatcher();
+    try {
+      await params.cron.flush();
+    } catch {
+      /* best-effort: persist cron state before shutdown */
+    }
     params.cron.stop();
     params.heartbeatRunner.stop();
     try {
