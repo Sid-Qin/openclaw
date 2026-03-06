@@ -390,6 +390,30 @@ describe("handleChatEvent", () => {
     expect(state.chatStream).toBe("Working...");
   });
 
+  it("clears stuck streaming state on mismatched-runId final when chatStream is empty", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "client-idempotency-key",
+      chatStream: "",
+      chatStreamStartedAt: 100,
+    });
+    const payload: ChatEventPayload = {
+      runId: "server-assigned-run-id",
+      sessionKey: "main",
+      state: "final",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "Hello!" }],
+      },
+    };
+
+    expect(handleChatEvent(state, payload)).toBe(null);
+    expect(state.chatRunId).toBe(null);
+    expect(state.chatStream).toBe(null);
+    expect(state.chatStreamStartedAt).toBe(null);
+    expect(state.chatMessages).toHaveLength(1);
+  });
+
   it("drops NO_REPLY final payload from own run", () => {
     const state = createState({
       sessionKey: "main",
