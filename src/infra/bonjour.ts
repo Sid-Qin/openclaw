@@ -38,9 +38,23 @@ function isDisabledByEnv() {
   return false;
 }
 
+const MAX_DNS_LABEL_BYTES = 63;
+
+function truncateToByteLimit(label: string, maxBytes: number): string {
+  if (Buffer.byteLength(label, "utf8") <= maxBytes) {
+    return label;
+  }
+  let truncated = label;
+  while (Buffer.byteLength(truncated, "utf8") > maxBytes) {
+    truncated = truncated.slice(0, -1);
+  }
+  return truncated.trimEnd() || "openclaw";
+}
+
 function safeServiceName(name: string) {
   const trimmed = name.trim();
-  return trimmed.length > 0 ? trimmed : "OpenClaw";
+  const safe = trimmed.length > 0 ? trimmed : "OpenClaw";
+  return truncateToByteLimit(safe, MAX_DNS_LABEL_BYTES);
 }
 
 function prettifyInstanceName(name: string) {
@@ -98,11 +112,13 @@ export async function startGatewayBonjourAdvertiser(
     process.env.OPENCLAW_MDNS_HOSTNAME?.trim() ||
     process.env.CLAWDBOT_MDNS_HOSTNAME?.trim() ||
     "openclaw";
-  const hostname =
+  const hostname = truncateToByteLimit(
     hostnameRaw
       .replace(/\.local$/i, "")
       .split(".")[0]
-      .trim() || "openclaw";
+      .trim() || "openclaw",
+    MAX_DNS_LABEL_BYTES,
+  );
   const instanceName =
     typeof opts.instanceName === "string" && opts.instanceName.trim()
       ? opts.instanceName.trim()

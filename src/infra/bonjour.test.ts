@@ -307,4 +307,27 @@ describe("gateway bonjour advertiser", () => {
 
     await started.stop();
   });
+
+  it("truncates hostname exceeding 63-byte DNS label limit", async () => {
+    const longHostname = "app-41627eae5842473f9e05f139ea307277-7f9477f4d6-lqqzf";
+    enableAdvertiserUnitMode(longHostname);
+
+    const destroy = vi.fn().mockResolvedValue(undefined);
+    const advertise = vi.fn().mockResolvedValue(undefined);
+    mockCiaoService({ advertise, destroy });
+
+    const started = await startGatewayBonjourAdvertiser({
+      gatewayPort: 18789,
+      sshPort: 2222,
+    });
+
+    const [gatewayCall] = createService.mock.calls as Array<[ServiceCall]>;
+    const hostname = gatewayCall?.[0]?.hostname as string;
+    const name = gatewayCall?.[0]?.name as string;
+
+    expect(Buffer.byteLength(hostname, "utf8")).toBeLessThanOrEqual(63);
+    expect(Buffer.byteLength(name, "utf8")).toBeLessThanOrEqual(63);
+
+    await started.stop();
+  });
 });
