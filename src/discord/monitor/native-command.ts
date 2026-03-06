@@ -20,6 +20,7 @@ import {
 } from "../../acp/persistent-bindings.route.js";
 import { resolveHumanDelayConfig } from "../../agents/identity.js";
 import { resolveChunkMode, resolveTextChunkLimit } from "../../auto-reply/chunk.js";
+import { resolveCommandsAllowFromList } from "../../auto-reply/command-auth.js";
 import type {
   ChatCommandDefinition,
   CommandArgDefinition,
@@ -1435,6 +1436,25 @@ async function dispatchDiscordCommandInteraction(params: {
   if (isGroupDm && discordConfig?.dm?.groupEnabled === false) {
     await respond("Discord group DMs are disabled.");
     return;
+  }
+
+  const commandsAllowFromList = resolveCommandsAllowFromList({
+    cfg,
+    accountId,
+    providerId: "discord",
+  });
+  if (commandsAllowFromList !== null) {
+    const commandsAllowAll = commandsAllowFromList.some((entry) => entry.trim() === "*");
+    if (!commandsAllowAll) {
+      const senderCandidates = [sender.id, sender.tag, sender.name].filter(Boolean);
+      const matched = senderCandidates.some((candidate) =>
+        commandsAllowFromList.includes(candidate),
+      );
+      if (!matched) {
+        await respond("You are not authorized to use this command.", { ephemeral: true });
+        return;
+      }
+    }
   }
 
   const menu = resolveCommandArgMenu({

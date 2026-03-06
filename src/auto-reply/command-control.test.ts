@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
 import { setActivePluginRegistry } from "../plugins/runtime.js";
 import { createOutboundTestPlugin, createTestRegistry } from "../test-utils/channel-plugins.js";
-import { resolveCommandAuthorization } from "./command-auth.js";
+import { resolveCommandAuthorization, resolveCommandsAllowFromList } from "./command-auth.js";
 import { hasControlCommand, hasInlineCommandTokens } from "./command-detection.js";
 import { listChatCommands } from "./commands-registry.js";
 import { parseActivationCommand } from "./group-activation.js";
@@ -456,6 +456,37 @@ describe("resolveCommandAuthorization", () => {
       });
 
       expect(deniedAuth.isAuthorizedSender).toBe(false);
+    });
+
+    it("resolveCommandsAllowFromList returns global list for unconfigured provider", () => {
+      const cfg = {
+        commands: {
+          allowFrom: {
+            "*": ["allowed-user"],
+          },
+        },
+      } as OpenClawConfig;
+      const list = resolveCommandsAllowFromList({ cfg, providerId: "discord" });
+      expect(list).toEqual(["allowed-user"]);
+    });
+
+    it("resolveCommandsAllowFromList returns null when not configured", () => {
+      const cfg = {} as OpenClawConfig;
+      const list = resolveCommandsAllowFromList({ cfg, providerId: "discord" });
+      expect(list).toBeNull();
+    });
+
+    it("resolveCommandsAllowFromList prefers provider-specific list", () => {
+      const cfg = {
+        commands: {
+          allowFrom: {
+            "*": ["global-user"],
+            discord: ["discord-user"],
+          },
+        },
+      } as OpenClawConfig;
+      const list = resolveCommandsAllowFromList({ cfg, providerId: "discord" });
+      expect(list).toEqual(["discord-user"]);
     });
   });
 
