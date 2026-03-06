@@ -223,6 +223,18 @@ describe("buildModelsKeyboard", () => {
     }
   });
 
+  it("does not mark models from a different provider as current", () => {
+    const result = buildModelsKeyboard({
+      provider: "openrouter",
+      models: ["gpt-4o", "claude-sonnet-4"],
+      currentModel: "openai/gpt-4o",
+      currentPage: 1,
+      totalPages: 1,
+    });
+    expect(result[0]?.[0]?.text).toBe("gpt-4o");
+    expect(result[0]?.[0]?.text).not.toContain("✓");
+  });
+
   it("renders pagination controls for first, middle, and last pages", () => {
     const cases = [
       {
