@@ -384,6 +384,32 @@ function createOpenAIServiceTierWrapper(
   };
 }
 
+function resolveParallelToolCalls(
+  extraParams: Record<string, unknown> | undefined,
+): boolean | undefined {
+  const value = extraParams?.parallelToolCalls ?? extraParams?.parallel_tool_calls;
+  if (typeof value === "boolean") {
+    return value;
+  }
+  return undefined;
+}
+
+function createParallelToolCallsGuard(baseStreamFn: StreamFn | undefined): StreamFn {
+  const underlying = baseStreamFn ?? streamSimple;
+  return (model, context, options) => {
+    const originalOnPayload = options?.onPayload;
+    return underlying(model, context, {
+      ...options,
+      onPayload: (payload) => {
+        if (payload && typeof payload === "object") {
+          delete (payload as Record<string, unknown>).parallel_tool_calls;
+        }
+        originalOnPayload?.(payload);
+      },
+    });
+  };
+}
+
 function createCodexDefaultTransportWrapper(baseStreamFn: StreamFn | undefined): StreamFn {
   const underlying = baseStreamFn ?? streamSimple;
   return (model, context, options) =>
@@ -1147,6 +1173,12 @@ export function applyExtraParamsToAgent(
   if (openAIServiceTier) {
     log.debug(`applying OpenAI service_tier=${openAIServiceTier} for ${provider}/${modelId}`);
     agent.streamFn = createOpenAIServiceTierWrapper(agent.streamFn, openAIServiceTier);
+  }
+
+  const parallelToolCalls = resolveParallelToolCalls(merged);
+  if (parallelToolCalls === false) {
+    log.debug(`stripping parallel_tool_calls from payload for ${provider}/${modelId}`);
+    agent.streamFn = createParallelToolCallsGuard(agent.streamFn);
   }
 
   // Work around upstream pi-ai hardcoding `store: false` for Responses API.

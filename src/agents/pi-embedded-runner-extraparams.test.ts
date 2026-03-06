@@ -1556,4 +1556,46 @@ describe("applyExtraParamsToAgent", () => {
       expect(run().store).toBe(false);
     },
   );
+
+  it("strips parallel_tool_calls from payload when parallelToolCalls: false", () => {
+    const payload: Record<string, unknown> = { parallel_tool_calls: true, model: "test" };
+    const baseStreamFn: StreamFn = (_model, _context, options) => {
+      options?.onPayload?.(payload);
+      return {} as ReturnType<StreamFn>;
+    };
+    const agent = { streamFn: baseStreamFn };
+    applyExtraParamsToAgent(
+      agent,
+      {
+        agents: {
+          defaults: {
+            models: {
+              "custom/kimi-k2.5": {
+                params: { parallelToolCalls: false },
+              },
+            },
+          },
+        },
+      },
+      "custom",
+      "kimi-k2.5",
+    );
+    const context: Context = { messages: [] };
+    void agent.streamFn?.({} as Model<"openai-completions">, context, {});
+    expect(payload).not.toHaveProperty("parallel_tool_calls");
+    expect(payload.model).toBe("test");
+  });
+
+  it("does not strip parallel_tool_calls when parallelToolCalls is not configured", () => {
+    const payload: Record<string, unknown> = { parallel_tool_calls: true, model: "test" };
+    const baseStreamFn: StreamFn = (_model, _context, options) => {
+      options?.onPayload?.(payload);
+      return {} as ReturnType<StreamFn>;
+    };
+    const agent = { streamFn: baseStreamFn };
+    applyExtraParamsToAgent(agent, undefined, "custom", "some-model");
+    const context: Context = { messages: [] };
+    void agent.streamFn?.({} as Model<"openai-completions">, context, {});
+    expect(payload.parallel_tool_calls).toBe(true);
+  });
 });
