@@ -593,15 +593,29 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toContain("agent=work");
   });
 
-  it("includes reasoning visibility hint", () => {
+  it("includes static reasoning visibility hint", () => {
     const prompt = buildAgentSystemPrompt({
       workspaceDir: "/tmp/openclaw",
       reasoningLevel: "off",
     });
 
-    expect(prompt).toContain("Reasoning: off");
+    expect(prompt).toContain("Reasoning:");
     expect(prompt).toContain("/reasoning");
     expect(prompt).toContain("/status shows Reasoning");
+    expect(prompt).not.toContain("Reasoning: off");
+  });
+
+  it("does not embed volatile reasoning level in system prompt", () => {
+    const promptOff = buildAgentSystemPrompt({
+      workspaceDir: "/tmp/openclaw",
+      reasoningLevel: "off",
+    });
+    const promptOn = buildAgentSystemPrompt({
+      workspaceDir: "/tmp/openclaw",
+      reasoningLevel: "stream",
+    });
+    const runtimeSection = (text: string) => text.slice(text.indexOf("## Runtime"));
+    expect(runtimeSection(promptOff)).toBe(runtimeSection(promptOn));
   });
 
   it("builds runtime line with agent and channel details", () => {
@@ -618,7 +632,6 @@ describe("buildAgentSystemPrompt", () => {
       },
       "telegram",
       ["inlineButtons"],
-      "low",
     );
 
     expect(line).toContain("agent=work");
@@ -630,7 +643,7 @@ describe("buildAgentSystemPrompt", () => {
     expect(line).toContain("default_model=anthropic/claude-opus-4-5");
     expect(line).toContain("channel=telegram");
     expect(line).toContain("capabilities=inlineButtons");
-    expect(line).toContain("thinking=low");
+    expect(line).not.toContain("thinking=");
   });
 
   it("describes sandboxed runtime and elevated when allowed", () => {
