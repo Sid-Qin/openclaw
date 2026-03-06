@@ -1556,4 +1556,78 @@ describe("applyExtraParamsToAgent", () => {
       expect(run().store).toBe(false);
     },
   );
+
+  it("applies Authorization Bearer header when provider has authHeader: true", () => {
+    const calls: Array<SimpleStreamOptions | undefined> = [];
+    const baseStreamFn: StreamFn = (_model, _context, options) => {
+      calls.push(options);
+      return {} as ReturnType<StreamFn>;
+    };
+    const agent = { streamFn: baseStreamFn };
+    const cfg = {
+      models: {
+        providers: {
+          minimax: {
+            api: "anthropic-messages",
+            authHeader: true,
+            baseUrl: "https://api.minimaxi.com/anthropic",
+            models: [],
+          },
+        },
+      },
+    };
+    applyExtraParamsToAgent(
+      agent,
+      cfg as Parameters<typeof applyExtraParamsToAgent>[1],
+      "minimax",
+      "MiniMax-M1",
+    );
+    const model = {
+      api: "anthropic-messages" as const,
+      provider: "minimax",
+      id: "MiniMax-M1",
+      baseUrl: "https://api.minimaxi.com/anthropic",
+    };
+    void agent.streamFn?.(model, { messages: [] }, { apiKey: "test-key-123" });
+    expect(calls.length).toBe(1);
+    const opts = calls[0] as SimpleStreamOptions & { headers?: Record<string, string> };
+    expect(opts?.headers?.Authorization).toBe("Bearer test-key-123");
+    expect(opts?.apiKey).toBeFalsy();
+  });
+
+  it("does not apply Authorization Bearer when authHeader is not set", () => {
+    const calls: Array<SimpleStreamOptions | undefined> = [];
+    const baseStreamFn: StreamFn = (_model, _context, options) => {
+      calls.push(options);
+      return {} as ReturnType<StreamFn>;
+    };
+    const agent = { streamFn: baseStreamFn };
+    const cfg = {
+      models: {
+        providers: {
+          anthropic: {
+            api: "anthropic-messages",
+            baseUrl: "https://api.anthropic.com",
+            models: [],
+          },
+        },
+      },
+    };
+    applyExtraParamsToAgent(
+      agent,
+      cfg as Parameters<typeof applyExtraParamsToAgent>[1],
+      "anthropic",
+      "claude-sonnet-4-6",
+    );
+    const model = {
+      api: "anthropic-messages" as const,
+      provider: "anthropic",
+      id: "claude-sonnet-4-6",
+    };
+    void agent.streamFn?.(model, { messages: [] }, { apiKey: "test-key-456" });
+    expect(calls.length).toBe(1);
+    const opts = calls[0] as SimpleStreamOptions & { headers?: Record<string, string> };
+    expect(opts?.headers?.Authorization).toBeUndefined();
+    expect(opts?.apiKey).toBe("test-key-456");
+  });
 });

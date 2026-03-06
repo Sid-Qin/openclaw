@@ -3,6 +3,7 @@ import type { SimpleStreamOptions } from "@mariozechner/pi-ai";
 import { streamSimple } from "@mariozechner/pi-ai";
 import type { ThinkLevel } from "../../auto-reply/thinking.js";
 import type { OpenClawConfig } from "../../config/config.js";
+import { findNormalizedProviderValue } from "../model-selection.js";
 import { log } from "./logger.js";
 
 const OPENROUTER_APP_HEADERS: Record<string, string> = {
@@ -1033,6 +1034,33 @@ function createZaiToolStreamWrapper(
   };
 }
 
+function resolveProviderAuthHeader(cfg: OpenClawConfig | undefined, provider: string): boolean {
+  const providerConfig = findNormalizedProviderValue(cfg?.models?.providers, provider);
+  return providerConfig?.authHeader === true;
+}
+
+/**
+ * Wraps a streamFn so that for anthropic-messages models the API key is sent
+ * via `Authorization: Bearer` instead of the default `x-api-key` header.
+ */
+function createAuthHeaderBearerWrapper(baseStreamFn: StreamFn | undefined): StreamFn {
+  const underlying = baseStreamFn ?? streamSimple;
+  return (model, context, options) => {
+    if (model.api !== "anthropic-messages" || !options?.apiKey) {
+      return underlying(model, context, options);
+    }
+    const modifiedOptions: typeof options = {
+      ...options,
+      apiKey: undefined as unknown as string,
+      headers: {
+        ...options?.headers,
+        Authorization: `Bearer ${options.apiKey}`,
+      },
+    };
+    return underlying(model, context, modifiedOptions);
+  };
+}
+
 /**
  * Apply extra params (like temperature) to an agent's streamFn.
  * Also adds OpenRouter app attribution headers when using the OpenRouter provider.
@@ -1048,6 +1076,10 @@ export function applyExtraParamsToAgent(
   thinkingLevel?: ThinkLevel,
   agentId?: string,
 ): void {
+  if (resolveProviderAuthHeader(cfg, provider)) {
+    log.debug(`applying authHeader Bearer wrapper for ${provider}/${modelId}`);
+    agent.streamFn = createAuthHeaderBearerWrapper(agent.streamFn);
+  }
   const extraParams = resolveExtraParams({
     cfg,
     provider,
