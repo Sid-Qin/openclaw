@@ -10,11 +10,15 @@ export type DiscordTokenResolution = BaseTokenResolution & {
 };
 
 export function normalizeDiscordToken(raw: unknown, path: string): string | undefined {
-  const trimmed = normalizeResolvedSecretInputString({ value: raw, path });
-  if (!trimmed) {
+  try {
+    const trimmed = normalizeResolvedSecretInputString({ value: raw, path });
+    if (!trimmed) {
+      return undefined;
+    }
+    return trimmed.replace(/^Bot\s+/i, "");
+  } catch {
     return undefined;
   }
-  return trimmed.replace(/^Bot\s+/i, "");
 }
 
 export function resolveDiscordToken(

@@ -66,12 +66,16 @@ export function resolveTelegramToken(
     return { token: "", source: "none" };
   }
 
-  const accountToken = normalizeResolvedSecretInputString({
-    value: accountCfg?.botToken,
-    path: `channels.telegram.accounts.${accountId}.botToken`,
-  });
-  if (accountToken) {
-    return { token: accountToken, source: "config" };
+  try {
+    const accountToken = normalizeResolvedSecretInputString({
+      value: accountCfg?.botToken,
+      path: `channels.telegram.accounts.${accountId}.botToken`,
+    });
+    if (accountToken) {
+      return { token: accountToken, source: "config" };
+    }
+  } catch {
+    // SecretRef not yet resolved (e.g. exec provider during onboarding without a running gateway)
   }
 
   const allowEnv = accountId === DEFAULT_ACCOUNT_ID;
@@ -92,12 +96,16 @@ export function resolveTelegramToken(
     }
   }
 
-  const configToken = normalizeResolvedSecretInputString({
-    value: telegramCfg?.botToken,
-    path: "channels.telegram.botToken",
-  });
-  if (configToken) {
-    return { token: configToken, source: "config" };
+  try {
+    const configToken = normalizeResolvedSecretInputString({
+      value: telegramCfg?.botToken,
+      path: "channels.telegram.botToken",
+    });
+    if (configToken) {
+      return { token: configToken, source: "config" };
+    }
+  } catch {
+    // SecretRef not yet resolved (e.g. exec provider during onboarding without a running gateway)
   }
 
   const envToken = allowEnv ? (opts.envToken ?? process.env.TELEGRAM_BOT_TOKEN)?.trim() : "";
