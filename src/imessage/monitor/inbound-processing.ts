@@ -111,20 +111,23 @@ export function resolveIMessageInboundDecision(params: {
     return { kind: "drop", reason: "missing sender" };
   }
   const senderNormalized = normalizeIMessageHandle(sender);
+  const inboundMessageId = params.message.id != null ? String(params.message.id) : undefined;
   if (params.message.is_from_me) {
     // macOS self-chat creates a duplicate entry with is_from_me:false.
-    // Record the text in the echo cache so the duplicate is caught below (#32166).
-    const trimmedText = params.messageText?.trim();
-    if (params.echoCache?.remember && trimmedText) {
-      const chatId = params.message.chat_id ?? undefined;
-      const isGroup = Boolean(params.message.is_group);
-      const echoScope = buildIMessageEchoScope({
+    // Record in the echo cache across all plausible scopes so the reflected
+    // duplicate is caught regardless of treatAsGroupByConfig resolution (#32166).
+    if (params.echoCache?.remember && (params.messageText || inboundMessageId)) {
+      for (const scope of buildIMessageSelfEchoScopes({
         accountId: params.accountId,
-        isGroup,
-        chatId,
         sender,
-      });
-      params.echoCache.remember(echoScope, { text: trimmedText });
+        chatId: params.message.chat_id ?? undefined,
+        isGroup: Boolean(params.message.is_group),
+      })) {
+        params.echoCache.remember(scope, {
+          text: params.messageText || undefined,
+          messageId: inboundMessageId,
+        });
+      }
     }
     return { kind: "drop", reason: "from me" };
   }
@@ -233,7 +236,6 @@ export function resolveIMessageInboundDecision(params: {
 
   // Echo detection: check if the received message matches a recently sent message (within 5 seconds).
   // Scope by conversation so same text in different chats is not conflated.
-  const inboundMessageId = params.message.id != null ? String(params.message.id) : undefined;
   if (params.echoCache && (messageText || inboundMessageId)) {
     const echoScope = buildIMessageEchoScope({
       accountId: params.accountId,
@@ -495,6 +497,46 @@ export function buildIMessageEchoScope(params: {
   sender: string;
 }): string {
   return `${params.accountId}:${params.isGroup ? formatIMessageChatTarget(params.chatId) : `imessage:${params.sender}`}`;
+}
+
+/**
+ * Generate all echo scope keys a self-chat `is_from_me` message might be
+ * looked up under.  The reflected `is_from_me:false` copy can resolve to
+ * either DM or group scope depending on `treatAsGroupByConfig`, which is
+ * not yet computed at the point of the `is_from_me` early-return.
+ *
+ * To avoid false-positive suppression of legitimate DMs when a group
+ * self-chat text matches, the DM scope is only emitted when the original
+ * message is itself from a DM context (`isGroup=false`).
+ */
+function buildIMessageSelfEchoScopes(params: {
+  accountId: string;
+  sender: string;
+  chatId?: number;
+  isGroup: boolean;
+}): string[] {
+  const scopes: string[] = [];
+  if (!params.isGroup) {
+    scopes.push(
+      buildIMessageEchoScope({
+        accountId: params.accountId,
+        isGroup: false,
+        chatId: params.chatId,
+        sender: params.sender,
+      }),
+    );
+  }
+  if (params.chatId !== undefined) {
+    scopes.push(
+      buildIMessageEchoScope({
+        accountId: params.accountId,
+        isGroup: true,
+        chatId: params.chatId,
+        sender: params.sender,
+      }),
+    );
+  }
+  return scopes;
 }
 
 export function describeIMessageEchoDropLog(params: {
