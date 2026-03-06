@@ -2,7 +2,12 @@ import crypto from "node:crypto";
 import { Type } from "@sinclair/typebox";
 import { loadConfig } from "../../config/config.js";
 import { callGateway } from "../../gateway/call.js";
-import { normalizeAgentId, resolveAgentIdFromSessionKey } from "../../routing/session-key.js";
+import {
+  normalizeAgentId,
+  parseAgentSessionKey,
+  resolveAgentIdFromSessionKey,
+} from "../../routing/session-key.js";
+import type { InputProvenance } from "../../sessions/input-provenance.js";
 import { SESSION_LABEL_MAX_LENGTH } from "../../sessions/session-label.js";
 import {
   type GatewayMessageChannel,
@@ -36,6 +41,7 @@ export function createSessionsSendTool(opts?: {
   agentSessionKey?: string;
   agentChannel?: GatewayMessageChannel;
   sandboxed?: boolean;
+  inputProvenance?: InputProvenance;
 }): AnyAgentTool {
   return {
     label: "Session Send",
@@ -212,6 +218,23 @@ export function createSessionsSendTool(opts?: {
         });
       }
 
+      const requesterParsed = parseAgentSessionKey(opts?.agentSessionKey);
+      const targetParsed = parseAgentSessionKey(resolvedKey);
+      const requesterAgentId = requesterParsed?.agentId;
+      const targetAgentId = targetParsed?.agentId;
+      const incomingChain = opts?.inputProvenance?.chainAgentIds ?? [];
+      const updatedChain = requesterAgentId
+        ? [...incomingChain, requesterAgentId]
+        : incomingChain;
+      if (targetAgentId && updatedChain.length > 0 && updatedChain.includes(targetAgentId)) {
+        return jsonResult({
+          runId: crypto.randomUUID(),
+          status: "error",
+          error: `Cycle detected: agent "${targetAgentId}" already appears in the inter-session chain [${updatedChain.join(" → ")}]. Stopping to prevent an infinite loop.`,
+          sessionKey: displayKey,
+        });
+      }
+
       const agentMessageContext = buildAgentToAgentMessageContext({
         requesterSessionKey: opts?.agentSessionKey,
         requesterChannel: opts?.agentChannel,
@@ -230,6 +253,7 @@ export function createSessionsSendTool(opts?: {
           sourceSessionKey: opts?.agentSessionKey,
           sourceChannel: opts?.agentChannel,
           sourceTool: "sessions_send",
+          chainAgentIds: updatedChain.length > 0 ? updatedChain : undefined,
         },
       };
       const requesterSessionKey = opts?.agentSessionKey;

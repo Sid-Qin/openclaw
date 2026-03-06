@@ -1,5 +1,6 @@
 import type { OpenClawConfig } from "../config/config.js";
 import { resolvePluginTools } from "../plugins/tools.js";
+import type { InputProvenance } from "../sessions/input-provenance.js";
 import type { GatewayMessageChannel } from "../utils/message-channel.js";
 import { resolveSessionAgentId } from "./agent-scope.js";
 import type { SandboxFsBridge } from "./sandbox/fs-bridge.js";
@@ -74,6 +75,8 @@ export function createOpenClawTools(options?: {
   senderIsOwner?: boolean;
   /** Ephemeral session UUID — regenerated on /new and /reset. */
   sessionId?: string;
+  /** Input provenance of the triggering message (for chain cycle detection). */
+  inputProvenance?: InputProvenance;
 }): AnyAgentTool[] {
   const workspaceDir = resolveWorkspaceRoot(options?.workspaceDir);
   const imageTool = options?.agentDir?.trim()
@@ -170,6 +173,7 @@ export function createOpenClawTools(options?: {
       agentSessionKey: options?.agentSessionKey,
       agentChannel: options?.agentChannel,
       sandboxed: options?.sandboxed,
+      inputProvenance: options?.inputProvenance,
     }),
     createSessionsSpawnTool({
       agentSessionKey: options?.agentSessionKey,

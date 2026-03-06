@@ -13,6 +13,8 @@ export type InputProvenance = {
   sourceSessionKey?: string;
   sourceChannel?: string;
   sourceTool?: string;
+  /** Agent IDs that have participated in this inter-session message chain (cycle detection). */
+  chainAgentIds?: string[];
 };
 
 function normalizeOptionalString(value: unknown): string | undefined {
@@ -37,11 +39,17 @@ export function normalizeInputProvenance(value: unknown): InputProvenance | unde
   if (!isInputProvenanceKind(record.kind)) {
     return undefined;
   }
+  const chainAgentIds = Array.isArray(record.chainAgentIds)
+    ? (record.chainAgentIds as unknown[]).filter(
+        (entry): entry is string => typeof entry === "string" && entry.length > 0,
+      )
+    : undefined;
   return {
     kind: record.kind,
     sourceSessionKey: normalizeOptionalString(record.sourceSessionKey),
     sourceChannel: normalizeOptionalString(record.sourceChannel),
     sourceTool: normalizeOptionalString(record.sourceTool),
+    chainAgentIds: chainAgentIds && chainAgentIds.length > 0 ? chainAgentIds : undefined,
   };
 }
 
