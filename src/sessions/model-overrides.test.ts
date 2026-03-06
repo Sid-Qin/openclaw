@@ -85,4 +85,42 @@ describe("applyModelOverrideToSessionEntry", () => {
     expect(entry.model).toBe("gpt-5.2");
     expect(entry.updatedAt).toBe(before);
   });
+
+  it("clears contextTokens when switching to a different model", () => {
+    const entry: SessionEntry = {
+      sessionId: "sess-ctx-1",
+      updatedAt: Date.now() - 5_000,
+      providerOverride: "anthropic",
+      modelOverride: "claude-sonnet-4-6",
+      contextTokens: 160_000,
+    };
+
+    const result = applyModelOverrideToSessionEntry({
+      entry,
+      selection: { provider: "openai", model: "gpt-5.2" },
+    });
+
+    expect(result.updated).toBe(true);
+    expect(entry.contextTokens).toBeUndefined();
+  });
+
+  it("preserves contextTokens when model selection is unchanged", () => {
+    const entry: SessionEntry = {
+      sessionId: "sess-ctx-2",
+      updatedAt: Date.now() - 5_000,
+      providerOverride: "openai",
+      modelOverride: "gpt-5.2",
+      modelProvider: "openai",
+      model: "gpt-5.2",
+      contextTokens: 198_000,
+    };
+
+    const result = applyModelOverrideToSessionEntry({
+      entry,
+      selection: { provider: "openai", model: "gpt-5.2" },
+    });
+
+    expect(result.updated).toBe(false);
+    expect(entry.contextTokens).toBe(198_000);
+  });
 });

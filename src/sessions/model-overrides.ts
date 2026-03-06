@@ -97,5 +97,10 @@ export function applyModelOverrideToSessionEntry(params: {
     entry.updatedAt = Date.now();
   }
 
+  if (selectionUpdated && entry.contextTokens !== undefined) {
+    delete entry.contextTokens;
+    updated = true;
+  }
+
   return { updated };
 }
