@@ -123,7 +123,8 @@ function resolveOpenAICodexForwardCompatModel(
 
   let templateIds: readonly string[];
   let eligibleProviders: Set<string>;
-  if (lower === OPENAI_CODEX_GPT_54_MODEL_ID) {
+  const isGpt54 = lower === OPENAI_CODEX_GPT_54_MODEL_ID;
+  if (isGpt54) {
     templateIds = OPENAI_CODEX_GPT_54_TEMPLATE_MODEL_IDS;
     eligibleProviders = CODEX_GPT54_ELIGIBLE_PROVIDERS;
   } else if (lower === OPENAI_CODEX_GPT_53_MODEL_ID) {
@@ -146,6 +147,9 @@ function resolveOpenAICodexForwardCompatModel(
       ...template,
       id: trimmedModelId,
       name: trimmedModelId,
+      ...(isGpt54
+        ? { contextWindow: OPENAI_GPT_54_CONTEXT_TOKENS, maxTokens: OPENAI_GPT_54_MAX_TOKENS }
+        : {}),
     } as Model<Api>);
   }
 
@@ -158,8 +162,8 @@ function resolveOpenAICodexForwardCompatModel(
     reasoning: true,
     input: ["text", "image"],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: DEFAULT_CONTEXT_TOKENS,
-    maxTokens: DEFAULT_CONTEXT_TOKENS,
+    contextWindow: isGpt54 ? OPENAI_GPT_54_CONTEXT_TOKENS : DEFAULT_CONTEXT_TOKENS,
+    maxTokens: isGpt54 ? OPENAI_GPT_54_MAX_TOKENS : DEFAULT_CONTEXT_TOKENS,
   } as Model<Api>);
 }
 
