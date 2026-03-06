@@ -196,6 +196,25 @@ function resolveProviderToolPolicy(params: {
   return undefined;
 }
 
+/**
+ * When a tool config section (e.g. `tools.exec`) is explicitly configured,
+ * the user expects that tool to be available even under a restrictive profile.
+ * Returns tool ids that should be implicitly allowed.
+ */
+function resolveImplicitAlsoAllow(
+  globalTools?: ToolPolicyConfig & { exec?: unknown; fs?: unknown },
+  agentTools?: ToolPolicyConfig & { exec?: unknown; fs?: unknown },
+): string[] {
+  const implicit: string[] = [];
+  if (agentTools?.exec != null || globalTools?.exec != null) {
+    implicit.push("exec");
+  }
+  if (agentTools?.fs != null || globalTools?.fs != null) {
+    implicit.push("read", "write", "edit", "apply_patch");
+  }
+  return implicit;
+}
+
 export function resolveEffectiveToolPolicy(params: {
   config?: OpenClawConfig;
   sessionKey?: string;
@@ -226,6 +245,16 @@ export function resolveEffectiveToolPolicy(params: {
     modelProvider: params.modelProvider,
     modelId: params.modelId,
   });
+  const explicit = Array.isArray(agentTools?.alsoAllow)
+    ? agentTools?.alsoAllow
+    : Array.isArray(globalTools?.alsoAllow)
+      ? globalTools?.alsoAllow
+      : undefined;
+  const implicit = resolveImplicitAlsoAllow(globalTools, agentTools);
+  const profileAlsoAllow =
+    explicit || implicit.length > 0
+      ? Array.from(new Set([...(explicit ?? []), ...implicit]))
+      : undefined;
   return {
     agentId,
     globalPolicy: pickSandboxToolPolicy(globalTools),
@@ -235,11 +264,7 @@ export function resolveEffectiveToolPolicy(params: {
     profile,
     providerProfile: agentProviderPolicy?.profile ?? providerPolicy?.profile,
     // alsoAllow is applied at the profile stage (to avoid being filtered out early).
-    profileAlsoAllow: Array.isArray(agentTools?.alsoAllow)
-      ? agentTools?.alsoAllow
-      : Array.isArray(globalTools?.alsoAllow)
-        ? globalTools?.alsoAllow
-        : undefined,
+    profileAlsoAllow,
     providerProfileAlsoAllow: Array.isArray(agentProviderPolicy?.alsoAllow)
       ? agentProviderPolicy?.alsoAllow
       : Array.isArray(providerPolicy?.alsoAllow)

@@ -3,6 +3,7 @@ import type { OpenClawConfig } from "../config/config.js";
 import {
   filterToolsByPolicy,
   isToolAllowedByPolicyName,
+  resolveEffectiveToolPolicy,
   resolveSubagentToolPolicy,
 } from "./pi-tools.policy.js";
 import { createStubTool } from "./test-helpers/pi-tool-stubs.js";
@@ -174,5 +175,44 @@ describe("resolveSubagentToolPolicy depth awareness", () => {
     const policy = resolveSubagentToolPolicy(leafCfg);
     // Default depth=1, maxSpawnDepth=1 → leaf
     expect(isToolAllowedByPolicyName("sessions_spawn", policy)).toBe(false);
+  });
+});
+
+describe("resolveEffectiveToolPolicy implicit alsoAllow", () => {
+  it("implicitly allows exec when tools.exec is configured", () => {
+    const cfg = {
+      tools: { profile: "messaging", exec: { host: "sandbox" } },
+    } as OpenClawConfig;
+    const result = resolveEffectiveToolPolicy({ config: cfg });
+    expect(result.profileAlsoAllow).toContain("exec");
+  });
+
+  it("implicitly allows fs tools when tools.fs is configured", () => {
+    const cfg = {
+      tools: { profile: "messaging", fs: { workspaceOnly: false } },
+    } as OpenClawConfig;
+    const result = resolveEffectiveToolPolicy({ config: cfg });
+    expect(result.profileAlsoAllow).toContain("read");
+    expect(result.profileAlsoAllow).toContain("write");
+    expect(result.profileAlsoAllow).toContain("edit");
+  });
+
+  it("merges implicit with explicit alsoAllow", () => {
+    const cfg = {
+      tools: {
+        profile: "messaging",
+        alsoAllow: ["web_search"],
+        exec: { host: "sandbox" },
+      },
+    } as OpenClawConfig;
+    const result = resolveEffectiveToolPolicy({ config: cfg });
+    expect(result.profileAlsoAllow).toContain("exec");
+    expect(result.profileAlsoAllow).toContain("web_search");
+  });
+
+  it("returns undefined profileAlsoAllow when no explicit or implicit tools", () => {
+    const cfg = { tools: { profile: "messaging" } } as OpenClawConfig;
+    const result = resolveEffectiveToolPolicy({ config: cfg });
+    expect(result.profileAlsoAllow).toBeUndefined();
   });
 });
