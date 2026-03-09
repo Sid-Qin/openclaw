@@ -29,6 +29,14 @@ function isDisabledByEnv() {
   if (isTruthyEnvValue(process.env.OPENCLAW_DISABLE_BONJOUR)) {
     return true;
   }
+  // On Windows, ciao's network probing can spawn visible cmd.exe helpers on some
+  // hosts. Keep Bonjour opt-in there to avoid periodic console-window flashing.
+  if (
+    process.platform === "win32" &&
+    !isTruthyEnvValue(process.env.OPENCLAW_ENABLE_BONJOUR_WINDOWS)
+  ) {
+    return true;
+  }
   if (process.env.NODE_ENV === "test") {
     return true;
   }
